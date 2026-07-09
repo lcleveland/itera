@@ -33,6 +33,19 @@
             # Turn on itera's opinionated system defaults (all opt-out).
             itera.enable = true;
 
+            # Declarative disk layout + ephemeral (tmpfs) root. Bundled with
+            # itera — no extra inputs needed. Uncomment to use; disko WIPES the
+            # target device, so replace ./hardware-configuration.nix's fileSystems
+            # accordingly.
+            #   itera.disko = {
+            #     enable = true;
+            #     device = "/dev/nvme0n1";
+            #   };
+            #   itera.impermanence = {
+            #     enable = true; # method defaults to "tmpfs"
+            #     directories = [ "/var/lib/tailscale" ];
+            #   };
+
             # Per-user home configuration under itera's namespace.
             hjem.users.alice = {
               enable = true;

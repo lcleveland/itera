@@ -12,9 +12,17 @@ let
 in
 {
   imports =
-    # Pull hjem in so the consumer does not have to import it separately.
-    [ inputs.hjem.nixosModules.default ]
-    # Auto-import every itera system feature/profile module (none yet).
+    # Bundle the upstream modules itera builds on so the consumer imports a SINGLE
+    # module and gets everything. These are inert until their options are set.
+    [
+      # hjem: $HOME / dotfile management.
+      inputs.hjem.nixosModules.default
+      # disko: declarative disk partitioning (powers `itera.disko`).
+      inputs.disko.nixosModules.default
+      # impermanence: ephemeral-root persistence (powers `itera.impermanence`).
+      inputs.impermanence.nixosModules.impermanence
+    ]
+    # Auto-import every itera system feature/profile module.
     ++ iteraLib.modules.listNixModules ./.;
 
   # Register itera's per-user home collection with hjem for every user.

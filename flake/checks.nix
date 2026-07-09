@@ -6,10 +6,19 @@
   perSystem =
     { pkgs, lib, ... }:
     {
-      checks = import ../tests {
-        inherit pkgs lib;
-        inherit (inputs) self;
-        testDirectory = ../tests/nixos;
-      };
+      checks =
+        # Auto-discovered VM tests under tests/nixos.
+        (import ../tests {
+          inherit pkgs lib;
+          inherit (inputs) self;
+          testDirectory = ../tests/nixos;
+        })
+        # Evaluation check for the disko + impermanence batteries.
+        // {
+          disko-impermanence-eval = import ../tests/eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
+        };
     };
 }

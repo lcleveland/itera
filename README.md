@@ -59,7 +59,36 @@ Or wire itera into an existing flake:
 ```
 
 Importing `itera.nixosModules.default` is all you need: it imports hjem for you
-and registers itera's per-user home collection into `hjem.extraModules`.
+and registers itera's per-user home collection into `hjem.extraModules`. It also
+bundles [disko](https://github.com/nix-community/disko) and
+[impermanence](https://github.com/nix-community/impermanence) — unlike hjem these
+are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
+
+### Disk layout & ephemeral root
+
+`itera.disko` declares your partitioning and `itera.impermanence` runs an
+ephemeral (tmpfs) root that only keeps explicitly-persisted paths across reboots.
+They are independent — use either alone — but compose into a full impermanent
+host:
+
+```nix
+{
+  # A GPT layout: ESP + a btrfs partition with /, /nix and /persist subvolumes.
+  # WARNING: disko destroys everything on `device` when it formats.
+  itera.disko = {
+    enable = true;
+    device = "/dev/nvme0n1";
+  };
+
+  # Root in RAM, wiped every boot; persist only what you name (plus itera's
+  # curated defaults: logs, machine-id, SSH host keys).
+  itera.impermanence = {
+    enable = true; # method defaults to "tmpfs"
+    directories = [ "/var/lib/tailscale" ];
+    users.alice.directories = [ ".ssh" ];
+  };
+}
+```
 
 > **You must `follows` hjem.** itera's home modules are class-`hjem` submodules
 > evaluated against your hjem. If itera and your config resolve to different
@@ -68,17 +97,18 @@ and registers itera's per-user home collection into `hjem.extraModules`.
 
 ## Structure
 
-| Path             | Purpose                                                         |
-| ---------------- | --------------------------------------------------------------- |
-| `flake.nix`      | flake-parts entry point; inputs + module imports                |
-| `flake/`         | flake outputs, dev shell + formatter, checks                    |
-| `lib/`           | helpers (module auto-import)                                    |
-| `modules/nixos/` | system layer — `itera.*` NixOS options → `nixosModules.default` |
-| `modules/hjem/`  | home layer — per-program modules → `hjemModules.default`        |
-| `overlays/`      | `pkgs.itera.*` overlay                                          |
-| `pkgs/`          | itera's own packages                                            |
-| `templates/`     | downstream starter flake                                        |
-| `tests/`         | NixOS VM test harness for modules                               |
+| Path                  | Purpose                                                         |
+| --------------------- | --------------------------------------------------------------- |
+| `flake.nix`           | flake-parts entry point; inputs + module imports                |
+| `flake/`              | flake outputs, dev shell + formatter, checks                    |
+| `lib/`                | helpers (module auto-import)                                    |
+| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default` |
+| `modules/nixos/core/` | core system batteries (e.g. `disko.nix`, `impermanence.nix`)    |
+| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`        |
+| `overlays/`           | `pkgs.itera.*` overlay                                          |
+| `pkgs/`               | itera's own packages                                            |
+| `templates/`          | downstream starter flake                                        |
+| `tests/`              | NixOS VM test harness for modules                               |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
