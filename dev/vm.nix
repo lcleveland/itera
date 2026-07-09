@@ -26,23 +26,35 @@
 }:
 {
   # ── The full itera stack ────────────────────────────────────────────────
-  itera.enable = true;
-
-  # disko's VM layer auto-remaps the target device onto the emulated disk, so
-  # /dev/vda is the right thing to point at inside the VM.
-  itera.disko = {
+  itera = {
     enable = true;
-    device = "/dev/vda";
+
+    # disko's VM layer auto-remaps the target device onto the emulated disk, so
+    # /dev/vda is the right thing to point at inside the VM.
+    disko = {
+      enable = true;
+      device = "/dev/vda";
+    };
+
+    # Wipe-every-boot tmpfs root, persisting only the curated set (+ the dev
+    # user's home). If the shared-host-nix-store interaction misbehaves at boot,
+    # flip this to false to still exercise disko + the desktop, then re-add.
+    impermanence = {
+      enable = true;
+
+      # Persist the dev user's home across the tmpfs-root wipe so logins/desktop
+      # state survive a reboot (everything else outside /persist is ephemeral).
+      users.dev.directories = [
+        ".config"
+        ".local/share"
+        ".cache"
+      ];
+    };
+
+    # nix-mineral hardening interferes with the graphical stack (see the README
+    # caveat; the desktop boot test disables it for the same reason).
+    hardening.enable = false;
   };
-
-  # Wipe-every-boot tmpfs root, persisting only the curated set (+ the dev user's
-  # home below). If the shared-host-nix-store interaction misbehaves at boot,
-  # flip this to false to still exercise disko + the desktop, then re-add.
-  itera.impermanence.enable = true;
-
-  # nix-mineral hardening interferes with the graphical stack (see the README
-  # caveat; the desktop boot test disables it for the same reason).
-  itera.hardening.enable = false;
 
   networking.hostName = lib.mkForce "itera-vm";
   system.stateVersion = "25.05";
@@ -59,14 +71,6 @@
   };
   # Apply itera's hjem home layer for this user (mango autostart → `dms run`).
   hjem.users.dev.enable = true;
-
-  # Persist the dev user's home across the tmpfs-root wipe so logins/desktop
-  # state survive a reboot (everything else outside /persist is ephemeral).
-  itera.impermanence.users.dev.directories = [
-    ".config"
-    ".local/share"
-    ".cache"
-  ];
 
   # ── Disk / VM sizing ─────────────────────────────────────────────────────
   # Size of the blank qcow2 disko builds for the VM, and the guest RAM the
