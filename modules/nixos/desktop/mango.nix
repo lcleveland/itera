@@ -22,6 +22,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -349,5 +350,18 @@ in
 
   config = mkIf cfg.enable {
     programs.mango.enable = mkDefault true;
+
+    # Tools the default media/brightness keybinds shell out to (`pactl` already
+    # comes with the audio server). Without these on PATH the XF86 keys are
+    # silent no-ops. brightnessctl needs the `video` group, which the user
+    # battery already grants (`core/users.nix`).
+    environment.systemPackages = [
+      pkgs.playerctl
+      pkgs.brightnessctl
+    ];
+
+    # GTK apps persist their settings through dconf; enable it now that a
+    # graphical session exists.
+    programs.dconf.enable = mkDefault true;
   };
 }
