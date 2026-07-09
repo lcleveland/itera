@@ -93,8 +93,16 @@
       # wlroots/mango wants a GPU; give it virtio-gpu with GL in a GTK window.
       qemu.options = [
         "-vga none"
-        "-device virtio-gpu-gl"
-        "-display gtk,gl=on"
+        # virtio-gpu has no vgamem; its video-RAM analog is the `hostmem` host
+        # memory window, which only applies with `blob=on` (host-backed blob
+        # resources). A larger window gives ultrawide framebuffers/textures
+        # headroom.
+        "-device virtio-gpu-gl,hostmem=4G,blob=on"
+        # zoom-to-fit=off => resizing the GTK window changes the guest
+        # resolution (autoresize; wlroots/mango honor the virtio-gpu mode
+        # change) instead of scaling the image. No xres/yres pinning, which
+        # would otherwise disable autoresize.
+        "-display gtk,gl=on,zoom-to-fit=off"
       ];
       # Persistence must be mounted before stage-2 activation bind-mounts the
       # persisted paths back into the fresh tmpfs root (disko doc's example).
