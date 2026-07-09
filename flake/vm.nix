@@ -32,8 +32,27 @@
   };
 
   perSystem =
-    { system, ... }:
+    { pkgs, system, ... }:
     lib.optionalAttrs (system == "x86_64-linux") {
-      packages.vm = inputs.self.nixosConfigurations.itera-vm.config.system.build.vmWithDisko;
+      # disko's `vmWithDisko` runner already builds its qcow2 disk in a temp dir it
+      # cleans on exit, but the inner nixos VM runner writes the OVMF EFI variables
+      # store (`itera-vm-efi-vars.fd`) into the *launch* directory and leaves it
+      # behind. It honors $NIX_EFI_VARS, so redirect that into a temp dir we remove
+      # on exit — nothing lands in the working tree. (An unset EFI store just gets
+      # re-seeded from OVMF_VARS.fd each boot, which suits this wipe-every-boot VM.)
+      packages.vm =
+        let
+          runner = inputs.self.nixosConfigurations.itera-vm.config.system.build.vmWithDisko;
+        in
+        pkgs.writeShellApplication {
+          name = "disko-vm";
+          runtimeInputs = [ pkgs.coreutils ];
+          text = ''
+            tmp=$(mktemp -d)
+            trap 'rm -rf "$tmp"' EXIT
+            export NIX_EFI_VARS="''${NIX_EFI_VARS:-$tmp/itera-vm-efi-vars.fd}"
+            exec ${runner}/bin/disko-vm "$@"
+          '';
+        };
     };
 }
