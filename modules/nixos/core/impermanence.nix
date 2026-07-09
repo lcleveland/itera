@@ -44,6 +44,9 @@ let
     "/var/log"
     "/var/lib/nixos"
     "/var/lib/systemd/coredump"
+    "/etc/NetworkManager/system-connections" # NM connection profiles + Wi-Fi PSKs
+    "/var/lib/NetworkManager" # NM leases, seen-bssids, secret_key
+    "/var/lib/systemd/timesync" # timesyncd clock state
   ];
   curatedFiles = [
     "/etc/machine-id"
@@ -100,7 +103,8 @@ in
       default = true;
       description = ''
         Persist itera's curated set of paths (system logs, machine-id, SSH host
-        keys). Set to `false` to persist only what you declare explicitly.
+        keys, NetworkManager connections, and clock state). Set to `false` to
+        persist only what you declare explicitly.
       '';
     };
 
