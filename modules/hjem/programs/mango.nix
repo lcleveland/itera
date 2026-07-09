@@ -32,11 +32,15 @@ let
   cfg = config.itera.programs.mango;
 
   # itera's opinionated startup: refresh the D-Bus/systemd user environment (so
-  # portals and user services see WAYLAND_DISPLAY etc.) then launch the shell.
-  autostartConfig = ''
-    exec-once=${pkgs.dbus}/bin/dbus-update-activation-environment --all
-    exec-once=dms run
-  '';
+  # portals and user services see WAYLAND_DISPLAY etc.), start the removable-
+  # storage automount agent (when the storage battery is on — udisks2 has no
+  # automount of its own), then launch the shell.
+  autostartUdiskie = (osConfig.itera.storage.enable or false) && (osConfig.itera.enable or false);
+  autostartConfig = lib.concatStringsSep "\n" (
+    [ "exec-once=${pkgs.dbus}/bin/dbus-update-activation-environment --all" ]
+    ++ lib.optional autostartUdiskie "exec-once=${pkgs.udiskie}/bin/udiskie --automount --tray"
+    ++ [ "exec-once=dms run" ]
+  );
 
   # System-wide default keybinds (from itera.desktop.mango.keybinds) merged with
   # per-user overrides. Merge is name-keyed `//`, so a per-user bind of the same
