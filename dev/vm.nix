@@ -66,18 +66,16 @@
   # `environment.sessionVariables`, so setting it here delivers it to both.
   environment.sessionVariables.WLR_NO_HARDWARE_CURSORS = "1";
 
-  # ── A login user (itera does not manage user accounts) ──────────────────
-  users.users.dev = {
-    isNormalUser = true;
+  # ── A login user (via itera's account battery) ──────────────────────────
+  # `itera.users.<name>` creates the account AND enables hjem for it, so `dev`
+  # inherits every itera home battery (mango autostart → `dms run`, the DMS
+  # settings.json, the default keybinds) with the system-wide defaults. Log in
+  # as dev / dev (initialPassword defaults to the username — fine for a dev VM;
+  # this trips the expected "change before deploying" warning).
+  itera.users.dev = {
     description = "itera test user";
-    extraGroups = [
-      "wheel"
-      "networkmanager"
-    ];
-    password = "dev";
+    initialPassword = "dev";
   };
-  # Apply itera's hjem home layer for this user (mango autostart → `dms run`).
-  hjem.users.dev.enable = true;
 
   # ── Disk / VM sizing ─────────────────────────────────────────────────────
   # Size of the blank qcow2 disko builds for the VM, and the guest RAM the

@@ -32,7 +32,7 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkMerge mkDefault;
-  inherit (lib.types) bool;
+  inherit (lib.types) bool attrsOf anything;
 
   cfg = config.itera.desktop.dankMaterialShell;
 in
@@ -58,6 +58,38 @@ in
         login yourself).
       '';
     };
+
+    settings = mkOption {
+      type = attrsOf anything;
+      default = { };
+      example = {
+        currentThemeName = "blue";
+        cornerRadius = 12;
+        use24HourClock = true;
+      };
+      description = ''
+        System-wide DankMaterialShell settings applied to *every* user, written
+        (by the {option}`hjem.users.<name>.itera.programs.dankMaterialShell`
+        battery) to {file}`~/.config/DankMaterialShell/settings.json`. This is the
+        single source of truth for the "default settings for all users" — each
+        user inherits it and overrides individual keys under
+        {option}`hjem.users.<name>.itera.programs.dankMaterialShell.settings`.
+
+        The schema is DMS's own flat camelCase settings object; itera only sets a
+        small curated subset here (`mkDefault`, so overridable per key). Keys you
+        do not set fall back to DMS's own runtime defaults.
+      '';
+    };
+
+    pluginSettings = mkOption {
+      type = attrsOf anything;
+      default = { };
+      description = ''
+        System-wide DankMaterialShell external plugin settings, written to
+        {file}`~/.config/DankMaterialShell/plugin_settings.json` for every user.
+        Same override model as {option}`itera.desktop.dankMaterialShell.settings`.
+      '';
+    };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) (mkMerge [
@@ -66,6 +98,17 @@ in
       itera.desktop.mango.enable = mkDefault true;
 
       programs.dank-material-shell.enable = mkDefault true;
+
+      # itera's curated system-wide DMS defaults. Kept intentionally small —
+      # pin the settings schema version DMS expects and a couple of opinionated
+      # choices; everything else is left to DMS's own runtime defaults. Each key
+      # is mkDefault, so a consumer overrides individual keys (per-user overrides
+      # then merge on top in the hjem battery). No null-valued keys (toJSON would
+      # emit `null`, which DMS may reject).
+      itera.desktop.dankMaterialShell.settings = {
+        configVersion = mkDefault 11;
+        use24HourClock = mkDefault true;
+      };
     }
 
     (mkIf cfg.greeter.enable {

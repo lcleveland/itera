@@ -27,6 +27,13 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the default-settings-for-all-users system
+          # (itera.users + DMS settings + mango keybinds).
+          user-defaults-eval = import ../tests/user-defaults-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }
