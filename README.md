@@ -165,8 +165,8 @@ host:
   itera.disko.device = "/dev/nvme0n1"; # enabled by default; a device is required
 
   # Root in RAM, wiped every boot; persist only what you name (plus itera's
-  # curated defaults: logs, machine-id, SSH host keys). On by default; method
-  # defaults to "tmpfs".
+  # curated defaults: logs, machine-id, SSH host keys, NetworkManager
+  # connections, clock state). On by default; method defaults to "tmpfs".
   itera.impermanence = {
     directories = [ "/var/lib/tailscale" ];
     users.alice.directories = [ ".ssh" ];

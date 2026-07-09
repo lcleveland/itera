@@ -42,6 +42,7 @@ let
   # impermanence coerces string entries into attrsets ({ file = ...; } /
   # { directory = ...; }); tolerate either shape.
   fileNames = map (f: f.file or f) persistence.files;
+  dirNames = map (d: d.directory or d) persistence.directories;
 
   checks = {
     # disko + impermanence
@@ -49,6 +50,10 @@ let
     "disko provides a /persist subvolume" = subvolumes ? "/persist";
     "root filesystem is tmpfs" = cfg.fileSystems."/".fsType == "tmpfs";
     "machine-id is persisted by default" = builtins.elem "/etc/machine-id" fileNames;
+    "NetworkManager connections are persisted" =
+      builtins.elem "/etc/NetworkManager/system-connections" dirNames;
+    "NetworkManager runtime state is persisted" = builtins.elem "/var/lib/NetworkManager" dirNames;
+    "timesyncd clock state is persisted" = builtins.elem "/var/lib/systemd/timesync" dirNames;
 
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;
