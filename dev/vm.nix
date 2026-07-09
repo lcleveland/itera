@@ -2,10 +2,12 @@
 #
 # itera is a module *layer*, not a host, so nothing here is a machine you can
 # boot on its own. This module is the one place that turns the layer into a
-# concrete, VM-bootable system: it enables the full opinionated stack (core-boot,
-# the disko disk layout, the tmpfs-root impermanence, and the DankMaterialShell +
-# mango desktop) and declares a login user, so we can boot it and poke at the
-# real thing.
+# concrete, VM-bootable system. itera's stack is opt-out (on by default), so it
+# comes along in full (core-boot, the disko disk layout, the tmpfs-root
+# impermanence, and the DankMaterialShell + mango desktop); all this file does is
+# supply the per-host bits the stack can't guess (a disko `device`, persisted
+# user paths), opt out of hardening, and declare a login user, so we can boot it
+# and poke at the real thing.
 #
 # It is wired up as `nixosConfigurations.itera-vm` in `flake/vm.nix`, and the
 # convenient way to run it is the disko interactive VM:
@@ -25,39 +27,44 @@
   ...
 }:
 {
-  # ── The full itera stack ────────────────────────────────────────────────
+  # ── The full itera stack (opt-out: on by default) ───────────────────────
+  # `itera.enable`, the disko layout, and impermanence are all on by default;
+  # we only fill in what they need for the VM and turn off what fights it.
   itera = {
-    enable = true;
+    # disko is on by default but needs a target device. Its VM layer auto-remaps
+    # the device onto the emulated disk, so /dev/vda is the right thing to point
+    # at inside the VM.
+    disko.device = "/dev/vda";
 
-    # disko's VM layer auto-remaps the target device onto the emulated disk, so
-    # /dev/vda is the right thing to point at inside the VM.
-    disko = {
-      enable = true;
-      device = "/dev/vda";
-    };
-
-    # Wipe-every-boot tmpfs root, persisting only the curated set (+ the dev
-    # user's home). If the shared-host-nix-store interaction misbehaves at boot,
-    # flip this to false to still exercise disko + the desktop, then re-add.
-    impermanence = {
-      enable = true;
-
+    # Wipe-every-boot tmpfs root (on by default), persisting only the curated set
+    # (+ the dev user's home). If the shared-host-nix-store interaction misbehaves
+    # at boot, set `impermanence.enable = false` to still exercise disko + the
+    # desktop, then re-add.
+    impermanence.users.dev.directories = [
       # Persist the dev user's home across the tmpfs-root wipe so logins/desktop
       # state survive a reboot (everything else outside /persist is ephemeral).
-      users.dev.directories = [
-        ".config"
-        ".local/share"
-        ".cache"
-      ];
-    };
+      ".config"
+      ".local/share"
+      ".cache"
+    ];
 
-    # nix-mineral hardening interferes with the graphical stack (see the README
-    # caveat; the desktop boot test disables it for the same reason).
+    # nix-mineral hardening (on by default) interferes with the graphical stack
+    # (see the README caveat; the desktop boot test disables it for the same
+    # reason).
     hardening.enable = false;
   };
 
   networking.hostName = lib.mkForce "itera-vm";
   system.stateVersion = "25.05";
+
+  # QEMU's virtio-gpu-gl makes wlroots draw a broken (upside-down) hardware
+  # cursor; force software cursors (wlroots 0.19 still honors this variable).
+  # It must reach both the DMS greeter's mango and the logged-in user's mango
+  # session — both are launched by greetd, which rebuilds the session env from
+  # PAM (so `systemd.services.greetd.environment` is discarded). greetd's PAM
+  # stack runs pam_env against /etc/pam/environment, which NixOS generates from
+  # `environment.sessionVariables`, so setting it here delivers it to both.
+  environment.sessionVariables.WLR_NO_HARDWARE_CURSORS = "1";
 
   # ── A login user (itera does not manage user accounts) ──────────────────
   users.users.dev = {
