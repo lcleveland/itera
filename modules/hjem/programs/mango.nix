@@ -20,13 +20,14 @@
   config,
   lib,
   pkgs,
+  iteraLib,
   osConfig ? null,
   ...
 }:
 let
   inherit (lib.options) mkOption mkEnableOption;
   inherit (lib.modules) mkIf;
-  inherit (lib.types) bool lines;
+  inherit (lib.types) bool lines attrsOf;
 
   cfg = config.itera.programs.mango;
 
@@ -37,8 +38,18 @@ let
     exec-once=dms run
   '';
 
+  # System-wide default keybinds (from itera.desktop.mango.keybinds) merged with
+  # per-user overrides. Merge is name-keyed `//`, so a per-user bind of the same
+  # name replaces the default; unknown names are added.
+  systemKeybinds = osConfig.itera.desktop.mango.keybinds or { };
+  effectiveKeybinds = (lib.optionalAttrs cfg.defaultKeybinds.enable systemKeybinds) // cfg.keybinds;
+  keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
+
+  # Order: autostart (exec-once) → keybinds → freeform extraConfig.
   configText = lib.concatStringsSep "\n" (
-    lib.optional cfg.autostart autostartConfig ++ lib.optional (cfg.extraConfig != "") cfg.extraConfig
+    lib.optional cfg.autostart autostartConfig
+    ++ lib.optional (keybindsConfig != "") keybindsConfig
+    ++ lib.optional (cfg.extraConfig != "") cfg.extraConfig
   );
 in
 {
@@ -51,6 +62,36 @@ in
         default = osConfig.itera.desktop.mango.enable or false;
         defaultText = lib.literalExpression "osConfig.itera.desktop.mango.enable";
       };
+
+    keybinds = mkOption {
+      type = attrsOf iteraLib.mango.keybindType;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          terminal = {
+            modifierKeys = [ "SUPER" ];
+            keySymbol = "Return";
+            mangoCommand = "spawn";
+            commandArguments = "foot";
+          };
+        }
+      '';
+      description = ''
+        Per-user MangoWC keybinds merged over the system-wide defaults
+        ({option}`itera.desktop.mango.keybinds`). A bind whose attribute name
+        matches a default replaces that default; new names are added.
+      '';
+    };
+
+    defaultKeybinds.enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Include itera's system-wide default keybinds
+        ({option}`itera.desktop.mango.keybinds`). Set `false` to start from an
+        empty set and define all binds via {option}`itera.programs.mango.keybinds`.
+      '';
+    };
 
     autostart = mkOption {
       type = bool;

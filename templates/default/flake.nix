@@ -67,12 +67,18 @@
               #   };
             };
 
-            # A login user. itera does not manage users yet, so declare them the
-            # normal NixOS way. CHANGE ME before deploying: pick your username and
-            # set a real password (prefer `hashedPassword` / `hashedPasswordFile`
-            # over `initialPassword`).
-            users.users.alice = {
-              isNormalUser = true;
+            # A login user via itera's account battery. `itera.users.<name>`
+            # creates the normal-user account AND enables hjem for it, so the
+            # user inherits every itera home battery and its system-wide defaults
+            # (DankMaterialShell settings, mango keybinds, …). CHANGE ME before
+            # deploying: pick your username and set a real password (prefer
+            # `hashedPassword` / `hashedPasswordFile` set on `users.users.alice`,
+            # which merges with this — over `initialPassword`).
+            #
+            # You can still declare users the plain NixOS way instead
+            # (`users.users.<name>` + `hjem.users.<name>.enable = true`); itera
+            # leaves those untouched.
+            itera.users.alice = {
               extraGroups = [
                 "wheel" # sudo
                 "networkmanager"
@@ -80,13 +86,15 @@
               initialPassword = "changeme";
             };
 
-            # Per-user home configuration under itera's namespace.
-            hjem.users.alice = {
-              enable = true;
-              # Curated program modules ("batteries") plug in here, e.g.:
-              #   itera.programs.helix.enable = true;
-              #   itera.profiles.desktop.enable = true;
-            };
+            # Per-user home overrides plug in under the hjem namespace, e.g.:
+            #   hjem.users.alice.itera.programs.helix.enable = true;
+            #   # Deviate from the system-wide DMS defaults for just this user:
+            #   hjem.users.alice.itera.programs.dankMaterialShell.settings.cornerRadius = 8;
+            #   # Add or override a single mango keybind:
+            #   hjem.users.alice.itera.programs.mango.keybinds.terminal = {
+            #     modifierKeys = [ "SUPER" ]; keySymbol = "Return";
+            #     mangoCommand = "spawn"; commandArguments = "foot";
+            #   };
           }
         ];
       };
