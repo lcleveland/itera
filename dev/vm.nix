@@ -86,18 +86,12 @@
   # ── virtio guest drivers ──────────────────────────────────────────────────
   # The VM boots through systemd-boot off an emulated virtio disk and renders on
   # the virtio-gpu configured below, so the guest kernel needs the virtio
-  # drivers. The qemu-guest profile the vmWithDisko variant pulls in already
-  # loads these, but declare them on the itera-vm system itself so it carries
-  # them regardless of the variant: virtio_pci/blk/scsi to find and mount
-  # /dev/vda in the initrd, virtio_net for the NIC, and virtio_gpu (forced early
-  # so the console/framebuffer comes up) for the display + autoresize.
-  boot.initrd.availableKernelModules = [
-    "virtio_pci"
-    "virtio_blk"
-    "virtio_scsi"
-    "virtio_net"
-  ];
-  boot.initrd.kernelModules = [ "virtio_gpu" ];
+  # drivers. itera.hardware's curated availableKernelModules default already
+  # carries virtio_pci/blk/scsi (to find and mount /dev/vda in the initrd) and
+  # virtio_net (the NIC), so the only extra the VM needs is virtio_gpu, forced
+  # early so the console/framebuffer comes up for the display + autoresize. This
+  # is the whole hardware side of the VM — there is no hardware-configuration.nix.
+  itera.hardware.initrd.kernelModules = [ "virtio_gpu" ];
 
   # ── Graphical QEMU tuning (only applied to the vmWithDisko runner) ────────
   virtualisation.vmVariantWithDisko = {

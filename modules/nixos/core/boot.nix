@@ -2,9 +2,9 @@
 #
 # This is the piece that turns itera's disk layout (`itera.disko`) into a system
 # that actually boots: it installs systemd-boot on the ESP and selects the modern
-# systemd-based initrd. Together with a consumer-supplied `hardware-configuration.nix`
-# (which provides the kernel modules for the real hardware) this is enough to reach
-# a login prompt.
+# systemd-based initrd. Together with `itera.hardware` (which provides the initrd
+# kernel modules that mount the root device) this is enough to reach a login
+# prompt — no consumer-supplied `hardware-configuration.nix` required.
 #
 # Like the other opinionated defaults, config is gated on the master `itera.enable`
 # and every value uses `mkDefault`, so the whole battery is opt-out and each knob
