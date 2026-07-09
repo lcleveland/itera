@@ -82,6 +82,7 @@ let
     "curated system default present" = dmsSettings.configVersion == 11;
     "system-level override reaches user" = dmsSettings.currentThemeName == "blue";
     "opinionated default present" = dmsSettings.use24HourClock == true;
+    "dark mode default present" = dmsSettings.syncModeWithPortal == false;
     "per-user override merges per key" = dmsSettings.cornerRadius == 8;
 
     # ── mango keybinds ───────────────────────────────────────────────────

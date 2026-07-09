@@ -108,6 +108,13 @@ in
       itera.desktop.dankMaterialShell.settings = {
         configVersion = mkDefault 11;
         use24HourClock = mkDefault true;
+        # Dark mode by default: don't follow the desktop portal's color-scheme
+        # (which reports "no preference" on a fresh session and would flip DMS to
+        # light). With portal sync off, DMS uses its stored isLightMode, which
+        # defaults to false (dark). Users can still toggle light in the DMS UI —
+        # that writes ~/.local/state/DankMaterialShell/session.json, which itera
+        # does not manage.
+        syncModeWithPortal = mkDefault false;
       };
     }
 
