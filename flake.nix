@@ -1,19 +1,46 @@
 {
-  description = "NixOS configuration";
+  description = "itera — a batteries-included, opt-out Nix configuration layer built on hjem";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Rolling channel used to build itera itself and as the default for consumers.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Stable channel, kept available so downstream can follow whichever they run.
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.05";
+
+    flake-parts.url = "github:hercules-ci/flake-parts";
+
+    # $HOME / dotfile management. itera builds its own module layer on top of this.
+    hjem = {
+      url = "github:feel-co/hjem";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      nixpkgs-unstable,
-      ...
-    }@inputs:
-    {
-      # nixosConfigurations, packages, devShells, etc. go here
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
+      imports = [
+        inputs.treefmt-nix.flakeModule
+        inputs.git-hooks.flakeModule
+
+        ./flake/outputs.nix
+        ./flake/devshell.nix
+        ./flake/checks.nix
+      ];
     };
 }

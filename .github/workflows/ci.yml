@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux]
+    runs-on: ${{ matrix.system == 'aarch64-linux' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Set up binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # Runs everything: treefmt `formatting`, git-hooks `pre-commit`, and the
+      # itera module tests for this system.
+      - name: Flake check
+        run: nix flake check --print-build-logs --system ${{ matrix.system }}

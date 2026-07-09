@@ -1,0 +1,2 @@
+# Placeholder — NixOS VM tests for itera modules land here, one `.nix` file per
+# program. Each returns a partial NixOS test ({ nodes, testScript }).
