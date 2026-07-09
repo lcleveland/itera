@@ -84,6 +84,7 @@
         ./flake/outputs.nix
         ./flake/devshell.nix
         ./flake/checks.nix
+        ./flake/vm.nix
       ];
     };
 }

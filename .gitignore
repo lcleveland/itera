@@ -2,6 +2,9 @@
 result
 result-*
 
+# OVMF EFI variables written by the interactive test VM (`nix run .#vm`)
+*-efi-vars.fd
+
 # direnv / nix-direnv
 .direnv/
 .envrc.local
