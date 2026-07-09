@@ -21,6 +21,12 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the desktop batteries (mango + DankMaterialShell).
+          desktop-eval = import ../tests/desktop-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }

@@ -17,6 +17,12 @@
     {
       itera.enable = true;
 
+      # This test exercises the core-boot stack and a real tty login; the desktop
+      # (on by default with itera.enable) would replace tty login with greetd and
+      # pull in the whole graphical closure, so opt out of it here. The desktop has
+      # its own boot test in desktop-greeter.nix.
+      itera.desktop.dankMaterialShell.enable = false;
+
       # itera sets `networking.hostName` with mkDefault; the test framework ALSO
       # uses mkDefault (to the node name), so the two collide. Pin it for the test.
       networking.hostName = lib.mkForce "machine";
