@@ -37,6 +37,27 @@
       # nix-mineral's flake-compat has no itera counterpart, so it stays unfollowed.
     };
 
+    # mango: a dwl-based wlroots Wayland compositor. itera bundles its NixOS
+    # module (see modules/nixos) so a consumer never adds it as an input
+    # themselves. Powers `itera.desktop.mango`.
+    mango = {
+      url = "github:mangowm/mango";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+      # mango's `scenefx` input follows mango's nixpkgs (now ours), so we do not
+      # add scenefx ourselves.
+    };
+
+    # DankMaterialShell: a Quickshell-based Wayland desktop shell + greeter.
+    # itera bundles its NixOS modules (see modules/nixos). Powers
+    # `itera.desktop.dankMaterialShell`. Pinned to the `stable` branch upstream
+    # recommends for the NixOS modules.
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/stable";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # dms's `flake-compat` input has no itera counterpart; it stays unfollowed.
+    };
+
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";

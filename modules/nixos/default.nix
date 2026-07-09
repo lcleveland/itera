@@ -23,6 +23,11 @@ in
       inputs.impermanence.nixosModules.impermanence
       # nix-mineral: system hardening (powers `itera.hardening`).
       inputs.nix-mineral.nixosModules.nix-mineral
+      # mango: Wayland compositor (powers `itera.desktop.mango`).
+      inputs.mango.nixosModules.mango
+      # DankMaterialShell: desktop shell + greeter (powers `itera.desktop.dankMaterialShell`).
+      inputs.dms.nixosModules.dank-material-shell
+      inputs.dms.nixosModules.greeter
     ]
     # Auto-import every itera system feature/profile module.
     ++ iteraLib.modules.listNixModules ./.;

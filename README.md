@@ -147,6 +147,57 @@ Baseline is intentionally conservative, but hardening can still interfere with
 unusual hardware or software — reach for the `compatibility` preset (or a targeted
 `nix-mineral.settings.*` override) if something breaks.
 
+### Desktop
+
+`itera.desktop` provides an opinionated Wayland desktop:
+[mango](https://github.com/mangowm/mango) (a dwl-based wlroots compositor) running
+[DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell) (a
+Quickshell desktop shell), with login handled by DankMaterialShell's own greetd
+greeter. Both upstreams are bundled — you do **not** add them as inputs.
+
+| Option namespace                  | Provides                                                        |
+| --------------------------------- | --------------------------------------------------------------- |
+| `itera.desktop.mango`             | the mango compositor (portals, polkit, xwayland, session)       |
+| `itera.desktop.dankMaterialShell` | the DMS shell + greeter; pulls in mango                         |
+| `itera.programs.mango` (home)     | per-user `mango/config.conf` that autostarts DMS in the session |
+
+Like the other opinionated defaults it is **opt-out**: on automatically with
+`itera.enable`, so `itera.enable = true` already gives you mango +
+DankMaterialShell + the DMS greeter, all wired together. Override as needed:
+
+```nix
+{
+  itera.enable = true; # desktop comes along by default
+
+  # Opt out of the desktop entirely (keep the rest of itera):
+  #   itera.desktop.dankMaterialShell.enable = false;
+
+  # …or keep the shell but drop the greeter and arrange login yourself:
+  #   itera.desktop.dankMaterialShell.greeter.enable = false;
+
+  # DMS's native feature toggles remain reachable (all default on):
+  #   programs.dank-material-shell.enableSystemMonitoring = false;
+}
+```
+
+The matching per-user config is enabled automatically for every hjem user once
+`itera.desktop.mango` is on (it follows the system toggle). Add your own mango
+keybinds / window rules via:
+
+```nix
+{
+  hjem.users.alice.itera.programs.mango.extraConfig = ''
+    bind=SUPER,Return,spawn,foot
+  '';
+}
+```
+
+> **Hardening caveat.** `itera.hardening` (on by default with `itera.enable`) can
+> interfere with a graphical stack. If the desktop misbehaves, try
+> `itera.hardening.preset = "compatibility"` or a targeted `nix-mineral.settings.*`
+> override. The first `nixos-rebuild` also builds mango and DMS from source
+> (wlroots/scenefx, Go + Qt), so expect a long initial build.
+
 > **You must `follows` hjem.** itera's home modules are class-`hjem` submodules
 > evaluated against your hjem. If itera and your config resolve to different
 > hjem revisions, evaluation fails. `inputs.hjem.follows = "hjem"` keeps them in
@@ -154,18 +205,19 @@ unusual hardware or software — reach for the `compatibility` preset (or a targ
 
 ## Structure
 
-| Path                  | Purpose                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `flake.nix`           | flake-parts entry point; inputs + module imports                                            |
-| `flake/`              | flake outputs, dev shell + formatter, checks                                                |
-| `lib/`                | helpers (module auto-import)                                                                |
-| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default`                             |
-| `modules/nixos/core/` | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening` |
-| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`                                    |
-| `overlays/`           | `pkgs.itera.*` overlay                                                                      |
-| `pkgs/`               | itera's own packages                                                                        |
-| `templates/`          | downstream starter flake                                                                    |
-| `tests/`              | NixOS VM test harness for modules                                                           |
+| Path                     | Purpose                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `flake.nix`              | flake-parts entry point; inputs + module imports                                            |
+| `flake/`                 | flake outputs, dev shell + formatter, checks                                                |
+| `lib/`                   | helpers (module auto-import)                                                                |
+| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                             |
+| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening` |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter                  |
+| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                    |
+| `overlays/`              | `pkgs.itera.*` overlay                                                                      |
+| `pkgs/`                  | itera's own packages                                                                        |
+| `templates/`             | downstream starter flake                                                                    |
+| `tests/`                 | NixOS VM test harness for modules                                                           |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
