@@ -44,16 +44,17 @@ Or wire itera into an existing flake:
       nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          ./hardware-configuration.nix
+          # No hardware-configuration.nix — itera supplies the hardware layer
+          # (`itera.hardware`) and disko owns the disk layout (`itera.disko`).
           itera.nixosModules.default # pulls in hjem + wires itera's home layer
           {
             nixpkgs.overlays = [ itera.overlays.default ];
             # itera.enable defaults to true — the whole opinionated layer is
-            # opt-out. disko/impermanence are on by default too, but disko wipes a
-            # disk and needs a `device`, so disable them here and rely on
-            # ./hardware-configuration.nix (or set a device — see below).
-            itera.disko.enable = false;
-            itera.impermanence.enable = false;
+            # opt-out. disko/impermanence are on by default too; disko wipes a
+            # disk and has no safe default, so point it at your target device
+            # (the build asserts until you do).
+            itera.disko.device = "/dev/nvme0n1"; # CHANGE ME — disko WIPES this disk
+            itera.hardware.cpu = "auto"; # or "intel" / "amd"
             hjem.users.alice.enable = true;
             # curated program modules plug in under `hjem.users.<name>.itera.*`
           }
@@ -73,13 +74,15 @@ are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 ### Core system defaults
 
 `itera.enable` defaults to `true`, so the whole layer is **opt-out**: importing
-the module turns on the opinionated **core-boot** batteries — enough, together
-with a real `hardware-configuration.nix`, to boot and rebuild a machine. Set
+the module turns on the opinionated **core-boot** batteries — enough, on their
+own, to boot and rebuild a machine with no generated `hardware-configuration.nix`
+(`itera.hardware` supplies the hardware layer, `itera.disko` the disks). Set
 `itera.enable = false` to turn everything off.
 
 | Option namespace   | Provides                                                              |
 | ------------------ | --------------------------------------------------------------------- |
 | `itera.boot`       | systemd-boot on the ESP, systemd initrd, `/tmp` on tmpfs, kernel pick |
+| `itera.hardware`   | initrd kernel modules, CPU microcode, redistributable firmware        |
 | `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
 | `itera.nix.cache`  | extra binary-cache substituters (nix-community) for faster builds     |
 | `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
@@ -122,9 +125,10 @@ included — to pull things nixpkgs' cache doesn't carry:
 > from source on first `nixos-rebuild` until you add a substituter that hosts
 > them.
 
-itera does **not** manage user accounts yet — declare your login user the normal
-NixOS way (`users.users.<name>`). Machine-specific pieces (`hardware-configuration.nix`,
-the `itera.disko` device, real passwords) always come from your own config.
+The only genuinely per-machine pieces that must come from your own config are the
+`itera.disko` device (destructive and un-guessable) and real passwords — there is
+no `hardware-configuration.nix` to maintain. Pick a CPU vendor with
+`itera.hardware.cpu` if you want (the `"auto"` default works either way).
 
 ### Disk layout & ephemeral root
 
@@ -136,11 +140,19 @@ Both are **opt-out (on by default)**, but they need per-host input:
 > default but has no default device, so it **fails the build with an assertion
 > until you either set `itera.disko.device` or set `itera.disko.enable = false`**.
 > disko destroys everything on `device` when it formats — never point it at a
-> disk you can't lose. If you'd rather manage partitioning yourself (e.g. via a
-> generated `hardware-configuration.nix`), disable it:
+> disk you can't lose.
+>
+> **Advanced — managing partitioning yourself.** For a pre-partitioned machine
+> you can't wipe, or a dual-boot setup, turn off both disko and itera's hardware
+> layer and add your own generated `hardware-configuration.nix` (which then
+> provides the `fileSystems` and kernel modules):
 >
 > ```nix
-> { itera.disko.enable = false; itera.impermanence.enable = false; }
+> {
+>   itera.hardware.enable = false;
+>   itera.disko.enable = false;
+>   itera.impermanence.enable = false;
+> }
 > ```
 
 They are independent — use either alone — but compose into a full impermanent

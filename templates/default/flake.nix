@@ -22,9 +22,10 @@
       nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
-          ./hardware-configuration.nix
-
           # A single import: pulls in hjem and wires itera's home layer for you.
+          # There is NO hardware-configuration.nix — itera supplies the whole
+          # hardware layer (kernel modules, microcode, firmware via
+          # `itera.hardware`) and disko owns the disk layout (`itera.disko`).
           itera.nixosModules.default
 
           {
@@ -32,12 +33,12 @@
 
             # itera's opinionated system defaults are opt-out — on by default, so
             # this import alone gives you a bootable system: systemd-boot on the
-            # ESP, the systemd initrd, flakes enabled, a pinned stateVersion, a
-            # locale, NetworkManager, hardening, and the desktop. Every value is a
-            # mkDefault, so override any of them. Set `itera.enable = false` to
-            # turn the whole layer off.
+            # ESP, the systemd initrd, a broad set of hardware modules, flakes
+            # enabled, a pinned stateVersion, a locale, NetworkManager, hardening,
+            # and the desktop. Every value is a mkDefault, so override any of
+            # them. Set `itera.enable = false` to turn the whole layer off.
             itera = {
-              # Override individual core-boot defaults as needed:
+              # Override individual core defaults as needed:
               networking.hostName = "myhost";
               #   locale.timeZone = "Europe/London";
               #   locale.defaultLocale = "en_GB.UTF-8";
@@ -48,23 +49,27 @@
               # change it.
               nix.stateVersion = "25.05";
 
-              # Declarative disk layout + ephemeral (tmpfs) root. Bundled with
-              # itera — no extra inputs needed. These are opt-out (ON by default),
-              # but disko WIPES the target device and has no safe default device,
-              # so this template disables them and relies on the generated
-              # ./hardware-configuration.nix instead. To use them: set
-              # `disko.enable = true` with a `device`, DELETE the fileSystems block
-              # in ./hardware-configuration.nix, and enable impermanence.
-              disko.enable = false;
-              impermanence.enable = false;
-              #   disko = {
-              #     enable = true;
-              #     device = "/dev/nvme0n1";
-              #   };
-              #   impermanence = {
-              #     enable = true; # method defaults to "tmpfs"
-              #     directories = [ "/var/lib/tailscale" ];
-              #   };
+              # Hardware layer — replaces a generated hardware-configuration.nix.
+              # The initrd kernel-module default boots virtually any modern UEFI
+              # x86 machine; you normally only pick a CPU vendor.
+              hardware.cpu = "auto"; # or "intel" / "amd"
+              #   hardware.initrd.availableKernelModules = [ ... ]; # exotic controller
+
+              # Declarative disk layout + ephemeral (tmpfs) root, bundled with
+              # itera (no extra inputs). Both are ON by default. disko WIPES the
+              # target device and has no safe default, so you MUST point it at a
+              # disk — the build fails with an assertion until you do. This is the
+              # one genuinely per-machine value.
+              disko.device = "/dev/nvme0n1"; # CHANGE ME — disko WIPES this disk
+              #   disko.swapSize = "8G";       # optional swap partition
+              #   impermanence.directories = [ "/var/lib/tailscale" ];
+
+              # Advanced: to manage partitioning yourself (e.g. a pre-partitioned
+              # machine you can't wipe, or dual-boot), turn both off and add your
+              # own ./hardware-configuration.nix to the modules list above:
+              #   hardware.enable = false;
+              #   disko.enable = false;
+              #   impermanence.enable = false;
             };
 
             # A login user via itera's account battery. `itera.users.<name>`
