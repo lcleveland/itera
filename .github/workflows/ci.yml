@@ -17,9 +17,11 @@ jobs:
 
       # x86_64 runners ship /dev/kvm but not accessible by default; this udev
       # rule opens it so the Nix installer picks up the `kvm` system feature.
-      # No-op on aarch64 runners, which have no KVM at all (the rule matches
-      # nothing) — VM tests are gated to x86_64 in flake/checks.nix.
+      # Skipped on aarch64 runners, which have no KVM device at all (the
+      # udevadm trigger would fail) — VM tests are gated to x86_64 in
+      # flake/checks.nix.
       - name: Enable KVM
+        if: matrix.system == 'x86_64-linux'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules

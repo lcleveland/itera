@@ -13,8 +13,7 @@
           inherit (inputs) self;
           # VM boot tests need KVM; hosted aarch64 runners have none, so only
           # discover them on x86_64. The eval check below still runs everywhere.
-          testDirectory =
-            if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
+          testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
         })
         # Evaluation check for the disko + impermanence batteries.
         // {
