@@ -8,19 +8,20 @@
 # the btrfs `/nix` + `/persist` in place — but the layout also boots perfectly
 # well on its own.
 #
-# Follows itera's module conventions (`mkEnableOption`, `mkIf cfg.enable`,
-# `mkDefault` for opinionated values). Config is gated on this feature's own
-# `enable` rather than the global `itera.enable`: partitioning is foundational and
-# destructive, so silently no-op'ing it would be a footgun.
+# Opt-OUT: on automatically with `itera.enable`, gated on
+# `itera.enable && cfg.enable` with `mkDefault` opinionated values. Because
+# partitioning is destructive and has no sensible default target, `device` MUST
+# be set — the assertion below fails the build otherwise, so a host either points
+# disko at a disk or sets `itera.disko.enable = false`.
 {
   config,
   lib,
   ...
 }:
 let
-  inherit (lib.options) mkEnableOption mkOption;
+  inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf;
-  inherit (lib.types) str;
+  inherit (lib.types) str bool;
 
   cfg = config.itera.disko;
 
@@ -31,7 +32,15 @@ let
 in
 {
   options.itera.disko = {
-    enable = mkEnableOption "itera's declarative disk layout (disko)";
+    enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Whether to declare itera's disk layout (disko). On by default whenever
+        {option}`itera.enable` is set; requires {option}`itera.disko.device`.
+        Set to `false` to manage partitioning yourself.
+      '';
+    };
 
     device = mkOption {
       type = str;
@@ -59,7 +68,7 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (config.itera.enable && cfg.enable) {
     assertions = [
       {
         assertion = cfg.device != "";

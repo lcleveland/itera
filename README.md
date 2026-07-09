@@ -48,7 +48,12 @@ Or wire itera into an existing flake:
           itera.nixosModules.default # pulls in hjem + wires itera's home layer
           {
             nixpkgs.overlays = [ itera.overlays.default ];
-            itera.enable = true;
+            # itera.enable defaults to true — the whole opinionated layer is
+            # opt-out. disko/impermanence are on by default too, but disko wipes a
+            # disk and needs a `device`, so disable them here and rely on
+            # ./hardware-configuration.nix (or set a device — see below).
+            itera.disko.enable = false;
+            itera.impermanence.enable = false;
             hjem.users.alice.enable = true;
             # curated program modules plug in under `hjem.users.<name>.itera.*`
           }
@@ -67,9 +72,10 @@ are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 
 ### Core system defaults
 
-Setting `itera.enable = true` turns on the opinionated **core-boot** batteries —
-enough, together with a real `hardware-configuration.nix`, to boot and rebuild a
-machine:
+`itera.enable` defaults to `true`, so the whole layer is **opt-out**: importing
+the module turns on the opinionated **core-boot** batteries — enough, together
+with a real `hardware-configuration.nix`, to boot and rebuild a machine. Set
+`itera.enable = false` to turn everything off.
 
 | Option namespace   | Provides                                                              |
 | ------------------ | --------------------------------------------------------------------- |
@@ -84,8 +90,6 @@ Every value is a `mkDefault`, so override any of them individually:
 
 ```nix
 {
-  itera.enable = true;
-
   itera.networking.hostName = "myhost";
   itera.locale.timeZone = "Europe/London";
   itera.nix.stateVersion = "25.05"; # set ONCE at install time
@@ -126,6 +130,19 @@ the `itera.disko` device, real passwords) always come from your own config.
 
 `itera.disko` declares your partitioning and `itera.impermanence` runs an
 ephemeral (tmpfs) root that only keeps explicitly-persisted paths across reboots.
+Both are **opt-out (on by default)**, but they need per-host input:
+
+> **You must handle disko.** With `itera.enable` on, `itera.disko` is enabled by
+> default but has no default device, so it **fails the build with an assertion
+> until you either set `itera.disko.device` or set `itera.disko.enable = false`**.
+> disko destroys everything on `device` when it formats — never point it at a
+> disk you can't lose. If you'd rather manage partitioning yourself (e.g. via a
+> generated `hardware-configuration.nix`), disable it:
+>
+> ```nix
+> { itera.disko.enable = false; itera.impermanence.enable = false; }
+> ```
+
 They are independent — use either alone — but compose into a full impermanent
 host:
 
@@ -133,15 +150,12 @@ host:
 {
   # A GPT layout: ESP + a btrfs partition with /, /nix and /persist subvolumes.
   # WARNING: disko destroys everything on `device` when it formats.
-  itera.disko = {
-    enable = true;
-    device = "/dev/nvme0n1";
-  };
+  itera.disko.device = "/dev/nvme0n1"; # enabled by default; a device is required
 
   # Root in RAM, wiped every boot; persist only what you name (plus itera's
-  # curated defaults: logs, machine-id, SSH host keys).
+  # curated defaults: logs, machine-id, SSH host keys). On by default; method
+  # defaults to "tmpfs".
   itera.impermanence = {
-    enable = true; # method defaults to "tmpfs"
     directories = [ "/var/lib/tailscale" ];
     users.alice.directories = [ ".ssh" ];
   };
@@ -156,8 +170,6 @@ nix-mineral's baseline `default` preset. Turn it off, or dial the intensity, via
 
 ```nix
 {
-  itera.enable = true;
-
   # Opt out entirely:
   itera.hardening.enable = false;
 
@@ -189,13 +201,11 @@ greeter. Both upstreams are bundled — you do **not** add them as inputs.
 | `itera.programs.mango` (home)     | per-user `mango/config.conf` that autostarts DMS in the session |
 
 Like the other opinionated defaults it is **opt-out**: on automatically with
-`itera.enable`, so `itera.enable = true` already gives you mango +
-DankMaterialShell + the DMS greeter, all wired together. Override as needed:
+`itera.enable`, so importing itera already gives you mango + DankMaterialShell +
+the DMS greeter, all wired together. Override as needed:
 
 ```nix
 {
-  itera.enable = true; # desktop comes along by default
-
   # Opt out of the desktop entirely (keep the rest of itera):
   #   itera.desktop.dankMaterialShell.enable = false;
 
