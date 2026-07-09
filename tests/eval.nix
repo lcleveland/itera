@@ -64,6 +64,10 @@ let
 
     # hardening (nix-mineral, auto-on with itera.enable)
     "nix-mineral hardening is enabled" = cfg.nix-mineral.enable;
+
+    # binary-cache battery (auto-on with itera.enable)
+    "nix-community substituter is configured" =
+      builtins.elem "https://nix-community.cachix.org" cfg.nix.settings.extra-substituters;
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);

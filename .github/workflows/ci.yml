@@ -30,6 +30,13 @@ jobs:
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+        with:
+          # Match itera's own `itera.nix.cache` defaults so CI pulls the same
+          # prebuilt closures a consumer system would (the module only affects
+          # built systems, not `nix flake check`, so configure the daemon here).
+          extra-conf: |
+            extra-substituters = https://nix-community.cachix.org
+            extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
       - name: Set up binary cache
         uses: DeterminateSystems/magic-nix-cache-action@main

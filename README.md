@@ -75,6 +75,7 @@ machine:
 | ------------------ | --------------------------------------------------------------------- |
 | `itera.boot`       | systemd-boot on the ESP, systemd initrd, `/tmp` on tmpfs, kernel pick |
 | `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
+| `itera.nix.cache`  | extra binary-cache substituters (nix-community) for faster builds     |
 | `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
 | `itera.networking` | hostname, NetworkManager                                              |
 | `itera.hardening`  | nix-mineral system hardening (kernel/network sysctls, lockdown, …)    |
@@ -90,6 +91,32 @@ Every value is a `mkDefault`, so override any of them individually:
   itera.nix.stateVersion = "25.05"; # set ONCE at install time
 }
 ```
+
+`itera.nix.cache` adds extra binary-cache substituters (default:
+nix-community) on top of the built-in `cache.nixos.org`, so common closures
+download prebuilt. It is **opt-out**; point it at any additional cache — your own
+included — to pull things nixpkgs' cache doesn't carry:
+
+```nix
+{
+  # Disable entirely:
+  #   itera.nix.cache.enable = false;
+
+  # …or add your own cache (keys must line up with substituters):
+  itera.nix.cache.substituters = [
+    "https://nix-community.cachix.org"
+    "https://my-cache.example.org"
+  ];
+  itera.nix.cache.trustedPublicKeys = [
+    "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    "my-cache.example.org-1:…"
+  ];
+}
+```
+
+> **Note.** mango and DankMaterialShell publish no public cache, so they build
+> from source on first `nixos-rebuild` until you add a substituter that hosts
+> them.
 
 itera does **not** manage user accounts yet — declare your login user the normal
 NixOS way (`users.users.<name>`). Machine-specific pieces (`hardware-configuration.nix`,
