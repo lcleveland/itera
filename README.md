@@ -64,6 +64,35 @@ bundles [disko](https://github.com/nix-community/disko) and
 [impermanence](https://github.com/nix-community/impermanence) — unlike hjem these
 are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 
+### Core system defaults
+
+Setting `itera.enable = true` turns on the opinionated **core-boot** batteries —
+enough, together with a real `hardware-configuration.nix`, to boot and rebuild a
+machine:
+
+| Option namespace   | Provides                                                              |
+| ------------------ | --------------------------------------------------------------------- |
+| `itera.boot`       | systemd-boot on the ESP, systemd initrd, `/tmp` on tmpfs, kernel pick |
+| `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
+| `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
+| `itera.networking` | hostname, NetworkManager                                              |
+
+Every value is a `mkDefault`, so override any of them individually:
+
+```nix
+{
+  itera.enable = true;
+
+  itera.networking.hostName = "myhost";
+  itera.locale.timeZone = "Europe/London";
+  itera.nix.stateVersion = "25.05"; # set ONCE at install time
+}
+```
+
+itera does **not** manage user accounts yet — declare your login user the normal
+NixOS way (`users.users.<name>`). Machine-specific pieces (`hardware-configuration.nix`,
+the `itera.disko` device, real passwords) always come from your own config.
+
 ### Disk layout & ephemeral root
 
 `itera.disko` declares your partitioning and `itera.impermanence` runs an
@@ -97,18 +126,18 @@ host:
 
 ## Structure
 
-| Path                  | Purpose                                                         |
-| --------------------- | --------------------------------------------------------------- |
-| `flake.nix`           | flake-parts entry point; inputs + module imports                |
-| `flake/`              | flake outputs, dev shell + formatter, checks                    |
-| `lib/`                | helpers (module auto-import)                                    |
-| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default` |
-| `modules/nixos/core/` | core system batteries (e.g. `disko.nix`, `impermanence.nix`)    |
-| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`        |
-| `overlays/`           | `pkgs.itera.*` overlay                                          |
-| `pkgs/`               | itera's own packages                                            |
-| `templates/`          | downstream starter flake                                        |
-| `tests/`              | NixOS VM test harness for modules                               |
+| Path                  | Purpose                                                                        |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `flake.nix`           | flake-parts entry point; inputs + module imports                               |
+| `flake/`              | flake outputs, dev shell + formatter, checks                                   |
+| `lib/`                | helpers (module auto-import)                                                   |
+| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default`                |
+| `modules/nixos/core/` | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence` |
+| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`                       |
+| `overlays/`           | `pkgs.itera.*` overlay                                                         |
+| `pkgs/`               | itera's own packages                                                           |
+| `templates/`          | downstream starter flake                                                       |
+| `tests/`              | NixOS VM test harness for modules                                              |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
