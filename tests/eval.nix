@@ -61,6 +61,9 @@ let
     "default locale is set" = cfg.i18n.defaultLocale == "en_US.UTF-8";
     "NetworkManager is enabled" = cfg.networking.networkmanager.enable;
     "hostname is set" = cfg.networking.hostName == "itera";
+
+    # hardening (nix-mineral, auto-on with itera.enable)
+    "nix-mineral hardening is enabled" = cfg.nix-mineral.enable;
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);

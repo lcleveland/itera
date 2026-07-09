@@ -21,6 +21,8 @@ in
       inputs.disko.nixosModules.default
       # impermanence: ephemeral-root persistence (powers `itera.impermanence`).
       inputs.impermanence.nixosModules.impermanence
+      # nix-mineral: system hardening (powers `itera.hardening`).
+      inputs.nix-mineral.nixosModules.nix-mineral
     ]
     # Auto-import every itera system feature/profile module.
     ++ iteraLib.modules.listNixModules ./.;

@@ -28,6 +28,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # System hardening. itera bundles it (see modules/nixos) so a consumer
+    # never has to add it as an input themselves. Powers `itera.hardening`.
+    nix-mineral = {
+      url = "github:cynicsketch/nix-mineral";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+      # nix-mineral's flake-compat has no itera counterpart, so it stays unfollowed.
+    };
+
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";

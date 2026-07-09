@@ -60,8 +60,9 @@ Or wire itera into an existing flake:
 
 Importing `itera.nixosModules.default` is all you need: it imports hjem for you
 and registers itera's per-user home collection into `hjem.extraModules`. It also
-bundles [disko](https://github.com/nix-community/disko) and
-[impermanence](https://github.com/nix-community/impermanence) — unlike hjem these
+bundles [disko](https://github.com/nix-community/disko),
+[impermanence](https://github.com/nix-community/impermanence) and
+[nix-mineral](https://github.com/cynicsketch/nix-mineral) — unlike hjem these
 are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 
 ### Core system defaults
@@ -76,6 +77,7 @@ machine:
 | `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
 | `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
 | `itera.networking` | hostname, NetworkManager                                              |
+| `itera.hardening`  | nix-mineral system hardening (kernel/network sysctls, lockdown, …)    |
 
 Every value is a `mkDefault`, so override any of them individually:
 
@@ -119,6 +121,32 @@ host:
 }
 ```
 
+### Hardening
+
+`itera.hardening` layers [nix-mineral](https://github.com/cynicsketch/nix-mineral)
+onto the system. It is **opt-out**: on automatically with `itera.enable`, using
+nix-mineral's baseline `default` preset. Turn it off, or dial the intensity, via:
+
+```nix
+{
+  itera.enable = true;
+
+  # Opt out entirely:
+  itera.hardening.enable = false;
+
+  # …or pick a stronger/looser preset (single value or an ordered list):
+  itera.hardening.preset = "compatibility";
+
+  # Fine-grained overrides go straight to the bundled nix-mineral options
+  # (see the nix-mineral docs for the full settings/extras/filesystems trees):
+  # nix-mineral.settings.<category>.<option> = …;
+}
+```
+
+Baseline is intentionally conservative, but hardening can still interfere with
+unusual hardware or software — reach for the `compatibility` preset (or a targeted
+`nix-mineral.settings.*` override) if something breaks.
+
 > **You must `follows` hjem.** itera's home modules are class-`hjem` submodules
 > evaluated against your hjem. If itera and your config resolve to different
 > hjem revisions, evaluation fails. `inputs.hjem.follows = "hjem"` keeps them in
@@ -126,18 +154,18 @@ host:
 
 ## Structure
 
-| Path                  | Purpose                                                                        |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `flake.nix`           | flake-parts entry point; inputs + module imports                               |
-| `flake/`              | flake outputs, dev shell + formatter, checks                                   |
-| `lib/`                | helpers (module auto-import)                                                   |
-| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default`                |
-| `modules/nixos/core/` | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence` |
-| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`                       |
-| `overlays/`           | `pkgs.itera.*` overlay                                                         |
-| `pkgs/`               | itera's own packages                                                           |
-| `templates/`          | downstream starter flake                                                       |
-| `tests/`              | NixOS VM test harness for modules                                              |
+| Path                  | Purpose                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `flake.nix`           | flake-parts entry point; inputs + module imports                                            |
+| `flake/`              | flake outputs, dev shell + formatter, checks                                                |
+| `lib/`                | helpers (module auto-import)                                                                |
+| `modules/nixos/`      | system layer — `itera.*` NixOS options → `nixosModules.default`                             |
+| `modules/nixos/core/` | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening` |
+| `modules/hjem/`       | home layer — per-program modules → `hjemModules.default`                                    |
+| `overlays/`           | `pkgs.itera.*` overlay                                                                      |
+| `pkgs/`               | itera's own packages                                                                        |
+| `templates/`          | downstream starter flake                                                                    |
+| `tests/`              | NixOS VM test harness for modules                                                           |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
