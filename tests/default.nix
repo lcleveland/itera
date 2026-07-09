@@ -35,6 +35,16 @@ let
       defaults = {
         imports = [ self.nixosModules.default ];
 
+        # disko and impermanence are opt-out (on with itera.enable), but both
+        # fight the NixOS test framework's managed disk/root — and disko's
+        # assertion fails without a `device`. They get their own dedicated eval
+        # (tests/eval.nix) and interactive VM (dev/vm.nix); turn them off for the
+        # framework's VM tests so every test node boots the managed root.
+        itera = {
+          disko.enable = false;
+          impermanence.enable = false;
+        };
+
         # A user for tests to configure via `hjem.users.test.itera.*`.
         users.users.test = {
           isNormalUser = true;

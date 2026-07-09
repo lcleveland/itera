@@ -20,9 +20,17 @@ let
       {
         system.stateVersion = "25.05";
 
-        # itera.enable alone should bring up the desktop (opt-out): it defaults the
-        # shell battery on, which pulls in mango and stands up the greeter.
-        itera.enable = true;
+        itera = {
+          # itera.enable alone should bring up the desktop (opt-out): it defaults
+          # the shell battery on, which pulls in mango and stands up the greeter.
+          enable = true;
+
+          # disko/impermanence are opt-out too, but this eval only exercises the
+          # desktop wiring — turn them off so disko's device assertion doesn't
+          # block the evaluation (they have their own check in tests/eval.nix).
+          disko.enable = false;
+          impermanence.enable = false;
+        };
 
         # A hjem user so the home-layer battery (itera.programs.mango) is
         # evaluated — its `enable` follows itera.desktop.mango, so the mango

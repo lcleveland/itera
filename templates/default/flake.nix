@@ -30,13 +30,13 @@
           {
             nixpkgs.overlays = [ itera.overlays.default ];
 
-            # Turn on itera's opinionated system defaults (all opt-out). This
-            # alone gives you a bootable system: systemd-boot on the ESP, the
-            # systemd initrd, flakes enabled, a pinned stateVersion, a locale, and
-            # NetworkManager. Every value is a mkDefault, so override any of them.
+            # itera's opinionated system defaults are opt-out — on by default, so
+            # this import alone gives you a bootable system: systemd-boot on the
+            # ESP, the systemd initrd, flakes enabled, a pinned stateVersion, a
+            # locale, NetworkManager, hardening, and the desktop. Every value is a
+            # mkDefault, so override any of them. Set `itera.enable = false` to
+            # turn the whole layer off.
             itera = {
-              enable = true;
-
               # Override individual core-boot defaults as needed:
               networking.hostName = "myhost";
               #   locale.timeZone = "Europe/London";
@@ -49,9 +49,14 @@
               nix.stateVersion = "25.05";
 
               # Declarative disk layout + ephemeral (tmpfs) root. Bundled with
-              # itera — no extra inputs needed. Uncomment to use; disko WIPES the
-              # target device, so replace ./hardware-configuration.nix's
-              # fileSystems accordingly.
+              # itera — no extra inputs needed. These are opt-out (ON by default),
+              # but disko WIPES the target device and has no safe default device,
+              # so this template disables them and relies on the generated
+              # ./hardware-configuration.nix instead. To use them: set
+              # `disko.enable = true` with a `device`, DELETE the fileSystems block
+              # in ./hardware-configuration.nix, and enable impermanence.
+              disko.enable = false;
+              impermanence.enable = false;
               #   disko = {
               #     enable = true;
               #     device = "/dev/nvme0n1";

@@ -12,16 +12,18 @@
 # standalone; when this module is also enabled its `mkForce` tmpfs `/` wins and
 # that subvolume simply goes unused. The two features never reference each other.
 #
-# Like `itera.disko`, config is gated on this feature's own `enable` rather than
-# the global `itera.enable` — choosing the root filesystem is foundational, not a
-# tweak. The curated persisted-path set is instead opt-out via `defaults.enable`.
+# Opt-OUT: on automatically with `itera.enable`, gated on
+# `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
+# so it expects a real `/persist` mount to exist — `itera.disko`'s default layout
+# provides one. Set `itera.impermanence.enable = false` to keep a persistent
+# root. The curated persisted-path set is separately opt-out via `defaults.enable`.
 {
   config,
   lib,
   ...
 }:
 let
-  inherit (lib.options) mkEnableOption mkOption;
+  inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault mkForce;
   inherit (lib.types)
     enum
@@ -57,7 +59,15 @@ let
 in
 {
   options.itera.impermanence = {
-    enable = mkEnableOption "an ephemeral (tmpfs) root with explicit persistence";
+    enable = mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether to run an ephemeral (tmpfs) root with explicit persistence. On by
+        default whenever {option}`itera.enable` is set; expects a real
+        {option}`persistRoot` mount to exist. Set to `false` for a persistent root.
+      '';
+    };
 
     method = mkOption {
       type = enum [ "tmpfs" ];
@@ -137,7 +147,7 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (config.itera.enable && cfg.enable) {
     assertions = [
       {
         assertion = cfg.method == "tmpfs";
