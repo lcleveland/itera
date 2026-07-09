@@ -1,0 +1,16 @@
+# Nix build outputs
+result
+result-*
+
+# direnv / nix-direnv
+.direnv/
+.envrc.local
+
+# Editor / OS cruft
+.DS_Store
+*.swp
+*~
+
+# Claude Code — ignore personal/local settings, keep shared config
+# (CLAUDE.md, .claude/settings.json, and .claude/{commands,agents}/ are committable)
+.claude/settings.local.json
