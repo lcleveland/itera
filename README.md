@@ -373,11 +373,17 @@ nix run 'github:nix-community/disko#disko-install' -- \
 ```
 
 Or skip picking the device by hand and use the interactive installer, which
-lists the machine's disks, confirms the wipe, and runs the command above for you:
+lists the machine's disks, confirms the wipe, and runs the command above for you.
+The live ISO ships with flakes disabled and partitioning needs root, so enable
+the experimental features and run it under `sudo`:
 
 ```sh
-nix run 'github:lcleveland/itera#install-itera-testhost'
+sudo nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:lcleveland/itera#install-itera-testhost'
 ```
+
+(The installer re-exports the experimental features into `NIX_CONFIG` so the
+`nix` commands disko-install runs internally inherit them too.)
 
 A few itera-specific notes:
 
