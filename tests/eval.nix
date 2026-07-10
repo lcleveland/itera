@@ -45,6 +45,12 @@ let
   dirNames = map (d: d.directory or d) persistence.directories;
 
   checks = {
+    # Forcing the toplevel derivation evaluates config.assertions, so this catches
+    # assertion regressions (e.g. impermanence's neededForBoot check against
+    # nix-mineral's hardened bind mounts) here — cheaply and on every system —
+    # rather than only when `nix flake check` builds itera-vm's toplevel on x86_64.
+    "system toplevel evaluates (assertions pass)" = builtins.seq cfg.system.build.toplevel.drvPath true;
+
     # disko + impermanence
     "disko provides a /nix subvolume" = subvolumes ? "/nix";
     "disko provides a /persist subvolume" = subvolumes ? "/persist";
