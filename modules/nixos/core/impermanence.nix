@@ -175,7 +175,20 @@ in
       # bind-mounts persisted paths back into the fresh tmpfs root.
       "/nix".neededForBoot = mkDefault true;
       ${cfg.persistRoot}.neededForBoot = mkDefault true;
-    };
+    }
+    # nix-mineral's filesystem hardening (bundled, on by default via
+    # `itera.hardening`) bind-mounts /etc, /var, /home, … as shadow mounts over the
+    # ephemeral tmpfs root. impermanence bind-mounts persisted paths into those same
+    # trees during stage-2 activation and asserts every filesystem hosting a
+    # persisted path is neededForBoot. Propagate it to the hardened bind mounts so
+    # the two batteries compose. `optionalAttrs` keeps this empty — no phantom
+    # fileSystems entry lacking a device — when hardening is off. `m.options.bind`
+    # skips /boot, which nix-mineral leaves as a real partition, not a shadow mount.
+    // lib.optionalAttrs config.nix-mineral.enable (
+      lib.mapAttrs (_: _: { neededForBoot = mkDefault true; }) (
+        lib.filterAttrs (_: m: m.enable && (m.options.bind or false)) config.nix-mineral.filesystems.normal
+      )
+    );
 
     environment.persistence.${cfg.persistRoot} = {
       hideMounts = mkDefault true;
