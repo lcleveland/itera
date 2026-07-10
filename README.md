@@ -361,6 +361,17 @@ nix run 'github:nix-community/disko' -- --mode destroy,format,mount \
 nixos-install --flake '.#myhost'
 ```
 
+Want to try itera on a spare machine without authoring a flake first? itera ships
+a ready-to-install test host, `itera-testhost` (the bare-metal sibling of the
+`itera-vm` demo), carrying the full default stack and a `tester` login. Install it
+straight from GitHub — just point `--disk main` at the real target disk (it is
+**wiped**); the config's placeholder device is overridden and never touched:
+
+```sh
+nix run 'github:nix-community/disko#disko-install' -- \
+  --flake 'github:lcleveland/itera#itera-testhost' --disk main /dev/nvme0n1
+```
+
 A few itera-specific notes:
 
 - **The root is an ephemeral tmpfs** (`itera.impermanence`, on by default), so
@@ -380,7 +391,8 @@ A few itera-specific notes:
 | Path                     | Purpose                                                                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                              |
-| `flake/`                 | flake outputs, dev shell + formatter, checks                                                                                                                  |
+| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                   |
+| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host)                                                                          |
 | `lib/`                   | helpers (module auto-import)                                                                                                                                  |
 | `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                               |
 | `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation` |
