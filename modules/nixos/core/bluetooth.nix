@@ -9,7 +9,6 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 let
@@ -28,29 +27,10 @@ in
     };
   };
 
-  config = mkIf (config.itera.enable && cfg.enable) {
+  config = mkIf config.itera.enable {
     hardware.bluetooth = {
-      enable = mkDefault true;
+      enable = mkDefault cfg.enable;
       powerOnBoot = mkDefault true;
-    };
-
-    # `powerOnBoot`/AutoEnable can't turn on an adapter that rfkill has
-    # soft-blocked — BlueZ then reports "no adapters available" even though the
-    # hardware is present (a real symptom seen on the test host). Clear the soft
-    # block at boot, after systemd-rfkill has restored any saved state and before
-    # bluetoothd tries to bring the adapter up. Only touches Bluetooth; a hard
-    # (hardware/BIOS) block is untouched and stays off, as it must.
-    systemd.services.itera-rfkill-unblock-bluetooth = {
-      description = "Clear Bluetooth rfkill soft block for itera";
-      wantedBy = [ "bluetooth.service" ];
-      before = [ "bluetooth.service" ];
-      after = [ "systemd-rfkill.service" ];
-      unitConfig.ConditionPathExists = "/dev/rfkill";
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${pkgs.util-linux}/bin/rfkill unblock bluetooth";
-      };
     };
   };
 }
