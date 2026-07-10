@@ -9,16 +9,16 @@
 # The shared harness (tests/default.nix) already imports
 # `self.nixosModules.default`, declares the `test` user, and sets
 # `hjem.users.test.enable = true`. The desktop is opt-out (on with `itera.enable`),
-# so we just flip that on. We disable itera.hardening to keep the test focused on
-# the desktop wiring (nix-mineral can interfere with a graphical stack — see the
-# README caveat), and force the hostname to avoid the mkDefault collision the
-# core-boot test documents.
+# so we just flip that on. We intentionally LEAVE itera.hardening on (its default)
+# so this test exercises the desktop wiring *with* nix-mineral active — the README
+# caveat warns hardening can interfere with a graphical stack, and this is where
+# we'd catch it. Force the hostname to avoid the mkDefault collision the core-boot
+# test documents.
 {
   nodes.machine =
     { lib, ... }:
     {
       itera.enable = true;
-      itera.hardening.enable = false;
       networking.hostName = lib.mkForce "machine";
     };
 
