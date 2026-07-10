@@ -133,6 +133,16 @@ in
     virtualisation = {
       memorySize = 4096;
       cores = 4;
+      # QEMU user-mode networking isn't reachable from the host by default, so
+      # forward host :2222 to the guest's sshd (dev/remote-access.nix) — then
+      # `ssh -p 2222 dev@localhost` (password `dev`) gets you a shell in the VM.
+      forwardPorts = [
+        {
+          from = "host";
+          host.port = 2222;
+          guest.port = 22;
+        }
+      ];
       # wlroots/mango wants a GPU; give it virtio-gpu with GL in a GTK window.
       qemu.options = [
         "-vga none"

@@ -19,6 +19,9 @@
     modules = [
       inputs.self.nixosModules.default
       ../dev/vm.nix
+      # SSH in + `itera-update` for in-place rebuilds (dev-only, shared with the
+      # testhost). The QEMU host→guest port forward lives in dev/vm.nix.
+      ../dev/remote-access.nix
 
       # disko builds its base disk image inside a `pkgs.vmTools` builder VM.
       # Current nixpkgs-unstable's vmTools rejects the aggregate-kernel argument

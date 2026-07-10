@@ -409,6 +409,15 @@ A few itera-specific notes:
   extra steps. If you set `itera.secureBoot.enable = true`, install and boot
   first, then enroll keys and rebuild — see [Ecosystem
   integrations](#ecosystem-integrations).
+- **SSH is enabled on the test systems** (password auth on, root login off) so
+  you can log in to troubleshoot: `ssh tester@<lan-ip>` for a `itera-testhost`
+  box, or `ssh -p 2222 dev@localhost` for the running `itera-vm` (its sshd is
+  forwarded to host port 2222). This is dev-only wiring in `dev/remote-access.nix`
+  and is **not** part of `nixosModules.default` — consumers get no SSH daemon.
+- **Update in place with `itera-update`** instead of reinstalling per change. SSH
+  in and run it: it does `nixos-rebuild switch` against the newest remote flake
+  commit (`--refresh`), defaulting to this host's own attr. Test a branch with
+  `ITERA_UPDATE_FLAKE=github:you/itera#itera-testhost itera-update`.
 
 ## Structure
 
@@ -417,7 +426,7 @@ A few itera-specific notes:
 | `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                  |
 | `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                               |
 | `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                       |
-| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer)                                     |
+| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer), `remote-access.nix` + `update-itera.sh` (SSH in + `itera-update`) |
 | `lib/`                   | helpers (module auto-import)                                                                                                                                      |
 | `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                   |
 | `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`     |
