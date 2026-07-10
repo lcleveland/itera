@@ -329,6 +329,52 @@ main module:
 }
 ```
 
+## Installing from a live ISO
+
+itera owns the disk layout through `itera.disko`, so there is no
+`hardware-configuration.nix` to generate and no manual `parted`/`mkfs` step —
+you install straight from your flake with disko's one-shot installer. Boot a
+[NixOS live ISO](https://nixos.org/download.html), get your flake onto the
+machine (clone it, or reference it as `github:youruser/yourflake`), and run, as
+root:
+
+```sh
+# the live ISO usually has flakes on already; if not:
+export NIX_CONFIG="experimental-features = nix-command flakes"
+
+# partition + format per itera.disko, then install the closure
+nix run 'github:nix-community/disko#disko-install' -- \
+  --flake '.#myhost' \
+  --disk main /dev/nvme0n1
+```
+
+Swap `.#myhost` for your `nixosConfigurations.<name>` (use
+`github:youruser/yourflake#myhost` if the flake isn't local) and `/dev/nvme0n1`
+for the device you set in `itera.disko.device`. **disko wipes that disk.** When
+it finishes, set a root/user password if you didn't bake one in, then reboot.
+
+Prefer the two explicit steps? Run disko yourself, then `nixos-install`:
+
+```sh
+nix run 'github:nix-community/disko' -- --mode destroy,format,mount \
+  --flake '.#myhost'
+nixos-install --flake '.#myhost'
+```
+
+A few itera-specific notes:
+
+- **The root is an ephemeral tmpfs** (`itera.impermanence`, on by default), so
+  anything not under a persisted path is wiped every boot. Declare what must
+  survive via `itera.impermanence.directories` / `users.<name>.directories`
+  _before_ installing — itera already persists logs, machine-id, SSH host keys,
+  NetworkManager connections and clock state for you.
+- **Set `itera.nix.stateVersion` once** to the release you installed from (the
+  template uses `"25.05"`), then never change it.
+- **Secure Boot is opt-in**, so a fresh install boots via systemd-boot with no
+  extra steps. If you set `itera.secureBoot.enable = true`, install and boot
+  first, then enroll keys and rebuild — see [Ecosystem
+  integrations](#ecosystem-integrations).
+
 ## Structure
 
 | Path                     | Purpose                                                                                                                                                       |
