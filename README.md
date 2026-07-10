@@ -421,21 +421,21 @@ A few itera-specific notes:
 
 ## Structure
 
-| Path                     | Purpose                                                                                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                  |
-| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                               |
-| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                       |
+| Path                     | Purpose                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                                                 |
+| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                                                              |
+| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                                                      |
 | `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer), `remote-access.nix` + `update-itera.sh` (SSH in + `itera-update`) |
-| `lib/`                   | helpers (module auto-import)                                                                                                                                      |
-| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                   |
-| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`     |
-| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (ungoogled-chromium), `theme` (dark mode) |
-| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                          |
-| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                            |
-| `pkgs/`                  | itera's own packages                                                                                                                                              |
-| `templates/`             | downstream starter flake                                                                                                                                          |
-| `tests/`                 | NixOS VM test harness for modules                                                                                                                                 |
+| `lib/`                   | helpers (module auto-import)                                                                                                                                                                     |
+| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                                                  |
+| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`                                    |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (ungoogled-chromium), `theme` (dark mode)                                |
+| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                                                         |
+| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                                                           |
+| `pkgs/`                  | itera's own packages                                                                                                                                                                             |
+| `templates/`             | downstream starter flake                                                                                                                                                                         |
+| `tests/`                 | NixOS VM test harness for modules                                                                                                                                                                |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
