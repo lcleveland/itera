@@ -24,8 +24,36 @@
 # downstream consumer never sees it.
 {
   lib,
+  pkgs,
   ...
 }:
+let
+  # Ghostty (itera's terminal battery, on by default) needs an OpenGL >= 4.3
+  # context. QEMU's virtio-gpu-gl (VirGL, configured below) can't provide that
+  # in-guest, so Ghostty's window flashes and closes immediately
+  # (https://ghostty.org/docs/help/gtk-opengl-context). mango and DMS only need
+  # basic EGL/GL and run fine on VirGL, so rather than force the whole session to
+  # software rendering we wrap *only* Ghostty to set LIBGL_ALWAYS_SOFTWARE — that
+  # routes it onto Mesa llvmpipe (which advertises GL 4.6) while the desktop keeps
+  # hardware acceleration. The wrapper also rewrites Ghostty's .desktop entry
+  # (whose Exec is an absolute store path), so this covers *every* launch path:
+  # the DMS app launcher, SUPER+t, and `-e`. VM-only — on real hardware the GPU
+  # provides GL 4.3+ and the battery installs plain `pkgs.ghostty`.
+  ghosttyVmSoftGl = pkgs.symlinkJoin {
+    name = "ghostty-vm-softgl";
+    paths = [ pkgs.ghostty ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/ghostty --set LIBGL_ALWAYS_SOFTWARE 1
+      for f in $out/share/applications/*.desktop; do
+        real=$(readlink -f "$f")
+        rm "$f"
+        substitute "$real" "$f" \
+          --replace-fail "${pkgs.ghostty}/bin/ghostty" "$out/bin/ghostty"
+      done
+    '';
+  };
+in
 {
   # ── The full itera stack (opt-out: on by default) ───────────────────────
   # `itera.enable`, the disko layout, and impermanence are all on by default;
@@ -66,6 +94,12 @@
   # stack runs pam_env against /etc/pam/environment, which NixOS generates from
   # `environment.sessionVariables`, so setting it here delivers it to both.
   environment.sessionVariables.WLR_NO_HARDWARE_CURSORS = "1";
+
+  # Swap the terminal battery's package for the software-GL wrapper (see the
+  # `ghosttyVmSoftGl` note above). This drives both the app launcher (via the
+  # rewritten .desktop) and SUPER+t (the battery's `ghostty` command resolves to
+  # this wrapper on PATH).
+  itera.desktop.terminal.package = ghosttyVmSoftGl;
 
   # ── A login user (via itera's account battery) ──────────────────────────
   # `itera.users.<name>` creates the account AND enables hjem for it, so `dev`
