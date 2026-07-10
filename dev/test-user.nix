@@ -13,11 +13,7 @@ _: {
   # warning).
   itera.users.itera.description = "itera test user";
 
-  # Wipe-every-boot tmpfs root persists only the curated set; add this user's
-  # home so logins/desktop state survive a reboot.
-  itera.impermanence.users.itera.directories = [
-    ".config"
-    ".local/share"
-    ".cache"
-  ];
+  # The wipe-every-boot tmpfs root persists a curated subset of every user's home
+  # by default (itera.impermanence.homes), so this user's logins/desktop state
+  # survive a reboot with no extra wiring here.
 }
