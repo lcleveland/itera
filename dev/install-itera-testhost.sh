@@ -5,19 +5,30 @@
 # hand.
 #
 # Wired up as the flake package `install-itera-testhost` in `flake/test-host.nix`.
-# Usage (from the live ISO, as root):
+# The live ISO ships with flakes disabled and you need root to partition, so the
+# invocation has to enable the experimental features AND run as root:
 #
-#   nix run 'github:lcleveland/itera#install-itera-testhost'                 # pick from a menu
-#   nix run 'github:lcleveland/itera#install-itera-testhost' -- /dev/nvme0n1 # skip the menu
+#   sudo nix --extra-experimental-features 'nix-command flakes' \
+#     run 'github:lcleveland/itera#install-itera-testhost'                    # pick from a menu
+#   sudo nix --extra-experimental-features 'nix-command flakes' \
+#     run 'github:lcleveland/itera#install-itera-testhost' -- /dev/nvme0n1    # skip the menu
 #
 # Any extra arguments after the device are forwarded to disko-install. Override
 # the flake it installs from (e.g. a local clone) with the ITERA_INSTALL_FLAKE
-# environment variable, remembering to keep it in root's env:
+# environment variable, keeping it in root's env with `sudo env`:
 #
-#   sudo -E ITERA_INSTALL_FLAKE=. nix run '.#install-itera-testhost'
+#   sudo env ITERA_INSTALL_FLAKE=. nix --extra-experimental-features \
+#     'nix-command flakes' run '.#install-itera-testhost'
 #
 # writeShellApplication supplies `set -euo pipefail` and runs shellcheck, so this
 # file is plain bash with no preamble of its own.
+
+# The `--extra-experimental-features` flag only enables flakes for the outer
+# `nix run`; disko-install shells out to more `nix` commands that would fail the
+# same way. Export it so every child nix process inherits it (extra-* appends, so
+# any existing NIX_CONFIG is preserved).
+export NIX_CONFIG="extra-experimental-features = nix-command flakes
+${NIX_CONFIG:-}"
 
 FLAKE="${ITERA_INSTALL_FLAKE:-github:lcleveland/itera}"
 CONFIG="itera-testhost"
@@ -25,7 +36,9 @@ DISK_NAME="main"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "error: must run as root — this partitions and installs to a disk." >&2
-  echo "       re-run under sudo, e.g. 'sudo -E nix run <flake>#install-itera-testhost'." >&2
+  echo "       re-run under sudo, e.g.:" >&2
+  echo "         sudo nix --extra-experimental-features 'nix-command flakes' \\" >&2
+  echo "           run '<flake>#install-itera-testhost'" >&2
   exit 1
 fi
 
