@@ -6,8 +6,8 @@
 # comes along in full (core-boot, the disko disk layout, the tmpfs-root
 # impermanence, and the DankMaterialShell + mango desktop); all this file does is
 # supply the per-host bits the stack can't guess (a disko `device`, persisted
-# user paths), opt out of hardening, and declare a login user, so we can boot it
-# and poke at the real thing.
+# user paths) and declare a login user, so we can boot it and poke at the real
+# thing.
 #
 # It is wired up as `nixosConfigurations.itera-vm` in `flake/vm.nix`, and the
 # convenient way to run it is the disko interactive VM:
@@ -48,10 +48,11 @@
       ".cache"
     ];
 
-    # nix-mineral hardening (on by default) interferes with the graphical stack
-    # (see the README caveat; the desktop boot test disables it for the same
-    # reason).
-    hardening.enable = false;
+    # nix-mineral hardening is on by default. We deliberately LEAVE IT ON here
+    # to observe whether it actually interferes with the graphical stack
+    # (DMS/mango under virtio-gpu) — the README caveat is an assumption we've
+    # never tested. If the desktop won't come up, uncomment to opt out:
+    #   hardening.enable = false;
   };
 
   networking.hostName = lib.mkForce "itera-vm";
