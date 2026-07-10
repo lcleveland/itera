@@ -8,7 +8,8 @@
 # (disko + tmpfs-root impermanence + hardening + the DankMaterialShell + mango
 # desktop + Ghostty) on actual silicon. Because the stack is opt-out (on by
 # default), all this file supplies is the handful of per-host values the layer
-# can't guess, plus a login user.
+# can't guess; the login user is the shared `itera` account from
+# `dev/test-user.nix`.
 #
 # It is wired up as `nixosConfigurations.itera-testhost` in `flake/test-host.nix`.
 # Install it from a booted live ISO (as root), pointing `--disk main` at the REAL
@@ -38,15 +39,6 @@ _: {
     # never actually written to.
     disko.device = "/dev/disk/by-id/CHANGE-ME-disko-install-overrides-this";
 
-    # Wipe-every-boot tmpfs root (on by default), persisting only the curated set
-    # (logs, machine-id, SSH host keys, NetworkManager connections, …) plus the
-    # test user's home below, so logins/desktop state survive a reboot.
-    impermanence.users.tester.directories = [
-      ".config"
-      ".local/share"
-      ".cache"
-    ];
-
     # CPU vendor stays "auto" (both microcodes, no kvm-* module) for a
     # hardware-agnostic image. Set to "intel"/"amd" to also load the matching
     # kvm-* module for virtualization on this box:
@@ -58,14 +50,7 @@ _: {
     nix.stateVersion = "25.05";
   };
 
-  # ── A login user (via itera's account battery) ──────────────────────────
-  # `itera.users.<name>` creates the account AND enables hjem for it, so `tester`
-  # inherits every itera home battery (mango autostart → `dms run`, the DMS
-  # settings.json, the default keybinds) with the system-wide defaults. Log in as
-  # tester / tester (initialPassword defaults to the username — fine for a test
-  # box; this trips the expected "change before deploying" warning).
-  itera.users.tester = {
-    description = "itera test user";
-    initialPassword = "tester";
-  };
+  # The login user (the standardized `itera` account) and its persisted home live
+  # in the shared dev/test-user.nix, imported alongside this file in
+  # flake/test-host.nix.
 }

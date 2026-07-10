@@ -19,6 +19,8 @@
     modules = [
       inputs.self.nixosModules.default
       ../dev/vm.nix
+      # The standardized `itera` login user (dev-only, shared with the testhost).
+      ../dev/test-user.nix
       # SSH in + `itera-update` for in-place rebuilds (dev-only, shared with the
       # testhost). The QEMU host→guest port forward lives in dev/vm.nix.
       ../dev/remote-access.nix

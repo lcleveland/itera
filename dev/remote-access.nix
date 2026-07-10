@@ -22,8 +22,8 @@
 }:
 {
   # ── SSH daemon ────────────────────────────────────────────────────────────
-  # Password auth ON: these hosts log in as tester/tester and dev/dev (weak
-  # test passwords by design), so key setup would just be friction. Root login
+  # Password auth ON: both hosts log in as itera/itera (weak test password by
+  # design), so key setup would just be friction. Root login
   # stays OFF — sudo from the wheel user instead. Both toggles are mkForce'd so
   # they win over any nix-mineral hardening default (itera.hardening is on by
   # default on these hosts and hardens sshd).
