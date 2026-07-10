@@ -28,10 +28,28 @@ in
       # DankMaterialShell: desktop shell + greeter (powers `itera.desktop.dankMaterialShell`).
       inputs.dms.nixosModules.dank-material-shell
       inputs.dms.nixosModules.greeter
+      # lanzaboote: Secure Boot & measured boot (powers `itera.secureBoot`).
+      inputs.lanzaboote.nixosModules.lanzaboote
+      # agenix: declarative age secrets (powers `itera.secrets`).
+      inputs.agenix.nixosModules.default
+      # nixos-facter: declarative hardware detection (powers `itera.hardware.facter`).
+      inputs.nixos-facter-modules.nixosModules.facter
+      # nix-index-database: prebuilt nix-index DB + comma (powers `itera.nixIndex`).
+      inputs.nix-index-database.nixosModules.nix-index
+      # nix-flatpak: declarative Flatpak (powers `itera.desktop.flatpak`).
+      inputs.nix-flatpak.nixosModules.nix-flatpak
     ]
     # Auto-import every itera system feature/profile module.
     ++ iteraLib.modules.listNixModules ./.;
 
-  # Register itera's per-user home collection with hjem for every user.
-  config.hjem.extraModules = [ inputs.self.hjemModules.default ];
+  config = {
+    # Register itera's per-user home collection with hjem for every user.
+    hjem.extraModules = [ inputs.self.hjemModules.default ];
+
+    # Expose the flake `inputs` to the auto-imported feature modules (which
+    # otherwise only receive `{ config, lib, pkgs, ... }`). A few batteries need a
+    # package that lives in a flake input rather than nixpkgs — e.g. the agenix
+    # CLI — and reach it via this arg.
+    _module.args.iteraInputs = inputs;
+  };
 }

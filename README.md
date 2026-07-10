@@ -67,9 +67,14 @@ Or wire itera into an existing flake:
 Importing `itera.nixosModules.default` is all you need: it imports hjem for you
 and registers itera's per-user home collection into `hjem.extraModules`. It also
 bundles [disko](https://github.com/nix-community/disko),
-[impermanence](https://github.com/nix-community/impermanence) and
-[nix-mineral](https://github.com/cynicsketch/nix-mineral) — unlike hjem these
-are plain NixOS modules, so you do **not** add them as inputs or `follows` them.
+[impermanence](https://github.com/nix-community/impermanence),
+[nix-mineral](https://github.com/cynicsketch/nix-mineral),
+[lanzaboote](https://github.com/nix-community/lanzaboote),
+[agenix](https://github.com/ryantm/agenix),
+[nixos-facter](https://github.com/nix-community/nixos-facter-modules),
+[nix-index-database](https://github.com/nix-community/nix-index-database) and
+[nix-flatpak](https://github.com/gmodena/nix-flatpak) — unlike hjem these are
+plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 
 ### Core system defaults
 
@@ -252,21 +257,93 @@ keybinds / window rules via:
 > hjem revisions, evaluation fails. `inputs.hjem.follows = "hjem"` keeps them in
 > sync — this is the most common source of breakage.
 
+### Ecosystem integrations
+
+itera bundles a set of complementary NixOS projects as plain modules (no extra
+inputs on your side). Each is a thin `itera.*` wrapper; the underlying upstream
+options stay reachable for fine-tuning.
+
+| Option namespace            | Provides                                                | Default |
+| --------------------------- | ------------------------------------------------------- | ------- |
+| `itera.secrets`             | agenix declarative secrets (decrypted to `/run/agenix`) | on\*    |
+| `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on      |
+| `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on      |
+| `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on      |
+| `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on      |
+| `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off     |
+| `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off     |
+| `itera.hardware.facter`     | declarative hardware detection via nixos-facter         | off     |
+
+\* on, but inert until you declare a secret.
+
+```nix
+{
+  # Secrets — encrypted .age files, decrypted at activation using the host SSH
+  # key (which impermanence already persists):
+  itera.secrets.secrets.wifi-psk.file = ./secrets/wifi-psk.age;
+
+  # Virtualization — give your user libvirt access and pick a CPU for KVM:
+  itera.hardware.cpu = "amd";
+  itera.users.alice.extraGroups = [ "wheel" "networkmanager" "libvirtd" ];
+
+  # Opt-in batteries:
+  itera.desktop.flatpak = {
+    enable = true;
+    packages = [ "com.brave.Browser" ];
+  };
+  itera.hardware.facter.reportPath = ./facter.json; # generate per host, see below
+}
+```
+
+**Secure Boot** is the one deliberately opt-_in_ battery — it needs a one-time
+key enrollment with the firmware in setup mode, so it cannot be safely defaulted:
+
+```nix
+{ itera.secureBoot.enable = true; }
+```
+
+```sh
+sudo sbctl create-keys                 # generate keys (persisted at /var/lib/sbctl)
+sudo sbctl enroll-keys --microsoft     # firmware must be in setup mode
+sudo nixos-rebuild switch && reboot
+bootctl status                         # verify Secure Boot is active
+```
+
+Enabling it swaps systemd-boot for lanzaboote. **nixos-facter** likewise needs a
+per-host report — generate it with `nix run nixpkgs#nixos-facter -- -o facter.json`,
+commit it, and point `itera.hardware.facter.reportPath` at it. Both compose with
+impermanence automatically (Secure Boot keys, Flatpak apps, and libvirt VMs are
+added to the persisted set when their battery is on).
+
+For per-machine hardware quirks, itera also re-exports
+[nixos-hardware](https://github.com/NixOS/nixos-hardware) profiles (which are
+import-time selections, so they aren't auto-imported) — add yours alongside the
+main module:
+
+```nix
+{
+  modules = [
+    itera.nixosModules.default
+    itera.hardwareModules.framework-13-7040-amd
+  ];
+}
+```
+
 ## Structure
 
-| Path                     | Purpose                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| `flake.nix`              | flake-parts entry point; inputs + module imports                                            |
-| `flake/`                 | flake outputs, dev shell + formatter, checks                                                |
-| `lib/`                   | helpers (module auto-import)                                                                |
-| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                             |
-| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening` |
-| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter                  |
-| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                    |
-| `overlays/`              | `pkgs.itera.*` overlay                                                                      |
-| `pkgs/`                  | itera's own packages                                                                        |
-| `templates/`             | downstream starter flake                                                                    |
-| `tests/`                 | NixOS VM test harness for modules                                                           |
+| Path                     | Purpose                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                              |
+| `flake/`                 | flake outputs, dev shell + formatter, checks                                                                                                                  |
+| `lib/`                   | helpers (module auto-import)                                                                                                                                  |
+| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                               |
+| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation` |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `theme` (dark mode)                             |
+| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                      |
+| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                        |
+| `pkgs/`                  | itera's own packages                                                                                                                                          |
+| `templates/`             | downstream starter flake                                                                                                                                      |
+| `tests/`                 | NixOS VM test harness for modules                                                                                                                             |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files
