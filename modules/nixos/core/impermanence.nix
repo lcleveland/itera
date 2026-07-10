@@ -59,6 +59,12 @@ let
   # impermanence entries are either a bare path string or an attrset carrying
   # ownership/mode, for both the system- and per-user scopes.
   entryType = listOf (either str attrs);
+
+  # The effective set of persisted files (curated defaults + consumer additions),
+  # used to decide whether /etc/machine-id is being persisted (see the
+  # systemd-machine-id-commit handling in the config body).
+  persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ cfg.files;
+  machineIdPersisted = builtins.elem "/etc/machine-id" (map (f: f.file or f) persistedFiles);
 in
 {
   options.itera.impermanence = {
@@ -193,8 +199,22 @@ in
     environment.persistence.${cfg.persistRoot} = {
       hideMounts = mkDefault true;
       directories = (lib.optionals cfg.defaults.enable curatedDirectories) ++ cfg.directories;
-      files = (lib.optionals cfg.defaults.enable curatedFiles) ++ cfg.files;
+      files = persistedFiles;
       inherit (cfg) users;
     };
+
+    # nix-mineral shadow-bind-mounts /etc over the tmpfs root while impermanence
+    # bind-mounts the persisted /etc/machine-id on top. systemd-machine-id-commit
+    # write-and-unmounts /etc/machine-id on every boot systemd deems a "first
+    # boot" — which is EVERY boot on the reformat-on-boot dev VM, where /persist
+    # starts blank so impermanence seeds "uninitialized" each boot — and that
+    # unmount fails underneath the /etc shadow mount. The id is already written
+    # in place by systemd-machine-id-setup, so commit is redundant here. Only
+    # intervene when hardening's /etc shadow mount is present AND machine-id is
+    # persisted; real hosts keep a committed id from install (ConditionFirstBoot
+    # is false there), so the unit never runs regardless.
+    systemd.services.systemd-machine-id-commit.enable = mkIf (
+      config.nix-mineral.enable && machineIdPersisted
+    ) (mkDefault false);
   };
 }

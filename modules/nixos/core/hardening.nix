@@ -80,6 +80,14 @@ in
     nix-mineral = {
       enable = mkDefault true;
       preset = mkDefault cfg.preset;
+
+      # Kicksecure's generic-machine-id gives EVERY host the same static
+      # machine-id (b08dfa60…) via a read-only environment.etc entry. That
+      # defeats itera's requirement of a unique, persisted per-host machine-id
+      # and collides with impermanence's writable /persist bind mount (forcing
+      # systemd into the transient-overmount + failing commit path). Opt itera
+      # into unique per-host ids; a host wanting the generic id back can flip it.
+      settings.etc.generic-machine-id = mkDefault false;
     };
   };
 }
