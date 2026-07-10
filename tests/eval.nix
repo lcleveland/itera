@@ -30,6 +30,10 @@ let
             device = "/dev/vda";
           };
           impermanence.enable = true;
+
+          # A normal user account, so this eval exercises the default curated
+          # per-user home persistence (itera.impermanence.homes).
+          users.testuser = { };
         };
       }
     ];
@@ -43,6 +47,7 @@ let
   # { directory = ...; }); tolerate either shape.
   fileNames = map (f: f.file or f) persistence.files;
   dirNames = map (d: d.directory or d) persistence.directories;
+  userDirs = name: map (d: d.directory or d) persistence.users.${name}.directories;
 
   checks = {
     # disko + impermanence
@@ -54,6 +59,11 @@ let
       builtins.elem "/etc/NetworkManager/system-connections" dirNames;
     "NetworkManager runtime state is persisted" = builtins.elem "/var/lib/NetworkManager" dirNames;
     "timesyncd clock state is persisted" = builtins.elem "/var/lib/systemd/timesync" dirNames;
+
+    # per-user home persistence (itera.impermanence.homes, on by default)
+    "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
+    "user home .local/share persisted by default" = builtins.elem ".local/share" (userDirs "testuser");
+    "user home .cache persisted by default" = builtins.elem ".cache" (userDirs "testuser");
 
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;

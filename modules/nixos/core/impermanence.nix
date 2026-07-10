@@ -12,11 +12,20 @@
 # standalone; when this module is also enabled its `mkForce` tmpfs `/` wins and
 # that subvolume simply goes unused. The two features never reference each other.
 #
+# Home directories: a curated subset of every normal user's $HOME (`.config`,
+# `.local/share`, `.cache`) is persisted by default so desktop/login state
+# survives the wiped root with no per-user wiring. This reads the account set from
+# `config.users.users` (filtered to normal users) — the same cross-battery
+# introspection the module already does for secureBoot/flatpak/virtualisation —
+# and merges those curated paths with any explicit `itera.impermanence.users.<name>`
+# entries. Opt out via `homes.enable`.
+#
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
 # so it expects a real `/persist` mount to exist — `itera.disko`'s default layout
 # provides one. Set `itera.impermanence.enable = false` to keep a persistent
-# root. The curated persisted-path set is separately opt-out via `defaults.enable`.
+# root. The curated persisted-path set is separately opt-out via `defaults.enable`,
+# and per-user home persistence via `homes.enable`.
 {
   config,
   lib,
@@ -24,7 +33,12 @@
 }:
 let
   inherit (lib.options) mkOption;
-  inherit (lib.modules) mkIf mkDefault mkForce;
+  inherit (lib.modules)
+    mkIf
+    mkDefault
+    mkForce
+    mkMerge
+    ;
   inherit (lib.types)
     enum
     str
@@ -65,6 +79,13 @@ let
   # systemd-machine-id-commit handling in the config body).
   persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ cfg.files;
   machineIdPersisted = builtins.elem "/etc/machine-id" (map (f: f.file or f) persistedFiles);
+
+  # Curated per-user home persistence: apply `cfg.homes.{directories,files}` to
+  # every normal user's home. Keyed on `config.users.users` so both itera.users
+  # accounts and plain users.users normal users are covered. Merged (not replacing)
+  # with any explicit `cfg.users.<name>` in the config body below.
+  homeUsers = lib.filterAttrs (_: u: u.isNormalUser) config.users.users;
+  autoUsers = lib.mapAttrs (_: _: { inherit (cfg.homes) directories files; }) homeUsers;
 in
 {
   options.itera.impermanence = {
@@ -112,6 +133,34 @@ in
         keys, NetworkManager connections, and clock state). Set to `false` to
         persist only what you declare explicitly.
       '';
+    };
+
+    homes = {
+      enable = mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Persist a curated subset of every normal user's home directory across
+          reboots. Set to `false` to persist nothing from homes unless you declare
+          it explicitly under {option}`itera.impermanence.users.<name>`.
+        '';
+      };
+
+      directories = mkOption {
+        type = entryType;
+        default = [
+          ".config"
+          ".local/share"
+          ".cache"
+        ];
+        description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
+      };
+
+      files = mkOption {
+        type = entryType;
+        default = [ ];
+        description = "Home-relative files persisted for each user when {option}`homes.enable` is set.";
+      };
     };
 
     directories = mkOption {
@@ -208,7 +257,14 @@ in
         ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
         ++ cfg.directories;
       files = persistedFiles;
-      inherit (cfg) users;
+      # Curated per-user home persistence (when homes.enable) merged with any
+      # explicit itera.impermanence.users.<name>. The impermanence `users`
+      # submodule's directories/files are list options, so both definitions
+      # concatenate — explicit entries ADD to the curated default, not replace it.
+      users = mkMerge [
+        cfg.users
+        (mkIf cfg.homes.enable autoUsers)
+      ];
     };
 
     # nix-mineral shadow-bind-mounts /etc over the tmpfs root while impermanence
