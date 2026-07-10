@@ -130,6 +130,7 @@
         ./flake/devshell.nix
         ./flake/checks.nix
         ./flake/vm.nix
+        ./flake/test-host.nix
       ];
     };
 }
