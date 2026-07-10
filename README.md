@@ -269,6 +269,7 @@ options stay reachable for fine-tuning.
 | `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on      |
 | `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on      |
 | `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on      |
+| `itera.desktop.browser`     | ungoogled-chromium (default web handler + `SUPER+b`)    | on      |
 | `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on      |
 | `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off     |
 | `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off     |
@@ -411,21 +412,21 @@ A few itera-specific notes:
 
 ## Structure
 
-| Path                     | Purpose                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                              |
-| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                           |
-| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                   |
-| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer)                                 |
-| `lib/`                   | helpers (module auto-import)                                                                                                                                  |
-| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                               |
-| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation` |
-| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `theme` (dark mode)                             |
-| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                      |
-| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                        |
-| `pkgs/`                  | itera's own packages                                                                                                                                          |
-| `templates/`             | downstream starter flake                                                                                                                                      |
-| `tests/`                 | NixOS VM test harness for modules                                                                                                                             |
+| Path                     | Purpose                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                  |
+| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                               |
+| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                       |
+| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer)                                     |
+| `lib/`                   | helpers (module auto-import)                                                                                                                                      |
+| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                   |
+| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`     |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (ungoogled-chromium), `theme` (dark mode) |
+| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                          |
+| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                            |
+| `pkgs/`                  | itera's own packages                                                                                                                                              |
+| `templates/`             | downstream starter flake                                                                                                                                          |
+| `tests/`                 | NixOS VM test harness for modules                                                                                                                                 |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files

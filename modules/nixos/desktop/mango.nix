@@ -300,6 +300,16 @@ let
     };
   };
 
+  browserBind = lib.optionalAttrs (cfg.commands.browser != null) {
+    browser = {
+      modifierKeys = [ "SUPER" ];
+      flagModifiers = [ "s" ];
+      keySymbol = "b";
+      mangoCommand = "spawn";
+      commandArguments = cfg.commands.browser;
+    };
+  };
+
   defaultKeybinds =
     tagBinds
     // directionalBinds
@@ -307,7 +317,8 @@ let
     // mediaBinds
     // dmsBinds
     // terminalBind
-    // fileBrowserBind;
+    // fileBrowserBind
+    // browserBind;
 in
 {
   options.itera.desktop.mango = {
@@ -329,6 +340,16 @@ in
         default = null;
         example = "foot -e yazi";
         description = "Command SUPER+f spawns. `null` (default) adds no file-browser keybind.";
+      };
+
+      browser = mkOption {
+        type = nullOr str;
+        default = null;
+        example = "firefox";
+        description = ''
+          Command SUPER+b spawns. `null` (default) adds no browser keybind
+          (name one, or enable `itera.desktop.browser`, to get the bind).
+        '';
       };
     };
 
