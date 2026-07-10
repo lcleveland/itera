@@ -34,6 +34,13 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the ecosystem-integration batteries (agenix,
+          # nix-index, virtualisation, Nemo, Secure Boot, Flatpak, facter).
+          integrations-eval = import ../tests/integrations-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }

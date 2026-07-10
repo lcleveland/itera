@@ -198,7 +198,15 @@ in
 
     environment.persistence.${cfg.persistRoot} = {
       hideMounts = mkDefault true;
-      directories = (lib.optionals cfg.defaults.enable curatedDirectories) ++ cfg.directories;
+      directories =
+        (lib.optionals cfg.defaults.enable curatedDirectories)
+        # Persist state owned by other itera batteries when they are on, so their
+        # data survives the wiped root: Secure Boot signing keys, Flatpak installs,
+        # and libvirt VM domains/pools/nvram.
+        ++ lib.optional config.itera.secureBoot.enable config.itera.secureBoot.pkiBundle
+        ++ lib.optional config.itera.desktop.flatpak.enable "/var/lib/flatpak"
+        ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
+        ++ cfg.directories;
       files = persistedFiles;
       inherit (cfg) users;
     };

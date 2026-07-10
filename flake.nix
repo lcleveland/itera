@@ -67,6 +67,51 @@
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Secure Boot & measured boot for UEFI. itera bundles its NixOS module (see
+    # modules/nixos) so a consumer never adds it as an input themselves. Powers
+    # `itera.secureBoot`.
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # lanzaboote's rust toolchain inputs (crane, rust-overlay, pre-commit) have
+      # no itera counterpart, so they stay unfollowed. It has no flake-parts input.
+    };
+
+    # Declarative age-encrypted secrets. itera bundles its NixOS module (see
+    # modules/nixos). Powers `itera.secrets`.
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # agenix's darwin/home-manager inputs feed modules itera never imports, so
+      # they stay unfollowed.
+    };
+
+    # Declarative hardware detection. Assumes disko (which itera uses). itera
+    # bundles its NixOS module (see modules/nixos). Powers `itera.hardware.facter`.
+    # Pure modules — no inputs to follow.
+    nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
+
+    # Weekly-updated nix-index database + comma. itera bundles its NixOS module
+    # (see modules/nixos). Powers `itera.nixIndex`.
+    nix-index-database = {
+      url = "github:nix-community/nix-index-database";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Declarative Flatpak management. itera bundles its NixOS module (see
+    # modules/nixos). Powers `itera.desktop.flatpak`. It has no nixpkgs input to
+    # follow.
+    nix-flatpak.url = "github:gmodena/nix-flatpak";
+
+    # Per-machine hardware quirk profiles. NOT bundled/auto-imported — profiles
+    # are import-time selections the module system can't toggle from config — so
+    # it is re-exported via flake/outputs.nix instead, letting a consumer add
+    # their board's profile without adding this as their own input.
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

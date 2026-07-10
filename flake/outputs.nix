@@ -15,6 +15,14 @@
     hjemModules.itera = import ../modules/hjem;
     hjemModules.default = inputs.self.hjemModules.itera;
 
+    # Per-machine hardware quirk profiles, re-exported from nixos-hardware.
+    # These are import-time board selections the module system can't toggle from
+    # config, so unlike itera's other bundled projects they are not auto-imported.
+    # A consumer picks their board without adding nixos-hardware as their own
+    # input, e.g.:
+    #   imports = [ itera.nixosModules.default itera.hardwareModules.framework-13-7040-amd ];
+    hardwareModules = inputs.nixos-hardware.nixosModules;
+
     # Package overlay (exposes `pkgs.itera.*`); passthrough until packages land.
     overlays.default = import ../overlays inputs;
 

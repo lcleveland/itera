@@ -70,6 +70,23 @@
               #   hardware.enable = false;
               #   disko.enable = false;
               #   impermanence.enable = false;
+
+              # Ecosystem batteries. ON by default (opt-out):
+              #   secrets           agenix declarative secrets (inert until used):
+              #     secrets.secrets.wifi-psk.file = ./secrets/wifi-psk.age;
+              #   nixIndex          command-not-found + `comma` (`,`)
+              #   virtualisation    QEMU/KVM via libvirt + virt-manager GUI (add
+              #     "libvirtd" to the user's extraGroups below; set hardware.cpu
+              #     to "intel"/"amd" for KVM acceleration)
+              #   desktop.fileManager   Nemo file manager
+              #   desktop.theme         dark mode for GTK/Flatpak apps
+              #                         (theme.dark = false for a light session)
+              #
+              # OFF by default (opt-in):
+              #   secureBoot.enable = true;      # then: sbctl create-keys && sbctl enroll-keys
+              #   desktop.flatpak.enable = true; # declarative Flatpak (Flathub)
+              #   desktop.flatpak.packages = [ "com.brave.Browser" ];
+              #   hardware.facter.reportPath = ./facter.json; # nix run nixpkgs#nixos-facter -- -o facter.json
             };
 
             # A login user via itera's account battery. `itera.users.<name>`
