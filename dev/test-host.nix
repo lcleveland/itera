@@ -19,8 +19,7 @@
 #
 # This file is dev-only tooling; it is NOT part of `nixosModules.default` and a
 # downstream consumer never sees it.
-_:
-{
+_: {
   # ── The full itera stack (opt-out: on by default) ───────────────────────
   # disko, impermanence, hardening, and the desktop are all on by default; we
   # only fill in what they need for a real machine. Unlike `dev/vm.nix`, there

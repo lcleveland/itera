@@ -66,6 +66,11 @@ let
     "nemo is the default directory handler" =
       base.xdg.mime.defaultApplications."inode/directory" == "nemo.desktop";
 
+    # --- ungoogled-chromium browser (default on) ---
+    "chromium is the default https handler" =
+      base.xdg.mime.defaultApplications."x-scheme-handler/https" == "chromium-browser.desktop";
+    "browser keybind command is wired" = base.itera.desktop.mango.commands.browser == "chromium";
+
     # --- dark mode by default ---
     "GTK apps default to dark" = base.environment.sessionVariables.GTK_THEME == "Adwaita:dark";
     "DMS shell defaults to dark (portal sync off)" =
