@@ -20,6 +20,8 @@
     modules = [
       inputs.self.nixosModules.default
       ../dev/test-host.nix
+      # The standardized `itera` login user (dev-only, shared with the VM).
+      ../dev/test-user.nix
       # SSH in + `itera-update` for in-place rebuilds (dev-only, shared with the VM).
       ../dev/remote-access.nix
     ];

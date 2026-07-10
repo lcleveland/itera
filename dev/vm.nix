@@ -5,9 +5,9 @@
 # concrete, VM-bootable system. itera's stack is opt-out (on by default), so it
 # comes along in full (core-boot, the disko disk layout, the tmpfs-root
 # impermanence, and the DankMaterialShell + mango desktop); all this file does is
-# supply the per-host bits the stack can't guess (a disko `device`, persisted
-# user paths) and declare a login user, so we can boot it and poke at the real
-# thing.
+# supply the per-host bits the stack can't guess (a disko `device`, QEMU tuning),
+# so we can boot it and poke at the real thing. The login user is the shared
+# `itera` account from `dev/test-user.nix`.
 #
 # It is wired up as `nixosConfigurations.itera-vm` in `flake/vm.nix`, and the
 # convenient way to run it is the disko interactive VM:
@@ -65,16 +65,10 @@ in
     disko.device = "/dev/vda";
 
     # Wipe-every-boot tmpfs root (on by default), persisting only the curated set
-    # (+ the dev user's home). If the shared-host-nix-store interaction misbehaves
-    # at boot, set `impermanence.enable = false` to still exercise disko + the
-    # desktop, then re-add.
-    impermanence.users.dev.directories = [
-      # Persist the dev user's home across the tmpfs-root wipe so logins/desktop
-      # state survive a reboot (everything else outside /persist is ephemeral).
-      ".config"
-      ".local/share"
-      ".cache"
-    ];
+    # (+ the shared `itera` user's home, set in dev/test-user.nix). If the
+    # shared-host-nix-store interaction misbehaves at boot, set
+    # `impermanence.enable = false` to still exercise disko + the desktop, then
+    # re-add.
 
     # nix-mineral hardening is on by default. We deliberately LEAVE IT ON here
     # to observe whether it actually interferes with the graphical stack
@@ -101,16 +95,8 @@ in
   # this wrapper on PATH).
   itera.desktop.terminal.package = ghosttyVmSoftGl;
 
-  # ── A login user (via itera's account battery) ──────────────────────────
-  # `itera.users.<name>` creates the account AND enables hjem for it, so `dev`
-  # inherits every itera home battery (mango autostart → `dms run`, the DMS
-  # settings.json, the default keybinds) with the system-wide defaults. Log in
-  # as dev / dev (initialPassword defaults to the username — fine for a dev VM;
-  # this trips the expected "change before deploying" warning).
-  itera.users.dev = {
-    description = "itera test user";
-    initialPassword = "dev";
-  };
+  # The login user (the standardized `itera` account) and its persisted home live
+  # in the shared dev/test-user.nix, imported alongside this file in flake/vm.nix.
 
   # ── Disk / VM sizing ─────────────────────────────────────────────────────
   # Size of the blank qcow2 disko builds for the VM, and the guest RAM the
@@ -135,7 +121,7 @@ in
       cores = 4;
       # QEMU user-mode networking isn't reachable from the host by default, so
       # forward host :2222 to the guest's sshd (dev/remote-access.nix) — then
-      # `ssh -p 2222 dev@localhost` (password `dev`) gets you a shell in the VM.
+      # `ssh -p 2222 itera@localhost` (password `itera`) gets you a shell in the VM.
       forwardPorts = [
         {
           from = "host";
@@ -165,11 +151,11 @@ in
 
   # ── Fallback if the DMS greetd greeter won't render under virtio-gpu ──────
   # The greeter needs a real seat and may not come up in the VM. If login never
-  # appears, drop the greeter and autologin `dev` on tty1 straight into a mango
+  # appears, drop the greeter and autologin `itera` on tty1 straight into a mango
   # session (mango's autostart then launches dms):
   #
   #   itera.desktop.dankMaterialShell.greeter.enable = false;
-  #   services.getty.autologinUser = "dev";
+  #   services.getty.autologinUser = "itera";
   #   programs.bash.loginShellInit = ''
   #     if [ "$(tty)" = "/dev/tty1" ]; then exec mango; fi
   #   '';
