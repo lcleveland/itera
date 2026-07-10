@@ -372,6 +372,13 @@ nix run 'github:nix-community/disko#disko-install' -- \
   --flake 'github:lcleveland/itera#itera-testhost' --disk main /dev/nvme0n1
 ```
 
+Or skip picking the device by hand and use the interactive installer, which
+lists the machine's disks, confirms the wipe, and runs the command above for you:
+
+```sh
+nix run 'github:lcleveland/itera#install-itera-testhost'
+```
+
 A few itera-specific notes:
 
 - **The root is an ephemeral tmpfs** (`itera.impermanence`, on by default), so
