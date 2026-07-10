@@ -374,16 +374,26 @@ nix run 'github:nix-community/disko#disko-install' -- \
 
 Or skip picking the device by hand and use the interactive installer, which
 lists the machine's disks, confirms the wipe, and runs the command above for you.
-The live ISO ships with flakes disabled and partitioning needs root, so enable
-the experimental features and run it under `sudo`:
+The shortest way is the remote bootstrap — nothing to clone, nothing to type
+twice:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lcleveland/itera/main/install-testhost.sh | sudo bash
+```
+
+Pass a device to skip the menu: `… | sudo bash -s -- /dev/nvme0n1`. Prefer to
+invoke `nix` yourself? The bootstrap is just a shortcut for:
 
 ```sh
 sudo nix --extra-experimental-features 'nix-command flakes' \
   run 'github:lcleveland/itera#install-itera-testhost'
 ```
 
-(The installer re-exports the experimental features into `NIX_CONFIG` so the
-`nix` commands disko-install runs internally inherit them too.)
+(The live ISO ships with flakes disabled and partitioning needs root, hence the
+`sudo` and the experimental-features flag. The installer re-exports those into
+`NIX_CONFIG` so the `nix` commands disko-install runs internally inherit them,
+and reads its prompts from `/dev/tty` so the `curl | bash` pipe doesn't eat
+them.)
 
 A few itera-specific notes:
 
@@ -404,8 +414,9 @@ A few itera-specific notes:
 | Path                     | Purpose                                                                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                              |
+| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                           |
 | `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                   |
-| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host)                                                                          |
+| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer)                                 |
 | `lib/`                   | helpers (module auto-import)                                                                                                                                  |
 | `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                               |
 | `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation` |

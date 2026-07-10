@@ -34,6 +34,15 @@ FLAKE="${ITERA_INSTALL_FLAKE:-github:lcleveland/itera}"
 CONFIG="itera-testhost"
 DISK_NAME="main"
 
+# Read interactive answers from the controlling terminal, not stdin: when this is
+# reached through the install-testhost.sh bootstrap (`curl … | sudo bash`), stdin
+# is the piped script, so a plain `read` would hit EOF instead of the keyboard.
+if [ -r /dev/tty ]; then
+  TTY=/dev/tty
+else
+  TTY=/dev/stdin
+fi
+
 if [ "$(id -u)" -ne 0 ]; then
   echo "error: must run as root — this partitions and installs to a disk." >&2
   echo "       re-run under sudo, e.g.:" >&2
@@ -80,7 +89,7 @@ if [ -z "$device" ]; then
   done
   echo
   printf "Enter a number [1-%d]: " "${#names[@]}"
-  read -r choice
+  read -r choice <"$TTY"
 
   case "$choice" in
     '' | *[!0-9]*)
@@ -101,7 +110,7 @@ lsblk -pno NAME,SIZE,TYPE,MOUNTPOINTS "$device" 2>/dev/null || true
 echo
 echo "This ERASES ALL DATA on $device. There is no undo."
 printf "Type the device path exactly to confirm (%s): " "$device"
-read -r confirm
+read -r confirm <"$TTY"
 if [ "$confirm" != "$device" ]; then
   echo "aborted: confirmation did not match." >&2
   exit 1
