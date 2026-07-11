@@ -1,7 +1,7 @@
 # Evaluation check for itera's shell battery: zsh (Oh My Zsh + spaceship,
 # autosuggestions, syntax highlighting, shared history, default login shell) and
-# its companion tools (fzf + fzf-tab, zoxide, atuin, pay-respects, zellij, and the
-# CLI-replacement aliases eza/bat/ripgrep/fd/procs/duf/gping/lazygit).
+# its companion tools (fzf + fzf-tab, zoxide, atuin, direnv, pay-respects, zellij,
+# and the CLI-replacement aliases eza/bat/ripgrep/fd/procs/duf/gping/lazygit).
 #
 # Like the other *-eval checks, we evaluate two NixOS configurations — one at
 # defaults, one with zsh turned off — and assert the generated config. `nix build`
@@ -68,6 +68,14 @@ let
     "pay-respects init is sourced" =
       lib.hasInfix "pay-respects zsh" base.programs.zsh.interactiveShellInit;
 
+    # --- direnv + nix-direnv (default on), zsh hook gated on the zsh battery ---
+    "direnv is enabled" = base.programs.direnv.enable;
+    "nix-direnv is enabled" = base.programs.direnv.nix-direnv.enable;
+    "direnv zsh integration is on" = base.programs.direnv.enableZshIntegration;
+    "direnv hook is sourced" = lib.hasInfix "hook zsh" base.programs.zsh.interactiveShellInit;
+    "keep-outputs retained for nix-direnv" = base.nix.settings.keep-outputs == true;
+    "keep-derivations retained for nix-direnv" = base.nix.settings.keep-derivations == true;
+
     # --- CLI-replacement aliases (default on) ---
     "ls -> eza" = base.programs.zsh.shellAliases.ls == "eza --icons";
     "cat -> bat" = base.programs.zsh.shellAliases.cat == "bat";
@@ -83,6 +91,7 @@ let
     "zsh off -> login shell is not zsh" = (zshOff.users.defaultUserShell.pname or "") != "zsh";
     "zsh off -> no shell aliases" = !(zshOff.programs.zsh.shellAliases ? ls);
     "zsh off -> no init hooks" = !(lib.hasInfix "zoxide init" zshOff.programs.zsh.interactiveShellInit);
+    "zsh off -> direnv zsh hook drops" = !zshOff.programs.direnv.enableZshIntegration;
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
