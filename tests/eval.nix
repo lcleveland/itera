@@ -84,6 +84,12 @@ let
     "machine-id is not a static generic id" = !(cfg.environment.etc ? "machine-id");
     "machine-id commit is disabled under hardening" =
       cfg.systemd.services.systemd-machine-id-commit.enable == false;
+    # Stable MAC (not nix-mineral's per-connection random) so the DHCP lease/IP
+    # stays constant across reboots.
+    "MAC address is stable, not randomized" =
+      cfg.networking.networkmanager.wifi.macAddress == "stable"
+      && cfg.networking.networkmanager.ethernet.macAddress == "stable";
+    "nix-mineral random-mac is disabled" = cfg.nix-mineral.settings.network.random-mac == false;
 
     # binary-cache battery (auto-on with itera.enable)
     "nix-community substituter is configured" =

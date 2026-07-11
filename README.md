@@ -91,7 +91,7 @@ own, to boot and rebuild a machine with no generated `hardware-configuration.nix
 | `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
 | `itera.nix.cache`  | extra binary-cache substituters (nix-community) for faster builds     |
 | `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
-| `itera.networking` | hostname, NetworkManager                                              |
+| `itera.networking` | hostname, NetworkManager, stable MAC (constant IP across reboots)     |
 | `itera.hardening`  | nix-mineral system hardening (kernel/network sysctls, lockdown, …)    |
 
 Every value is a `mkDefault`, so override any of them individually:
