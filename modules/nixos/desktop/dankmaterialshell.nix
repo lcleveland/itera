@@ -99,6 +99,16 @@ in
 
       programs.dank-material-shell.enable = mkDefault true;
 
+      # DMS turns on geoclue (`services.geoclue2.enable`) for its location-aware
+      # features. geoclue's network backend reaches for avahi, which itera
+      # otherwise leaves off — so every boot it logs "Failed to connect to avahi
+      # service: Daemon not running". Enable avahi to satisfy the dependency
+      # (and get `.local`/mDNS resolution as a bonus). mkDefault so a host that
+      # would rather drop location can instead set `services.geoclue2.enable`
+      # (or this) to false. Note: this runs an mDNS responder — acceptable for a
+      # desktop, but flip off if you want zero LAN broadcast on a hardened box.
+      services.avahi.enable = mkDefault true;
+
       # itera's curated system-wide DMS defaults. Kept intentionally small —
       # pin the settings schema version DMS expects and a couple of opinionated
       # choices; everything else is left to DMS's own runtime defaults. Each key
@@ -128,6 +138,37 @@ in
       # Default the post-login session picker to the mango session that the mango
       # module registers with the display manager.
       services.displayManager.defaultSession = mkDefault "mango";
+
+      # The nixpkgs greetd module runs the greeter as the `greeter` user with
+      # home `/var/empty` (read-only). The greeter session (mango + Quickshell)
+      # starts wireplumber, and the greetd PAM stack starts gnome-keyring — both
+      # write under $HOME and fail every boot ("failed to create directory
+      # /var/empty/.local/state/wireplumber", "unable to create keyring dir").
+      # Point the greeter at a writable, ephemeral home on tmpfs: a greeter keeps
+      # no state, so /run (wiped each boot) is the right place and needs no
+      # impermanence persistence.
+      users.users.greeter.home = lib.mkForce "/run/greeter-home";
+      systemd.tmpfiles.settings."10-itera-greeter"."/run/greeter-home".d = {
+        user = "greeter";
+        group = "greeter";
+        mode = "0700";
+      };
+
+      # Survive the GPU/DRM startup race. greetd has no ordering dependency on
+      # the DRM device, so on some boots the mango greeter starts before
+      # /dev/dri/cardN exists, logs "Found 0 GPUs, cannot create backend", and
+      # exits. greetd restarts on that (Restart=on-success) — but the upstream
+      # cadence (RestartSec≈100ms, StartLimitBurst=5 over 10s) burns all five
+      # retries in ~0.5s, well before a device that appears a couple seconds
+      # later, leaving the login manager permanently dead (`start-limit-hit`,
+      # system `degraded`) until a manual restart. Space retries out and never
+      # give up permanently, so the greeter simply reappears once the GPU is
+      # ready. RestartSec also gates the normal post-logout restart, so keep it
+      # short.
+      systemd.services.greetd = {
+        serviceConfig.RestartSec = mkDefault "1s";
+        startLimitIntervalSec = mkDefault 0;
+      };
     })
   ]);
 }
