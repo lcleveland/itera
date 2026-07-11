@@ -153,6 +153,22 @@ in
         group = "greeter";
         mode = "0700";
       };
+
+      # Survive the GPU/DRM startup race. greetd has no ordering dependency on
+      # the DRM device, so on some boots the mango greeter starts before
+      # /dev/dri/cardN exists, logs "Found 0 GPUs, cannot create backend", and
+      # exits. greetd restarts on that (Restart=on-success) — but the upstream
+      # cadence (RestartSec≈100ms, StartLimitBurst=5 over 10s) burns all five
+      # retries in ~0.5s, well before a device that appears a couple seconds
+      # later, leaving the login manager permanently dead (`start-limit-hit`,
+      # system `degraded`) until a manual restart. Space retries out and never
+      # give up permanently, so the greeter simply reappears once the GPU is
+      # ready. RestartSec also gates the normal post-logout restart, so keep it
+      # short.
+      systemd.services.greetd = {
+        serviceConfig.RestartSec = mkDefault "1s";
+        startLimitIntervalSec = mkDefault 0;
+      };
     })
   ]);
 }
