@@ -84,6 +84,10 @@ let
     "machine-id is not a static generic id" = !(cfg.environment.etc ? "machine-id");
     "machine-id commit is disabled under hardening" =
       cfg.systemd.services.systemd-machine-id-commit.enable == false;
+    # ...but the id is still persisted (via activation script) so it stays stable
+    # across reboots instead of regenerating and churning the NM MAC / DHCP IP.
+    "machine-id is persisted despite masked commit" =
+      cfg.system.activationScripts ? iteraPersistMachineId;
     # Stable MAC (not nix-mineral's per-connection random) so the DHCP lease/IP
     # stays constant across reboots.
     "MAC address is stable, not randomized" =

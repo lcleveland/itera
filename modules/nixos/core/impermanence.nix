@@ -270,15 +270,34 @@ in
     # nix-mineral shadow-bind-mounts /etc over the tmpfs root while impermanence
     # bind-mounts the persisted /etc/machine-id on top. systemd-machine-id-commit
     # write-and-unmounts /etc/machine-id on every boot systemd deems a "first
-    # boot" — which is EVERY boot on the reformat-on-boot dev VM, where /persist
-    # starts blank so impermanence seeds "uninitialized" each boot — and that
-    # unmount fails underneath the /etc shadow mount. The id is already written
-    # in place by systemd-machine-id-setup, so commit is redundant here. Only
-    # intervene when hardening's /etc shadow mount is present AND machine-id is
-    # persisted; real hosts keep a committed id from install (ConditionFirstBoot
-    # is false there), so the unit never runs regardless.
+    # boot" — which is EVERY boot until a committed id lands in /persist, and the
+    # unmount fails underneath the /etc shadow mount (fatal on the reformat-on-
+    # boot dev VM). So mask commit when the /etc shadow mount is present AND
+    # machine-id is persisted, and do the persist ourselves below.
     systemd.services.systemd-machine-id-commit.enable = mkIf (
       config.nix-mineral.enable && machineIdPersisted
     ) (mkDefault false);
+
+    # Masking commit means systemd never writes the first-boot machine-id back to
+    # /persist — a fresh disko install ships /persist/etc/machine-id as the literal
+    # "uninitialized", so systemd-machine-id-setup generates a NEW random id on
+    # every boot. That churns everything seeded by the machine-id, notably
+    # NetworkManager's stable cloned-MAC — and therefore the DHCP client-id and the
+    # leased IP, so the host grabs a new address on every reboot. Persist it here
+    # without commit's unmount: once systemd has put a valid transient id in place,
+    # copy it into the persist root so the NEXT boot reads a stable id. Writing the
+    # backing file directly (not through the bind/overmount) avoids the unmount that
+    # broke commit. Idempotent — only fires while the persisted value is not yet a
+    # 32-hex id, i.e. once on first boot, then never again.
+    system.activationScripts.iteraPersistMachineId =
+      mkIf (config.nix-mineral.enable && machineIdPersisted)
+        ''
+          persisted="${cfg.persistRoot}/etc/machine-id"
+          current="$(cat /etc/machine-id 2>/dev/null || true)"
+          stored="$(cat "$persisted" 2>/dev/null || true)"
+          if [ "''${#current}" -eq 32 ] && [ "''${#stored}" -ne 32 ]; then
+            printf '%s\n' "$current" > "$persisted"
+          fi
+        '';
   };
 }
