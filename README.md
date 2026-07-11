@@ -274,6 +274,7 @@ options stay reachable for fine-tuning.
 | `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off     |
 | `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off     |
 | `itera.hardware.facter`     | declarative hardware detection via nixos-facter         | off     |
+| `itera.nvidia`              | NVIDIA drivers (open module, container toolkit, PRIME)  | off     |
 
 \* on, but inert until you declare a secret.
 
@@ -315,6 +316,33 @@ per-host report — generate it with `nix run nixpkgs#nixos-facter -- -o facter.
 commit it, and point `itera.hardware.facter.reportPath` at it. Both compose with
 impermanence automatically (Secure Boot keys, Flatpak apps, and libvirt VMs are
 added to the persisted set when their battery is on).
+
+**NVIDIA** is opt-in too — the drivers are unfree and hardware-specific, so they
+can't be defaulted on for a hardware-agnostic image. A single switch turns on the
+kernel module, `hardware.graphics`, the `nvidia` video driver, nvidia-settings,
+the container toolkit, and the Wayland cursor workaround:
+
+```nix
+{ itera.nvidia.enable = true; }
+```
+
+The open kernel module is the default (`itera.nvidia.open = true`; set `false`
+for the proprietary module on pre-Turing GPUs). For laptop hybrid graphics, opt
+into PRIME and supply the two PCI bus IDs from `lspci` — offload is the default,
+mutually exclusive with sync:
+
+```nix
+{
+  itera.nvidia = {
+    enable = true;
+    prime = {
+      enable = true;
+      intelBusId = "PCI:0:2:0";
+      nvidiaBusId = "PCI:1:0:0";
+    };
+  };
+}
+```
 
 For per-machine hardware quirks, itera also re-exports
 [nixos-hardware](https://github.com/NixOS/nixos-hardware) profiles (which are
