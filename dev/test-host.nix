@@ -39,6 +39,14 @@ _: {
     # never actually written to.
     disko.device = "/dev/disk/by-id/CHANGE-ME-disko-install-overrides-this";
 
+    # A swap partition sized above this box's RAM (~16 GiB) so the test host
+    # exercises hibernation end-to-end: with swap present, itera.disko.resume
+    # (on by default) wires boot.resumeDevice to this partition and the systemd
+    # initrd emits the matching `resume=` kernel param, so `systemctl hibernate`
+    # works. disko only lays this partition down at install time, so a machine
+    # installed before this was added needs a fresh disko-install to gain it.
+    disko.swapSize = "20G";
+
     # CPU vendor stays "auto" (both microcodes, no kvm-* module) for a
     # hardware-agnostic image. Set to "intel"/"amd" to also load the matching
     # kvm-* module for virtualization on this box:
