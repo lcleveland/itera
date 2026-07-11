@@ -84,14 +84,17 @@ in
 
     resume = mkOption {
       type = bool;
-      default = true;
+      default = cfg.swapSize != "";
+      defaultText = lib.literalExpression ''config.itera.disko.swapSize != ""'';
       description = ''
-        When a swap partition is declared ({option}`itera.disko.swapSize` set),
-        also register it as the hibernation resume device
+        Register the swap partition as the hibernation resume device
         ({option}`boot.resumeDevice`), so {command}`systemctl hibernate` works out
-        of the box. On by default; inert when no swap partition exists. Set to
-        `false` to create swap without wiring suspend-to-disk (e.g. swap purely for
-        memory pressure), or when you drive {option}`boot.resumeDevice` yourself.
+        of the box. Gated on swap: it defaults to `true` exactly when a swap
+        partition is declared ({option}`itera.disko.swapSize` set) and to `false`
+        otherwise, so hibernation is never wired up without a real device to
+        resume from. Set to `false` to create swap without wiring suspend-to-disk
+        (e.g. swap purely for memory pressure), or when you drive
+        {option}`boot.resumeDevice` yourself.
       '';
     };
   };

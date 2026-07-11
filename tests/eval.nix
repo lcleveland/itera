@@ -127,7 +127,9 @@ let
     "nix-community substituter is configured" =
       builtins.elem "https://nix-community.cachix.org" cfg.nix.settings.extra-substituters;
 
-    # hibernation resume wiring (itera.disko.resume, default on when swap exists)
+    # hibernation resume wiring (itera.disko.resume, gated on swap being set)
+    "resume is gated off without a swap partition" = cfg.itera.disko.resume == false;
+    "resume defaults on when a swap partition is set" = swapOn.itera.disko.resume == true;
     "no resumeDevice without a swap partition" = cfg.boot.resumeDevice == "";
     "swap partition registers a resume device" = swapOn.boot.resumeDevice != "";
     "resumeDevice matches a real swap device" = builtins.any (
