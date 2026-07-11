@@ -68,6 +68,19 @@ let
     itera.disko.resume = false;
   };
 
+  # NVIDIA is opt-in (default off). Evaluate a plain-defaults config to assert it
+  # stays inert, and an enabled + PRIME-offload config to assert the wiring.
+  nvidiaOn = mkEval {
+    itera.nvidia = {
+      enable = true;
+      prime = {
+        enable = true;
+        intelBusId = "PCI:0:2:0";
+        nvidiaBusId = "PCI:1:0:0";
+      };
+    };
+  };
+
   subvolumes = cfg.disko.devices.disk.main.content.partitions.root.content.subvolumes;
   persistence = cfg.environment.persistence."/persist";
 
@@ -139,6 +152,25 @@ let
       builtins.elem "resume=${swapOn.boot.resumeDevice}" swapOn.boot.kernelParams;
     "itera.disko.resume = false creates swap without a resume device" =
       swapNoResume.swapDevices != [ ] && swapNoResume.boot.resumeDevice == "";
+
+    # NVIDIA battery (itera.nvidia, opt-in)
+    "nvidia is off by default" = cfg.itera.nvidia.enable == false;
+    "nvidia driver not selected by default" =
+      !(builtins.elem "nvidia" cfg.services.xserver.videoDrivers);
+    "nvidia enables the nvidia video driver" =
+      builtins.elem "nvidia" nvidiaOn.services.xserver.videoDrivers;
+    "nvidia enables hardware.graphics" = nvidiaOn.hardware.graphics.enable;
+    "nvidia enables modesetting" = nvidiaOn.hardware.nvidia.modesetting.enable;
+    "nvidia uses the open kernel module by default" = nvidiaOn.hardware.nvidia.open;
+    "nvidia PRIME bus IDs are wired" =
+      nvidiaOn.hardware.nvidia.prime.intelBusId == "PCI:0:2:0"
+      && nvidiaOn.hardware.nvidia.prime.nvidiaBusId == "PCI:1:0:0";
+    "nvidia PRIME offload is on by default" = nvidiaOn.hardware.nvidia.prime.offload.enable;
+    # Under PRIME offload, GBM_BACKEND must NOT be forced globally.
+    "nvidia PRIME offload does not force GBM_BACKEND globally" =
+      !(nvidiaOn.environment.variables ? GBM_BACKEND);
+    "nvidia sets the wlroots cursor workaround" =
+      nvidiaOn.environment.variables.WLR_NO_HARDWARE_CURSORS == "1";
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
