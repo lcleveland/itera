@@ -13,9 +13,17 @@
 # comes up and the user can log in.
 {
   nodes.machine =
-    { lib, ... }:
+    { lib, pkgs, ... }:
     {
       itera.enable = true;
+
+      # itera's shell battery makes zsh the default login shell (Oh My Zsh +
+      # spaceship + atuin/zoxide/pay-respects init). Its heavier interactive
+      # startup races the serial-console `send_chars` below — the command is typed
+      # before the prompt is ready and gets lost. This test is a boot + login smoke
+      # test, not a shell test (the shell battery has its own `shell-eval` check),
+      # so pin the test user to bash for a deterministic tty interaction.
+      users.users.test.shell = lib.mkForce pkgs.bashInteractive;
 
       # This test exercises the core-boot stack and a real tty login; the desktop
       # (on by default with itera.enable) would replace tty login with greetd and
