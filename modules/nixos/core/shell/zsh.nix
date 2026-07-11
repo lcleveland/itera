@@ -7,9 +7,14 @@
 #
 # zsh is a SYSTEM concern in NixOS: `programs.zsh.enable` is what makes zsh a valid
 # login shell, and ohMyZsh / autosuggestions / syntaxHighlighting / history /
-# shellAliases / interactiveShellInit all live under `programs.zsh.*`. There is no
-# per-user dotfile to write, so (unlike the Ghostty battery) there is no hjem home
-# half — the whole battery lives here in the system layer.
+# shellAliases / interactiveShellInit all live under `programs.zsh.*`. All the real
+# interactive config is generated into the global /etc/zshrc from here.
+#
+# There IS a hjem home half though: `modules/hjem/programs/zsh.nix` writes a
+# near-empty per-user ~/.zshrc. It must exist or zsh runs zsh-newuser-install on
+# every interactive login (blank screen, eats the first keystrokes) — the global
+# /etc/zshrc does not suppress that, only a user startup file does. See that
+# module for the full rationale.
 #
 # The companion tools in this directory (fzf, zoxide, atuin, pay-respects, and the
 # CLI-replacement aliases) all inject into zsh and guard their hooks on
@@ -126,6 +131,11 @@ in
     # mkDefault, so a tie would conflict. Normal priority wins over that; consumers
     # who want a different login shell use `defaultShell.enable = false` or mkForce.
     users.defaultUserShell = mkIf cfg.defaultShell.enable pkgs.zsh;
+
+    # Oh My Zsh runs compinit itself; skip NixOS's global compinit to avoid
+    # paying for two full compinit passes on every interactive startup. With OMZ
+    # off, leave the global compinit on so completions still initialize.
+    programs.zsh.enableGlobalCompInit = mkDefault (!cfg.ohMyZsh.enable);
 
     programs.zsh = {
       enable = true;
