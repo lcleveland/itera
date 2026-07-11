@@ -40,6 +40,34 @@ let
   };
   cfg = eval.config;
 
+  # Two extra evals to exercise the hibernation resume wiring (itera.disko.resume):
+  # a swap partition sized for hibernation, and the same with resume opted out.
+  mkEval =
+    extra:
+    (nixpkgs.lib.nixosSystem {
+      system = pkgs.stdenv.hostPlatform.system;
+      modules = [
+        self.nixosModules.default
+        {
+          system.stateVersion = "25.05";
+          itera = {
+            enable = true;
+            disko = {
+              enable = true;
+              device = "/dev/vda";
+            };
+          };
+        }
+        extra
+      ];
+    }).config;
+
+  swapOn = mkEval { itera.disko.swapSize = "16G"; };
+  swapNoResume = mkEval {
+    itera.disko.swapSize = "16G";
+    itera.disko.resume = false;
+  };
+
   subvolumes = cfg.disko.devices.disk.main.content.partitions.root.content.subvolumes;
   persistence = cfg.environment.persistence."/persist";
 
@@ -98,6 +126,17 @@ let
     # binary-cache battery (auto-on with itera.enable)
     "nix-community substituter is configured" =
       builtins.elem "https://nix-community.cachix.org" cfg.nix.settings.extra-substituters;
+
+    # hibernation resume wiring (itera.disko.resume, default on when swap exists)
+    "no resumeDevice without a swap partition" = cfg.boot.resumeDevice == "";
+    "swap partition registers a resume device" = swapOn.boot.resumeDevice != "";
+    "resumeDevice matches a real swap device" = builtins.any (
+      s: s.device == swapOn.boot.resumeDevice
+    ) swapOn.swapDevices;
+    "resume=<dev> reaches the kernel command line" =
+      builtins.elem "resume=${swapOn.boot.resumeDevice}" swapOn.boot.kernelParams;
+    "itera.disko.resume = false creates swap without a resume device" =
+      swapNoResume.swapDevices != [ ] && swapNoResume.boot.resumeDevice == "";
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);

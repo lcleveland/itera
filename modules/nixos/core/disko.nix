@@ -8,6 +8,16 @@
 # the btrfs `/nix` + `/persist` in place — but the layout also boots perfectly
 # well on its own.
 #
+# Hibernation: set `swapSize` to at least the machine's RAM and the resulting swap
+# partition doubles as the suspend-to-disk resume target — disko wires
+# `boot.resumeDevice` to it (via `resume`, on by default) and, with itera's
+# systemd initrd, that alone makes `systemctl hibernate` work. The tmpfs root from
+# `itera.impermanence` is no obstacle: hibernation snapshots ALL of RAM (including
+# the tmpfs `/`) to swap and restores it verbatim on resume. itera's in-RAM zram
+# swap (`itera.hardware`) cannot be a hibernation target, which is why a real,
+# disk-backed swap partition is what enables it. Hosts with no swap partition are
+# unaffected — `resume` is inert unless a swap partition exists.
+#
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable` with `mkDefault` opinionated values. Because
 # partitioning is destructive and has no sensible default target, `device` MUST
@@ -64,6 +74,24 @@ in
       example = "8G";
       description = ''
         Size of an optional swap partition. Empty (the default) creates no swap.
+
+        For hibernation (suspend-to-disk) the swap partition must be at least the
+        size of RAM — the compressed image usually fits in RAM-sized swap, but
+        RAM-sized is the safe rule. Setting this to `>= RAM` enables
+        {command}`systemctl hibernate` automatically via {option}`itera.disko.resume`.
+      '';
+    };
+
+    resume = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        When a swap partition is declared ({option}`itera.disko.swapSize` set),
+        also register it as the hibernation resume device
+        ({option}`boot.resumeDevice`), so {command}`systemctl hibernate` works out
+        of the box. On by default; inert when no swap partition exists. Set to
+        `false` to create swap without wiring suspend-to-disk (e.g. swap purely for
+        memory pressure), or when you drive {option}`boot.resumeDevice` yourself.
       '';
     };
   };
@@ -98,6 +126,12 @@ in
             content = {
               type = "swap";
               discardPolicy = "both";
+              # Register this partition as the hibernation resume target. disko sets
+              # `boot.resumeDevice` to the partition's stable by-partlabel path and
+              # adds it to `swapDevices`; itera's systemd initrd then emits the
+              # `resume=` kernel param from it. Gated on `resume` so swap can exist
+              # without wiring suspend-to-disk.
+              resumeDevice = cfg.resume;
             };
           };
 
