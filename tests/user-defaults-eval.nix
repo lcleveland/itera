@@ -87,8 +87,16 @@ let
 
     # ── mango keybinds ───────────────────────────────────────────────────
     "default keybind rendered" = lib.hasInfix "binds=SUPER,q,killclient," mangoConfigText;
+    # viewTag stays a keysym bind (SUPER+digit yields the digit keysym).
+    "view-tag keybind rendered (keysym)" = lib.hasInfix "binds=SUPER,1,view,1" mangoConfigText;
+    # moveToTag must be a keycode bind: SHIFT+digit emits a punctuation keysym,
+    # so a keysym bind (`binds=`) would never fire. Guard against regressing to `s`.
+    "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" mangoConfigText;
+    "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" mangoConfigText);
     "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," mangoConfigText;
     "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" mangoConfigText;
+    # Browser battery (opt-out, ON by default) wires SUPER+b to launch chromium.
+    "browser keybind launches chromium" = lib.hasInfix "binds=SUPER,b,spawn,chromium" mangoConfigText;
     "per-user keybind override rendered" = lib.hasInfix "binds=SUPER,Return,spawn,foot" mangoConfigText;
     "autostart still present" = lib.hasInfix "exec-once=dms run" mangoConfigText;
 
