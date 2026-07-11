@@ -37,9 +37,10 @@ let
   dmsEnabled = config.itera.desktop.dankMaterialShell.enable;
 
   # ── Assembled default keybind set ─────────────────────────────────────────
-  # Every bind uses the `s` (keysym) flag, matching the mango convention. Names
-  # are organisational only (they let a user override a single default bind by
-  # re-declaring the same name).
+  # Binds use the `s` (keysym) flag, matching the mango convention, EXCEPT
+  # SHIFT+digit binds (moveToTag), which match by keycode — see the note there.
+  # Names are organisational only (they let a user override a single default
+  # bind by re-declaring the same name).
   tags = builtins.genList (i: i + 1) 9;
 
   # SUPER+1..9 → view tag N; SUPER+SHIFT+1..9 → move focused window to tag N.
@@ -62,7 +63,11 @@ let
             "SUPER"
             "SHIFT"
           ];
-          flagModifiers = [ "s" ];
+          # Keycode match (no `s`): SHIFT+digit emits a punctuation keysym
+          # (`1`→`exclam` on US), so a keysym bind for `1` would never fire.
+          # Matching by keycode ignores the SHIFT-shifted symbol. The unshifted
+          # `viewTag` binds keep `s` since SUPER+digit still yields the digit.
+          flagModifiers = [ ];
           keySymbol = toString tag;
           mangoCommand = "tag";
           commandArguments = toString tag;
