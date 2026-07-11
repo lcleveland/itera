@@ -156,5 +156,13 @@ in
       cpu.intel.updateMicrocode = mkDefault (cfg.cpu == "intel" || cfg.cpu == "auto");
       cpu.amd.updateMicrocode = mkDefault (cfg.cpu == "amd" || cfg.cpu == "auto");
     };
+
+    # Compressed in-RAM swap. itera's disko layouts ship no swap partition, so
+    # without this the kernel has no swap at all — systemd-oomd degrades its
+    # memory-pressure handling and logs "No swap; memory pressure usage will be
+    # degraded" every boot. zram gives a swap device that lives in RAM, so it
+    # both silences that and improves behaviour under pressure. Opt-out via
+    # mkDefault, matching the rest of itera's battery shape.
+    zramSwap.enable = mkDefault true;
   };
 }

@@ -88,6 +88,27 @@ in
       # systemd into the transient-overmount + failing commit path). Opt itera
       # into unique per-host ids; a host wanting the generic id back can flip it.
       settings.etc.generic-machine-id = mkDefault false;
+
+      # Known benign boot-log noise from this layer — left as-is on purpose
+      # (see docs/known-boot-log-noise.md for the full triage):
+      #
+      #   • `udev-worker: Error running install command
+      #     '/usr/bin/disabled-*-by-security-misc' … retcode 127` (thunderbolt,
+      #     intel_wmi_thunderbolt, pmt_class). Kicksecure's module blacklist
+      #     (`settings.etc.kicksecure-module-blacklist`) disables modules via a
+      #     `/usr/bin/…` path that doesn't exist on NixOS. It still fails CLOSED —
+      #     the module never loads — so the hardening intent holds; the error is
+      #     cosmetic. Flip that toggle off if you ever want to re-implement the
+      #     blacklist natively via `boot.blacklistedKernelModules`.
+      #   • `jitterentropy.service.d/overrides.conf: Failed to parse LimitMEMLOCK=`.
+      #     A nixpkgs/systemd double-definition (an empty reset line followed by
+      #     the real `LimitMEMLOCK=2M`, which does apply). Report upstream rather
+      #     than force-overriding it here.
+      #   • `systemd-sysctl: Couldn't write '0' to 'fs/binfmt_misc/status'`.
+      #     `settings.kernel.binfmt-misc = false` writes the sysctl to keep
+      #     binfmt_misc off; the write only fails because the fs isn't mounted, so
+      #     the intent holds. Do NOT flip binfmt-misc on to silence it — that
+      #     weakens hardening.
     };
   };
 }
