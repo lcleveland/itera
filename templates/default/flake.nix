@@ -61,7 +61,11 @@
               # disk — the build fails with an assertion until you do. This is the
               # one genuinely per-machine value.
               disko.device = "/dev/nvme0n1"; # CHANGE ME — disko WIPES this disk
-              #   disko.swapSize = "8G";       # optional swap partition
+              #   disko.swapSize = "8G";       # optional swap partition. Size it
+              #     >= your RAM and it doubles as the hibernation resume device, so
+              #     `systemctl hibernate` works out of the box (disko wires
+              #     boot.resumeDevice). Set `disko.resume = false` for swap without
+              #     hibernation.
               #   impermanence.directories = [ "/var/lib/tailscale" ];
 
               # Advanced: to manage partitioning yourself (e.g. a pre-partitioned
