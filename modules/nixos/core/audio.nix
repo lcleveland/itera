@@ -30,13 +30,13 @@ in
     };
   };
 
-  config = mkIf config.itera.enable {
-    security.rtkit.enable = mkDefault cfg.enable;
+  config = mkIf (config.itera.enable && cfg.enable) {
+    security.rtkit.enable = mkDefault true;
 
     # rtkit only helps if there is actually a realtime-capable audio server to
     # ask for priority. PipeWire is expected from the desktop stack; flag it if
     # someone has turned the server off but left this on.
-    warnings = lib.optional (cfg.enable && !config.services.pipewire.enable) ''
+    warnings = lib.optional (!config.services.pipewire.enable) ''
       itera.audio is enabled (rtkit) but services.pipewire is off — rtkit will
       have no audio server to grant realtime priority to.
     '';

@@ -9,6 +9,10 @@
 # gated on the master `itera.enable` with a per-feature `enable` (default true),
 # so it comes along automatically but is fully overridable. Uses the `extra-*`
 # settings so the stock `cache.nixos.org` substituter and key stay in place.
+#
+# NOTE: the nix-community substituter URL + public key below are duplicated in
+# .github/workflows/ci.yml (so CI pulls the same prebuilt closures). CI can't
+# import Nix values, so keep the two copies in sync by hand if you change them.
 {
   config,
   lib,

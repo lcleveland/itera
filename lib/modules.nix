@@ -3,7 +3,7 @@ let
   inherit (lib.filesystem) listFilesRecursive;
   inherit (lib.strings) hasSuffix hasPrefix;
 in
-rec {
+{
   # Recursively collect every importable `.nix` module under `dir`, ready to be
   # spliced into a module's `imports`. Skips:
   #   - `default.nix` (the aggregator that usually calls this helper itself), and

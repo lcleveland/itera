@@ -23,14 +23,13 @@
   config,
   lib,
   pkgs,
+  iteraLib,
   ...
 }:
 let
   inherit (lib.options) mkEnableOption mkOption;
   inherit (lib.modules) mkIf mkDefault;
   inherit (lib.types) attrsOf nullOr str;
-
-  iteraLib = import ../../../lib { inherit lib; };
 
   cfg = config.itera.desktop.mango;
 

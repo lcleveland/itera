@@ -7,7 +7,10 @@
     # hjem manages your $HOME. itera's home modules are class-`hjem` submodules,
     # so itera MUST share this exact hjem (see `follows` below) — otherwise
     # evaluation breaks with confusing submodule-class errors.
-    hjem.url = "github:feel-co/hjem";
+    hjem = {
+      url = "github:feel-co/hjem";
+      inputs.nixpkgs.follows = "nixpkgs"; # keep hjem on your channel, one nixpkgs
+    };
 
     itera = {
       url = "github:lcleveland/itera";

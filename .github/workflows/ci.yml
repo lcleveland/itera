@@ -29,17 +29,30 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: DeterminateSystems/nix-installer-action@v22
         with:
           # Match itera's own `itera.nix.cache` defaults so CI pulls the same
           # prebuilt closures a consumer system would (the module only affects
           # built systems, not `nix flake check`, so configure the daemon here).
+          # NOTE: keep this substituter + key in sync with the canonical defaults
+          # in modules/nixos/core/cache.nix.
           extra-conf: |
             extra-substituters = https://nix-community.cachix.org
             extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      - name: Set up binary cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
+      # Persist /nix across runs so itera's own eval closures don't rebuild every
+      # time. Replaces DeterminateSystems/magic-nix-cache (wound down early 2025).
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ matrix.system }}-${{ hashFiles('flake.lock', '**/*.nix') }}
+          restore-prefixes-first-match: nix-${{ matrix.system }}-
+          # Keep the GitHub Actions cache bounded.
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ matrix.system }}-
+          purge-created: 0
+          purge-primary-key: never
 
       # Runs everything: treefmt `formatting`, git-hooks `pre-commit`, and the
       # itera module tests for this system.

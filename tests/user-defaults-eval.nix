@@ -12,40 +12,40 @@
   nixpkgs,
 }:
 let
-  eval = nixpkgs.lib.nixosSystem {
-    system = pkgs.stdenv.hostPlatform.system;
-    modules = [
-      self.nixosModules.default
-      {
-        system.stateVersion = "25.05";
+  inherit
+    (import ./lib.nix {
+      inherit
+        pkgs
+        lib
+        self
+        nixpkgs
+        ;
+    })
+    mkConfig
+    mkCheckDrv
+    ;
 
-        itera = {
-          enable = true;
-          disko.enable = false;
-          impermanence.enable = false;
+  cfg = mkConfig [
+    {
+      # A system-level DMS default override (should reach every user).
+      itera.desktop.dankMaterialShell.settings.currentThemeName = "blue";
 
-          # A system-level DMS default override (should reach every user).
-          desktop.dankMaterialShell.settings.currentThemeName = "blue";
+      # Account battery: creates the account AND enables hjem.
+      itera.users.alice.initialPassword = "changeme";
+
+      # Per-user deviations from the system-wide defaults.
+      hjem.users.alice.itera.programs = {
+        dankMaterialShell.settings.cornerRadius = 8;
+        mango.keybinds.terminal = {
+          modifierKeys = [ "SUPER" ];
+          keySymbol = "Return";
+          mangoCommand = "spawn";
+          commandArguments = "foot";
+          flagModifiers = [ "s" ];
         };
-
-        # Account battery: creates the account AND enables hjem.
-        itera.users.alice.initialPassword = "changeme";
-
-        # Per-user deviations from the system-wide defaults.
-        hjem.users.alice.itera.programs = {
-          dankMaterialShell.settings.cornerRadius = 8;
-          mango.keybinds.terminal = {
-            modifierKeys = [ "SUPER" ];
-            keySymbol = "Return";
-            mangoCommand = "spawn";
-            commandArguments = "foot";
-            flagModifiers = [ "s" ];
-          };
-        };
-      }
-    ];
-  };
-  cfg = eval.config;
+      };
+    }
+  ];
 
   aliceFiles = cfg.hjem.users.alice.xdg.config.files;
   dmsSettings = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
@@ -106,11 +106,5 @@ let
       lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,true" renderedBind;
   };
 
-  failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
 in
-pkgs.runCommand "itera-user-defaults-eval" { } (
-  if failed == [ ] then
-    "touch $out"
-  else
-    throw "itera user-defaults eval check failed: ${lib.concatStringsSep "; " failed}"
-)
+mkCheckDrv "itera-user-defaults-eval" checks

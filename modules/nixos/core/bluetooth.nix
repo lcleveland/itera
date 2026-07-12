@@ -27,9 +27,9 @@ in
     };
   };
 
-  config = mkIf config.itera.enable {
+  config = mkIf (config.itera.enable && cfg.enable) {
     hardware.bluetooth = {
-      enable = mkDefault cfg.enable;
+      enable = mkDefault true;
       powerOnBoot = mkDefault true;
     };
   };

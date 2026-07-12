@@ -16,9 +16,9 @@
   ...
 }:
 let
-  inherit (lib.options) mkOption;
+  inherit (lib.options) mkOption mkPackageOption;
   inherit (lib.modules) mkIf;
-  inherit (lib.types) bool str package;
+  inherit (lib.types) bool str;
 
   cfg = config.itera.desktop.iconTheme;
 in
@@ -30,12 +30,7 @@ in
       description = "Install a system icon theme so desktop/tray (SNI) icons resolve.";
     };
 
-    package = mkOption {
-      type = package;
-      default = pkgs.adwaita-icon-theme;
-      defaultText = lib.literalExpression "pkgs.adwaita-icon-theme";
-      description = "Icon theme package to install.";
-    };
+    package = mkPackageOption pkgs "adwaita-icon-theme" { };
 
     name = mkOption {
       type = str;

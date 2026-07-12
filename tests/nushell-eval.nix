@@ -11,25 +11,26 @@
   nixpkgs,
 }:
 let
+  inherit
+    (import ./lib.nix {
+      inherit
+        pkgs
+        lib
+        self
+        nixpkgs
+        ;
+    })
+    mkConfig
+    mkCheckDrv
+    ;
+
+  # An account so the hjem home layer renders; disko/impermanence stay off.
   mkEval =
     extra:
-    (nixpkgs.lib.nixosSystem {
-      system = pkgs.stdenv.hostPlatform.system;
-      modules = [
-        self.nixosModules.default
-        {
-          system.stateVersion = "25.05";
-          itera = {
-            enable = true;
-            disko.enable = false;
-            impermanence.enable = false;
-          };
-          # An account so the hjem home layer renders.
-          itera.users.alice.initialPassword = "changeme";
-        }
-        extra
-      ];
-    }).config;
+    mkConfig [
+      { itera.users.alice.initialPassword = "changeme"; }
+      extra
+    ];
 
   # Defaults: nushell on, default login shell, carapace on.
   base = mkEval { };
@@ -77,11 +78,5 @@ let
     "carapace off: no carapace-init.nu" = !(carapaceOffFiles ? "nushell/carapace-init.nu");
   };
 
-  failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
 in
-pkgs.runCommand "itera-nushell-eval" { } (
-  if failed == [ ] then
-    "touch $out"
-  else
-    throw "itera nushell eval check failed: ${lib.concatStringsSep "; " failed}"
-)
+mkCheckDrv "itera-nushell-eval" checks

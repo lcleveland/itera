@@ -30,7 +30,7 @@ in
     };
   };
 
-  config = mkIf config.itera.enable {
-    services.upower.enable = mkDefault cfg.enable;
+  config = mkIf (config.itera.enable && cfg.enable) {
+    services.upower.enable = mkDefault true;
   };
 }

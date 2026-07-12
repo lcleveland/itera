@@ -28,7 +28,7 @@ let
   pamServices = builtins.listToAttrs (
     map (name: {
       inherit name;
-      value.enableGnomeKeyring = mkDefault cfg.enable;
+      value.enableGnomeKeyring = mkDefault true;
     }) cfg.pamServices
   );
 in
@@ -57,9 +57,9 @@ in
     };
   };
 
-  config = mkIf config.itera.enable {
-    services.gnome.gnome-keyring.enable = mkDefault cfg.enable;
-    programs.seahorse.enable = mkDefault (cfg.enable && cfg.seahorse.enable);
-    security.pam.services = mkIf cfg.enable pamServices;
+  config = mkIf (config.itera.enable && cfg.enable) {
+    services.gnome.gnome-keyring.enable = mkDefault true;
+    programs.seahorse.enable = mkDefault cfg.seahorse.enable;
+    security.pam.services = pamServices;
   };
 }

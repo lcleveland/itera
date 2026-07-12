@@ -46,6 +46,12 @@ in
     # Register itera's per-user home collection with hjem for every user.
     hjem.extraModules = [ inputs.self.hjemModules.default ];
 
+    # Expose iteraLib to every auto-imported feature module (mirrors the hjem
+    # layer's `_module.args.iteraLib` in modules/hjem/default.nix), so a module
+    # needing the mango keybind DSL / module helpers takes `iteraLib` as an arg
+    # instead of re-importing ../../../lib by hand.
+    _module.args.iteraLib = iteraLib;
+
     # Expose the flake `inputs` to the auto-imported feature modules (which
     # otherwise only receive `{ config, lib, pkgs, ... }`). A few batteries need a
     # package that lives in a flake input rather than nixpkgs — e.g. the agenix

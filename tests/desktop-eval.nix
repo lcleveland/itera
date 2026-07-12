@@ -13,37 +13,34 @@
   nixpkgs,
 }:
 let
-  eval = nixpkgs.lib.nixosSystem {
-    system = pkgs.stdenv.hostPlatform.system;
-    modules = [
-      self.nixosModules.default
-      {
-        system.stateVersion = "25.05";
+  inherit
+    (import ./lib.nix {
+      inherit
+        pkgs
+        lib
+        self
+        nixpkgs
+        ;
+    })
+    mkConfig
+    mkCheckDrv
+    ;
 
-        itera = {
-          # itera.enable alone should bring up the desktop (opt-out): it defaults
-          # the shell battery on, which pulls in mango and stands up the greeter.
-          enable = true;
-
-          # disko/impermanence are opt-out too, but this eval only exercises the
-          # desktop wiring — turn them off so disko's device assertion doesn't
-          # block the evaluation (they have their own check in tests/eval.nix).
-          disko.enable = false;
-          impermanence.enable = false;
-        };
-
-        # A hjem user so the home-layer battery (itera.programs.mango) is
-        # evaluated — its `enable` follows itera.desktop.mango, so the mango
-        # config.conf is generated without any extra opt-in here.
-        users.users.alice = {
-          isNormalUser = true;
-          home = "/home/alice";
-        };
-        hjem.users.alice.enable = true;
-      }
-    ];
-  };
-  cfg = eval.config;
+  # itera.enable alone brings up the desktop (opt-out): it defaults the shell
+  # battery on, which pulls in mango and stands up the greeter. disko/impermanence
+  # stay off (the mkConfig default) — this eval only exercises the desktop wiring.
+  cfg = mkConfig [
+    {
+      # A hjem user so the home-layer battery (itera.programs.mango) is
+      # evaluated — its `enable` follows itera.desktop.mango, so the mango
+      # config.conf is generated without any extra opt-in here.
+      users.users.alice = {
+        isNormalUser = true;
+        home = "/home/alice";
+      };
+      hjem.users.alice.enable = true;
+    }
+  ];
 
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
@@ -92,11 +89,5 @@ let
         mangoUserFiles."wezterm/wezterm.lua".text;
   };
 
-  failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
 in
-pkgs.runCommand "itera-desktop-eval" { } (
-  if failed == [ ] then
-    "touch $out"
-  else
-    throw "itera desktop-battery eval check failed: ${lib.concatStringsSep "; " failed}"
-)
+mkCheckDrv "itera-desktop-eval" checks
