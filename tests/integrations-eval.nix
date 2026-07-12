@@ -13,26 +13,34 @@
   nixpkgs,
 }:
 let
+  inherit
+    (import ./lib.nix {
+      inherit
+        pkgs
+        lib
+        self
+        nixpkgs
+        ;
+    })
+    mkConfig
+    mkCheckDrv
+    ;
+
+  # This check exercises impermanence persistence, so turn disko + impermanence
+  # on (overriding mkConfig's defaults) alongside each variant's extra module.
+  diskoOn = {
+    itera.disko = {
+      enable = true;
+      device = "/dev/vda";
+    };
+    itera.impermanence.enable = true;
+  };
   mkEval =
     extra:
-    (nixpkgs.lib.nixosSystem {
-      system = pkgs.stdenv.hostPlatform.system;
-      modules = [
-        self.nixosModules.default
-        {
-          system.stateVersion = "25.05";
-          itera = {
-            enable = true;
-            disko = {
-              enable = true;
-              device = "/dev/vda";
-            };
-            impermanence.enable = true;
-          };
-        }
-        extra
-      ];
-    }).config;
+    mkConfig [
+      diskoOn
+      extra
+    ];
 
   # Defaults: opt-out batteries on, opt-in batteries off.
   base = mkEval { };
@@ -96,11 +104,5 @@ let
     "flatpak state is persisted when opted in" = builtins.elem "/var/lib/flatpak" (persistDirs optIn);
   };
 
-  failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
 in
-pkgs.runCommand "itera-integrations-eval" { } (
-  if failed == [ ] then
-    "touch $out"
-  else
-    throw "itera integrations eval check failed: ${lib.concatStringsSep "; " failed}"
-)
+mkCheckDrv "itera-integrations-eval" checks

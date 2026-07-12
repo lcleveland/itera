@@ -7,8 +7,9 @@
 #
 # `self.nixosModules.default` already imports hjem AND registers itera's home
 # layer into `hjem.extraModules`, so simply importing it here also exercises the
-# auto-wiring. No test files exist yet — the harness itself is proven by
-# `nix flake check`; behavioural tests arrive alongside the curated batteries.
+# auto-wiring. Every `.nix` file under `tests/nixos/` is auto-discovered and run
+# (currently `core-boot.nix` and `desktop-greeter.nix`); drop another file in
+# there to add a VM test — no wiring required.
 {
   pkgs,
   lib,

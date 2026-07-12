@@ -42,8 +42,8 @@ let
   # *every* launch path: the DMS app launcher, SUPER+t, and `-e`, no .desktop
   # rewrite needed. VM-only — on real hardware the GPU works and the battery
   # installs plain `pkgs.wezterm`. (Alternative: WezTerm's `front_end = "Software"`
-  # config key; we keep the LIBGL wrapper for parity with the Ghostty battery's
-  # pattern.)
+  # config key; we use the LIBGL wrapper instead so the override lives entirely in
+  # this dev file and needs no change to the terminal battery's generated config.)
   weztermVmSoftGl = pkgs.symlinkJoin {
     name = "wezterm-vm-softgl";
     paths = [ pkgs.wezterm ];
@@ -79,7 +79,9 @@ in
   };
 
   networking.hostName = lib.mkForce "itera-vm";
-  system.stateVersion = "25.05";
+  # Set via itera's own option (same as dev/test-host.nix) rather than raw
+  # system.stateVersion, so both dev hosts drive stateVersion through one path.
+  itera.nix.stateVersion = "25.05";
 
   # QEMU's virtio-gpu-gl makes wlroots draw a broken (upside-down) hardware
   # cursor; force software cursors (wlroots 0.19 still honors this variable).

@@ -19,26 +19,32 @@
   ...
 }:
 let
-  inherit (lib.options) mkOption;
+  inherit (lib.options) mkOption mkPackageOption;
   inherit (lib.modules) mkIf mkDefault;
   inherit (lib.types) bool;
 
   cfg = config.itera.desktop.fileManager;
 in
 {
-  options.itera.desktop.fileManager.enable = mkOption {
-    type = bool;
-    default = true;
-    description = ''
-      Install the Nemo GUI file manager (with gvfs mounting/trash and tumbler
-      thumbnails) and make it the default directory handler. On by default
-      whenever {option}`itera.enable` is set; set to `false` to opt out.
-    '';
+  options.itera.desktop.fileManager = {
+    enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Install the Nemo GUI file manager (with gvfs mounting/trash and tumbler
+        thumbnails) and make it the default directory handler. On by default
+        whenever {option}`itera.enable` is set; set to `false` to opt out.
+      '';
+    };
+
+    # `nullable = true` lets a consumer drop the package (e.g. to supply their own
+    # file-manager build) while keeping the gvfs/tumbler/handler wiring below.
+    # nemo-with-extensions bundles nemo-fileroller (archives), nemo-preview, etc.
+    package = mkPackageOption pkgs "nemo-with-extensions" { nullable = true; };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    # nemo-with-extensions bundles nemo-fileroller (archives), nemo-preview, etc.
-    environment.systemPackages = [ pkgs.nemo-with-extensions ];
+    environment.systemPackages = mkIf (cfg.package != null) [ cfg.package ];
 
     # gvfs: trash, network shares, removable-drive automounting. tumbler:
     # thumbnail generation. dconf: where Nemo/Cinnamon store their settings.

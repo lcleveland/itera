@@ -14,54 +14,41 @@
   nixpkgs,
 }:
 let
-  eval = nixpkgs.lib.nixosSystem {
-    system = pkgs.stdenv.hostPlatform.system;
-    modules = [
-      self.nixosModules.default
-      {
-        system.stateVersion = "25.05";
+  inherit
+    (import ./lib.nix {
+      inherit
+        pkgs
+        lib
+        self
+        nixpkgs
+        ;
+    })
+    mkConfig
+    mkCheckDrv
+    ;
 
-        # Turn on the opinionated core-boot batteries (bootloader, nix, locale,
-        # networking) so this eval exercises them alongside disko/impermanence.
-        itera = {
-          enable = true;
-          disko = {
-            enable = true;
-            device = "/dev/vda";
-          };
-          impermanence.enable = true;
-
-          # A normal user account, so this eval exercises the default curated
-          # per-user home persistence (itera.impermanence.homes).
-          users.testuser = { };
-        };
-      }
-    ];
+  # disko + impermanence on (overriding mkConfig's defaults) so this eval
+  # exercises partitioning and the tmpfs root alongside the core-boot batteries.
+  diskoOn = {
+    itera.disko = {
+      enable = true;
+      device = "/dev/vda";
+    };
+    itera.impermanence.enable = true;
   };
-  cfg = eval.config;
+  mkEval =
+    extra:
+    mkConfig [
+      diskoOn
+      extra
+    ];
+
+  # A normal user account, so this eval exercises the default curated per-user
+  # home persistence (itera.impermanence.homes).
+  cfg = mkEval { itera.users.testuser = { }; };
 
   # Two extra evals to exercise the hibernation resume wiring (itera.disko.resume):
   # a swap partition sized for hibernation, and the same with resume opted out.
-  mkEval =
-    extra:
-    (nixpkgs.lib.nixosSystem {
-      system = pkgs.stdenv.hostPlatform.system;
-      modules = [
-        self.nixosModules.default
-        {
-          system.stateVersion = "25.05";
-          itera = {
-            enable = true;
-            disko = {
-              enable = true;
-              device = "/dev/vda";
-            };
-          };
-        }
-        extra
-      ];
-    }).config;
-
   swapOn = mkEval { itera.disko.swapSize = "16G"; };
   swapNoResume = mkEval {
     itera.disko.swapSize = "16G";
@@ -176,11 +163,5 @@ let
       nvidiaOn.environment.variables.WLR_NO_HARDWARE_CURSORS == "1";
   };
 
-  failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
 in
-pkgs.runCommand "itera-disko-impermanence-eval" { } (
-  if failed == [ ] then
-    "touch $out"
-  else
-    throw "itera system-battery eval check failed: ${lib.concatStringsSep "; " failed}"
-)
+mkCheckDrv "itera-disko-impermanence-eval" checks

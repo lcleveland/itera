@@ -199,6 +199,10 @@ in
 
     # GBM_BACKEND / __GLX_VENDOR_LIBRARY_NAME must NOT be set globally under PRIME
     # offload — they would force every client (including iGPU ones) through NVIDIA.
+    # These use `environment.variables` (system-wide `/etc/set-environment`), not
+    # `sessionVariables` like the other desktop modules, so the compositor/driver
+    # see them from the very first process in the graphics stack rather than only
+    # after PAM sets up the user session.
     environment.variables =
       (lib.optionalAttrs (!primeOffload) {
         GBM_BACKEND = "nvidia-drm";
@@ -213,7 +217,7 @@ in
       graphics = {
         enable = mkDefault true;
         enable32Bit = mkDefault cfg.enable32Bit;
-        extraPackages = [
+        extraPackages = mkDefault [
           pkgs.egl-wayland
           pkgs.nvidia-vaapi-driver
         ];
@@ -226,8 +230,7 @@ in
         open = mkDefault cfg.open;
 
         prime = mkIf cfg.prime.enable {
-          intelBusId = cfg.prime.intelBusId;
-          nvidiaBusId = cfg.prime.nvidiaBusId;
+          inherit (cfg.prime) intelBusId nvidiaBusId;
           offload = {
             enable = cfg.prime.offload.enable;
             enableOffloadCmd = cfg.prime.offload.enable;
@@ -239,6 +242,6 @@ in
       nvidia-container-toolkit.enable = mkIf cfg.containerToolkit (mkDefault true);
     };
 
-    services.xserver.videoDrivers = [ "nvidia" ];
+    services.xserver.videoDrivers = mkDefault [ "nvidia" ];
   };
 }
