@@ -31,6 +31,32 @@ in
     hardware.bluetooth = {
       enable = mkDefault true;
       powerOnBoot = mkDefault true;
+
+      # nix-mineral's `kicksecure-bluetooth` (on via the hardening battery) mkForces
+      # a whole `/etc/bluetooth/main.conf` borrowed from Kicksecure. That file puts
+      # the LE-privacy key under `[Policy]` (`Privacy=network/on`), but BlueZ only
+      # accepts `Privacy` under `[General]` — so bluetoothd logs
+      # `Unknown key Privacy for group Policy` and the privacy hardening is silently
+      # a no-op. We drop that file (below) and re-declare the same Kicksecure keys
+      # here with `Privacy` in its correct group, so the hardening actually applies
+      # and the warning goes away.
+      settings = {
+        General = {
+          PairableTimeout = mkDefault 30;
+          DiscoverableTimeout = mkDefault 30;
+          MaxControllers = mkDefault 1;
+          TemporaryTimeout = mkDefault 0;
+          Privacy = mkDefault "network/on"; # moved here from Kicksecure's [Policy]
+        };
+        Policy.AutoEnable = mkDefault false;
+      };
+    };
+
+    # Drop nix-mineral's mkForced main.conf so the corrected `settings` above win.
+    # Gated on the hardening layer being present, so this stays a no-op (no phantom
+    # option touched) on a host that has turned nix-mineral off.
+    nix-mineral = mkIf config.nix-mineral.enable {
+      settings.etc.kicksecure-bluetooth = mkDefault false;
     };
   };
 }
