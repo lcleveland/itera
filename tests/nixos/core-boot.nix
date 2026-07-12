@@ -17,12 +17,11 @@
     {
       itera.enable = true;
 
-      # itera's shell battery makes zsh the default login shell (Oh My Zsh +
-      # spaceship + atuin/zoxide/pay-respects init). Its heavier interactive
-      # startup races the serial-console `send_chars` below — the command is typed
-      # before the prompt is ready and gets lost. This test is a boot + login smoke
-      # test, not a shell test (the shell battery has its own `shell-eval` check),
-      # so pin the test user to bash for a deterministic tty interaction.
+      # This is a boot + login smoke test that drives the serial console with
+      # `send_chars`, so pin the test user to bash for a deterministic, minimal
+      # tty interaction (the NixOS default is already bash — itera no longer ships
+      # a shell battery — but keep this explicit so a future prompt-heavy default
+      # can't race the console typing below).
       users.users.test.shell = lib.mkForce pkgs.bashInteractive;
 
       # This test exercises the core-boot stack and a real tty login; the desktop

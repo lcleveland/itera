@@ -63,6 +63,12 @@ in
     # Light up the mango SUPER+t spawn bind. The option is always declared by the
     # mango module (even when mango is disabled), and `mkDefault` lets a consumer
     # override the command or clear it back to `null`.
-    itera.desktop.mango.commands.terminal = mkDefault "wezterm";
+    #
+    # Must be `wezterm start`, not bare `wezterm`: mango `spawn` execs the command
+    # directly (no shell), and `wezterm` with no subcommand is a usage error that
+    # exits immediately — so SUPER+t would flash nothing. `start` is the GUI
+    # subcommand (same as WezTerm's own `.desktop` `Exec=wezterm start`, which the
+    # app launcher uses successfully).
+    itera.desktop.mango.commands.terminal = mkDefault "wezterm start";
   };
 }

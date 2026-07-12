@@ -77,7 +77,7 @@ let
     # Terminal battery ships WezTerm, wires SUPER+t to it, and installs the Nerd
     # Font WezTerm needs for the shell's glyphs.
     "terminal battery is enabled" = cfg.itera.desktop.terminal.enable;
-    "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm";
+    "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm start";
     "wezterm package is installed" = hasPkg "wezterm" cfg.environment.systemPackages;
     "JetBrains Mono Nerd Font is installed" = hasPkg "jetbrains-mono" cfg.fonts.packages;
 
