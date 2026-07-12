@@ -100,6 +100,9 @@ let
       builtins.elem "/etc/NetworkManager/system-connections" dirNames;
     "NetworkManager runtime state is persisted" = builtins.elem "/var/lib/NetworkManager" dirNames;
     "timesyncd clock state is persisted" = builtins.elem "/var/lib/systemd/timesync" dirNames;
+    # The DMS greeter is on by default (itera.enable), so its cache dir — holding
+    # the remembered last-user/session — is persisted across the tmpfs root.
+    "dms-greeter cache is persisted" = builtins.elem "/var/lib/dms-greeter" dirNames;
 
     # per-user home persistence (itera.impermanence.homes, on by default)
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
