@@ -151,6 +151,10 @@ in
       };
     };
 
-    xdg.config.files."wezterm/wezterm.lua".text = configText;
+    xdg.config.files."wezterm/wezterm.lua" = {
+      text = configText;
+      # Explicit clobber — same rationale as the mango battery's config.conf.
+      clobber = true;
+    };
   };
 }
