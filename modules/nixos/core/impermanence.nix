@@ -255,6 +255,12 @@ in
         ++ lib.optional config.itera.secureBoot.enable config.itera.secureBoot.pkiBundle
         ++ lib.optional config.itera.desktop.flatpak.enable "/var/lib/flatpak"
         ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
+        # The DMS greeter's cache dir holds .local/state/memory.json — the last
+        # successful username/session the greeter pre-selects. Persist it so the
+        # greeter remembers the last user across the wiped tmpfs root. Gated on
+        # the upstream greeter option, which is exactly what creates the dir (via
+        # its own tmpfiles rule) and sets its greeter:greeter ownership.
+        ++ lib.optional config.programs.dank-material-shell.greeter.enable "/var/lib/dms-greeter"
         ++ cfg.directories;
       files = persistedFiles;
       # Curated per-user home persistence (when homes.enable) merged with any
