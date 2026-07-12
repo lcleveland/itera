@@ -123,6 +123,33 @@ in
         defaultText = lib.literalExpression "[ pkgs.spaceship-prompt ]";
         description = "Additional packages providing Oh My Zsh themes or plugins (wired to `programs.zsh.ohMyZsh.customPkgs`).";
       };
+
+      spaceshipPromptOrder = mkOption {
+        type = listOf str;
+        default = [
+          "user"
+          "dir"
+          "host"
+          "git"
+          "nix_shell"
+          "exec_time"
+          "line_sep"
+          "jobs"
+          "exit_code"
+          "char"
+        ];
+        description = ''
+          Prompt sections for the spaceship theme (`SPACESHIP_PROMPT_ORDER`).
+          spaceship precompiles every section in the order at shell startup, and
+          its built-in order lists dozens of language/tool sections (node, ruby,
+          php, golang, docker, aws, kubectl, terraform, …) that most shells never
+          use — measured at ~200ms of the interactive startup. This lean default
+          keeps startup roughly twice as fast while still showing the common
+          context (each section only renders when relevant). Set to `[ ]` to leave
+          spaceship's built-in order untouched. Only applies with the spaceship
+          theme.
+        '';
+      };
     };
   };
 
@@ -136,6 +163,14 @@ in
     # paying for two full compinit passes on every interactive startup. With OMZ
     # off, leave the global compinit on so completions still initialize.
     programs.zsh.enableGlobalCompInit = mkDefault (!cfg.ohMyZsh.enable);
+
+    # Trim spaceship's prompt sections. NixOS's interactiveShellInit lands in
+    # /etc/zshrc before oh-my-zsh sources the theme, so setting the array here is
+    # picked up when spaceship loads. Skipped when the list is empty or the theme
+    # isn't spaceship. See `spaceshipPromptOrder` for the perf rationale.
+    programs.zsh.interactiveShellInit = mkIf (
+      cfg.ohMyZsh.enable && cfg.ohMyZsh.theme == "spaceship" && cfg.ohMyZsh.spaceshipPromptOrder != [ ]
+    ) "SPACESHIP_PROMPT_ORDER=(${lib.concatStringsSep " " cfg.ohMyZsh.spaceshipPromptOrder})\n";
 
     programs.zsh = {
       enable = true;
