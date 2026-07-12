@@ -7,8 +7,7 @@
 #
 # Unlike some GPU terminals, WezTerm embeds no font, so this battery also installs
 # JetBrains Mono Nerd Font system-wide (`fonts.packages`) and the home battery
-# points WezTerm at it — otherwise the shell's glyph-heavy tooling (`eza --icons`,
-# the spaceship prompt) would render as tofu.
+# points WezTerm at it — otherwise glyph-heavy CLI tooling would render as tofu.
 #
 # This module is the SYSTEM half: it installs the package + font and wires the
 # compositor bind. The per-user config (font size, padding, …) is written by the

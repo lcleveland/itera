@@ -41,6 +41,13 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the shell battery (nushell default login shell +
+          # carapace completion + the per-user nushell home config).
+          nushell-eval = import ../tests/nushell-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }
