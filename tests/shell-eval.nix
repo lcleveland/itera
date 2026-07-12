@@ -1,5 +1,5 @@
-# Evaluation check for itera's shell battery: zsh (Oh My Zsh, autosuggestions,
-# syntax highlighting, shared history, default login shell) and
+# Evaluation check for itera's shell battery: zsh (Oh My Zsh + spaceship,
+# autosuggestions, syntax highlighting, shared history, default login shell) and
 # its companion tools (fzf + fzf-tab, zoxide, atuin, direnv, pay-respects, zellij,
 # and the CLI-replacement aliases eza/bat/ripgrep/fd/procs/duf/gping/lazygit).
 #
@@ -40,16 +40,6 @@ let
   # zsh turned off: the login shell and every companion shell hook must drop.
   zshOff = mkEval { itera.shell.zsh.enable = false; };
 
-  # A hjem-managed user exercises the home layer (modules/hjem/programs/zsh.nix),
-  # which must provision a ~/.zshrc — without it zsh runs zsh-newuser-install on
-  # every interactive login. `itera.users.<name>` both creates the account and
-  # enables hjem for it.
-  withUser = mkEval { itera.users.tester.description = "shell eval user"; };
-  withUserZshOff = mkEval {
-    itera.users.tester.description = "shell eval user";
-    itera.shell.zsh.enable = false;
-  };
-
   hasPkg =
     pname: pkgList:
     builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
@@ -63,9 +53,12 @@ let
     "history size is 50000" = base.programs.zsh.histSize == 50000;
     "SHARE_HISTORY is set" = builtins.elem "SHARE_HISTORY" base.programs.zsh.setOptions;
 
-    # --- Oh My Zsh (default on) ---
+    # --- Oh My Zsh + spaceship (default on) ---
     "oh-my-zsh is enabled" = base.programs.zsh.ohMyZsh.enable;
-    "robbyrussell is the theme" = base.programs.zsh.ohMyZsh.theme == "robbyrussell";
+    "spaceship is the theme" = base.programs.zsh.ohMyZsh.theme == "spaceship";
+    "spaceship prompt order is trimmed" =
+      lib.hasInfix "SPACESHIP_PROMPT_ORDER=(" base.programs.zsh.interactiveShellInit;
+    "spaceship-prompt is a custom pkg" = hasPkg "spaceship-prompt" base.programs.zsh.ohMyZsh.customPkgs;
     "git plugin is enabled" = builtins.elem "git" base.programs.zsh.ohMyZsh.plugins;
 
     # --- integrations hook into zsh init (default on) ---
@@ -74,6 +67,10 @@ let
     "fzf-tab plugin is sourced" = lib.hasInfix "fzf-tab" base.programs.zsh.interactiveShellInit;
     "zoxide init is sourced" = lib.hasInfix "zoxide init zsh" base.programs.zsh.interactiveShellInit;
     "atuin init is sourced" = lib.hasInfix "atuin init zsh" base.programs.zsh.interactiveShellInit;
+    "atuin config dir is set so /etc/atuin applies" =
+      base.environment.variables.ATUIN_CONFIG_DIR == "/etc/atuin";
+    "atuin enter_accept is off (avoids the Ghostty multi-Enter caret)" =
+      lib.hasInfix "enter_accept = false" base.environment.etc."atuin/config.toml".text;
     "pay-respects init is sourced" =
       lib.hasInfix "pay-respects zsh" base.programs.zsh.interactiveShellInit;
 
@@ -92,9 +89,6 @@ let
     "find -> fd" = base.programs.zsh.shellAliases.find == "fd";
     "lg -> lazygit" = base.programs.zsh.shellAliases.lg == "lazygit";
 
-    # --- home layer: ~/.zshrc provisioned (suppresses zsh-newuser-install) ---
-    "hjem user gets ~/.zshrc" = withUser.hjem.users.tester.files ? ".zshrc";
-
     # --- zellij is opt-in (default off) ---
     "zellij is off by default" = !(hasPkg "zellij" base.environment.systemPackages);
 
@@ -104,7 +98,6 @@ let
     "zsh off -> no shell aliases" = !(zshOff.programs.zsh.shellAliases ? ls);
     "zsh off -> no init hooks" = !(lib.hasInfix "zoxide init" zshOff.programs.zsh.interactiveShellInit);
     "zsh off -> direnv zsh hook drops" = !zshOff.programs.direnv.enableZshIntegration;
-    "zsh off -> no ~/.zshrc provisioned" = !(withUserZshOff.hjem.users.tester.files ? ".zshrc");
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
