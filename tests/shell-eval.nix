@@ -40,6 +40,16 @@ let
   # zsh turned off: the login shell and every companion shell hook must drop.
   zshOff = mkEval { itera.shell.zsh.enable = false; };
 
+  # A hjem-managed user exercises the home layer (modules/hjem/programs/zsh.nix),
+  # which must provision a ~/.zshrc — without it zsh runs zsh-newuser-install on
+  # every interactive login. `itera.users.<name>` both creates the account and
+  # enables hjem for it.
+  withUser = mkEval { itera.users.tester.description = "shell eval user"; };
+  withUserZshOff = mkEval {
+    itera.users.tester.description = "shell eval user";
+    itera.shell.zsh.enable = false;
+  };
+
   hasPkg =
     pname: pkgList:
     builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
@@ -83,6 +93,9 @@ let
     "find -> fd" = base.programs.zsh.shellAliases.find == "fd";
     "lg -> lazygit" = base.programs.zsh.shellAliases.lg == "lazygit";
 
+    # --- home layer: ~/.zshrc provisioned (suppresses zsh-newuser-install) ---
+    "hjem user gets ~/.zshrc" = withUser.hjem.users.tester.files ? ".zshrc";
+
     # --- zellij is opt-in (default off) ---
     "zellij is off by default" = !(hasPkg "zellij" base.environment.systemPackages);
 
@@ -92,6 +105,7 @@ let
     "zsh off -> no shell aliases" = !(zshOff.programs.zsh.shellAliases ? ls);
     "zsh off -> no init hooks" = !(lib.hasInfix "zoxide init" zshOff.programs.zsh.interactiveShellInit);
     "zsh off -> direnv zsh hook drops" = !zshOff.programs.direnv.enableZshIntegration;
+    "zsh off -> no ~/.zshrc provisioned" = !(withUserZshOff.hjem.users.tester.files ? ".zshrc");
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);
