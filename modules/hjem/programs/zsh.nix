@@ -2,7 +2,7 @@
 #
 # The system battery `itera.shell.zsh` (modules/nixos/core/shell/zsh.nix) makes
 # zsh the login shell and generates the global /etc/zshrc with all the real
-# interactive config (Oh My Zsh, spaceship, aliases, tool hooks). This hjem
+# interactive config (Oh My Zsh, aliases, tool hooks). This hjem
 # battery writes the per-user {file}`~/.zshrc` that must EXIST alongside it.
 #
 # Why a (near-empty) ~/.zshrc is required: with no zsh startup file in $HOME,

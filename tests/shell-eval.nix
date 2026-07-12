@@ -1,5 +1,5 @@
-# Evaluation check for itera's shell battery: zsh (Oh My Zsh + spaceship,
-# autosuggestions, syntax highlighting, shared history, default login shell) and
+# Evaluation check for itera's shell battery: zsh (Oh My Zsh, autosuggestions,
+# syntax highlighting, shared history, default login shell) and
 # its companion tools (fzf + fzf-tab, zoxide, atuin, direnv, pay-respects, zellij,
 # and the CLI-replacement aliases eza/bat/ripgrep/fd/procs/duf/gping/lazygit).
 #
@@ -63,12 +63,9 @@ let
     "history size is 50000" = base.programs.zsh.histSize == 50000;
     "SHARE_HISTORY is set" = builtins.elem "SHARE_HISTORY" base.programs.zsh.setOptions;
 
-    # --- Oh My Zsh + spaceship (default on) ---
+    # --- Oh My Zsh (default on) ---
     "oh-my-zsh is enabled" = base.programs.zsh.ohMyZsh.enable;
-    "spaceship is the theme" = base.programs.zsh.ohMyZsh.theme == "spaceship";
-    "spaceship prompt order is trimmed" =
-      lib.hasInfix "SPACESHIP_PROMPT_ORDER=(" base.programs.zsh.interactiveShellInit;
-    "spaceship-prompt is a custom pkg" = hasPkg "spaceship-prompt" base.programs.zsh.ohMyZsh.customPkgs;
+    "robbyrussell is the theme" = base.programs.zsh.ohMyZsh.theme == "robbyrussell";
     "git plugin is enabled" = builtins.elem "git" base.programs.zsh.ohMyZsh.plugins;
 
     # --- integrations hook into zsh init (default on) ---

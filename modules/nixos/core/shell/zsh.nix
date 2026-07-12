@@ -2,8 +2,8 @@
 #
 # itera shipped no shell config until now, falling back to NixOS's implicit bash.
 # This battery makes zsh the default login shell with the same opinionated setup
-# itera's predecessor (eiros) carried: Oh My Zsh + the spaceship prompt,
-# autosuggestions, syntax highlighting, and a large shared history.
+# itera's predecessor (eiros) carried: Oh My Zsh, autosuggestions, syntax
+# highlighting, and a large shared history.
 #
 # zsh is a SYSTEM concern in NixOS: `programs.zsh.enable` is what makes zsh a valid
 # login shell, and ohMyZsh / autosuggestions / syntaxHighlighting / history /
@@ -47,8 +47,8 @@ in
       type = bool;
       default = true;
       description = ''
-        Install and configure zsh system-wide (Oh My Zsh + spaceship prompt,
-        autosuggestions, syntax highlighting, shared history). On by default
+        Install and configure zsh system-wide (Oh My Zsh, autosuggestions,
+        syntax highlighting, shared history). On by default
         whenever {option}`itera.enable` is set; set to `false` to opt out.
       '';
     };
@@ -98,8 +98,8 @@ in
 
       theme = mkOption {
         type = str;
-        default = "spaceship";
-        example = "robbyrussell";
+        default = "robbyrussell";
+        example = "agnoster";
         description = "Oh My Zsh theme to use.";
       };
 
@@ -119,36 +119,8 @@ in
 
       customPackages = mkOption {
         type = listOf package;
-        default = [ pkgs.spaceship-prompt ];
-        defaultText = lib.literalExpression "[ pkgs.spaceship-prompt ]";
+        default = [ ];
         description = "Additional packages providing Oh My Zsh themes or plugins (wired to `programs.zsh.ohMyZsh.customPkgs`).";
-      };
-
-      spaceshipPromptOrder = mkOption {
-        type = listOf str;
-        default = [
-          "user"
-          "dir"
-          "host"
-          "git"
-          "nix_shell"
-          "exec_time"
-          "line_sep"
-          "jobs"
-          "exit_code"
-          "char"
-        ];
-        description = ''
-          Prompt sections for the spaceship theme (`SPACESHIP_PROMPT_ORDER`).
-          spaceship precompiles every section in the order at shell startup, and
-          its built-in order lists dozens of language/tool sections (node, ruby,
-          php, golang, docker, aws, kubectl, terraform, …) that most shells never
-          use — measured at ~200ms of the interactive startup. This lean default
-          keeps startup roughly twice as fast while still showing the common
-          context (each section only renders when relevant). Set to `[ ]` to leave
-          spaceship's built-in order untouched. Only applies with the spaceship
-          theme.
-        '';
       };
     };
   };
@@ -166,14 +138,6 @@ in
       # paying for two full compinit passes on every interactive startup. With OMZ
       # off, leave the global compinit on so completions still initialize.
       enableGlobalCompInit = mkDefault (!cfg.ohMyZsh.enable);
-
-      # Trim spaceship's prompt sections. NixOS's interactiveShellInit lands in
-      # /etc/zshrc before oh-my-zsh sources the theme, so setting the array here is
-      # picked up when spaceship loads. Skipped when the list is empty or the theme
-      # isn't spaceship. See `spaceshipPromptOrder` for the perf rationale.
-      interactiveShellInit = mkIf (
-        cfg.ohMyZsh.enable && cfg.ohMyZsh.theme == "spaceship" && cfg.ohMyZsh.spaceshipPromptOrder != [ ]
-      ) "SPACESHIP_PROMPT_ORDER=(${lib.concatStringsSep " " cfg.ohMyZsh.spaceshipPromptOrder})\n";
 
       autosuggestions.enable = mkDefault cfg.autosuggestions.enable;
       syntaxHighlighting.enable = mkDefault cfg.syntaxHighlighting.enable;
