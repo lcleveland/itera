@@ -107,7 +107,15 @@ in
       # would rather drop location can instead set `services.geoclue2.enable`
       # (or this) to false. Note: this runs an mDNS responder — acceptable for a
       # desktop, but flip off if you want zero LAN broadcast on a hardened box.
-      services.avahi.enable = mkDefault true;
+      # nssmdns4/6 register the mDNS NSS module so glibc actually resolves
+      # `.local` names — without them avahi runs but logs "No NSS support for
+      # mDNS detected, consider installing nss-mdns!" and nothing can resolve the
+      # responder it advertises. Delivers the `.local` resolution promised above.
+      services.avahi = {
+        enable = mkDefault true;
+        nssmdns4 = mkDefault true;
+        nssmdns6 = mkDefault true;
+      };
 
       # itera's curated system-wide DMS defaults. Kept intentionally small —
       # pin the settings schema version DMS expects and a couple of opinionated
