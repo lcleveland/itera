@@ -49,6 +49,10 @@ let
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
 
+  hasPkg =
+    pname: pkgList:
+    builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
+
   checks = {
     # Shell battery pulls in the compositor.
     "mango compositor is enabled" = cfg.programs.mango.enable;
@@ -69,6 +73,23 @@ let
     # Home layer: the mango user config is generated. Probing for the key forces
     # the hjem battery's gated config path (and its `configText`) to evaluate.
     "mango user config is generated" = mangoUserFiles ? "mango/config.conf";
+
+    # Terminal battery ships WezTerm, wires SUPER+t to it, and installs the Nerd
+    # Font WezTerm needs for the shell's glyphs.
+    "terminal battery is enabled" = cfg.itera.desktop.terminal.enable;
+    "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm";
+    "wezterm package is installed" = hasPkg "wezterm" cfg.environment.systemPackages;
+    "JetBrains Mono Nerd Font is installed" = hasPkg "jetbrains-mono" cfg.fonts.packages;
+
+    # Home layer: the WezTerm user config renders. Probing the key forces the hjem
+    # battery's Lua `configText` (settings + font serialization) to evaluate.
+    "wezterm user config is generated" = mangoUserFiles ? "wezterm/wezterm.lua";
+    "wezterm config sets the font" =
+      lib.hasInfix "wezterm.font('JetBrainsMono Nerd Font')"
+        mangoUserFiles."wezterm/wezterm.lua".text;
+    "wezterm config sets font_size" =
+      lib.hasInfix "config.font_size = 12"
+        mangoUserFiles."wezterm/wezterm.lua".text;
   };
 
   failed = builtins.attrNames (lib.filterAttrs (_: passed: !passed) checks);

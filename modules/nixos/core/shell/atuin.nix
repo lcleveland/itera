@@ -58,27 +58,29 @@ in
       description = ''
         Run the selected command immediately when pressing Enter in the atuin
         search UI. Off by default: with enter_accept on, atuin's zsh integration
-        swallows the first Enter presses on a freshly opened terminal (notably
-        under Ghostty's kitty keyboard protocol), leaving a blinking caret until
-        you press Enter several times.
+        can swallow the first Enter presses on a freshly opened terminal, leaving
+        a blinking caret until you press Enter several times (the exact behaviour
+        depends on the terminal's keyboard-protocol handling).
       '';
     };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    environment.systemPackages = [ pkgs.atuin ];
+    environment = {
+      systemPackages = [ pkgs.atuin ];
 
-    # atuin only reads $ATUIN_CONFIG_DIR/config.toml (default ~/.config/atuin), so
-    # without this the /etc/atuin/config.toml below is silently ignored. Landing it
-    # in /etc/set-environment (sourced by /etc/zshenv) makes it visible before
-    # `atuin init zsh` runs in interactiveShellInit.
-    environment.variables.ATUIN_CONFIG_DIR = "/etc/atuin";
+      # atuin only reads $ATUIN_CONFIG_DIR/config.toml (default ~/.config/atuin), so
+      # without this the /etc/atuin/config.toml below is silently ignored. Landing it
+      # in /etc/set-environment (sourced by /etc/zshenv) makes it visible before
+      # `atuin init zsh` runs in interactiveShellInit.
+      variables.ATUIN_CONFIG_DIR = "/etc/atuin";
 
-    environment.etc."atuin/config.toml".text = ''
-      filter_mode = "${cfg.filterMode}"
-      sync_frequency = "${if cfg.sync.enable then "10m" else "0"}"
-      enter_accept = ${lib.boolToString cfg.enterAccept}
-    '';
+      etc."atuin/config.toml".text = ''
+        filter_mode = "${cfg.filterMode}"
+        sync_frequency = "${if cfg.sync.enable then "10m" else "0"}"
+        enter_accept = ${lib.boolToString cfg.enterAccept}
+      '';
+    };
 
     programs.zsh.interactiveShellInit = mkIf (cfg.shellIntegration.enable && zshEnabled) ''
       eval "$(atuin init zsh)"

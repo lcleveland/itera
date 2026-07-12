@@ -6,7 +6,7 @@
 # system you can install straight onto real hardware from a NixOS live ISO —
 # giving us one committed config that exercises the *full* opt-out itera stack
 # (disko + tmpfs-root impermanence + hardening + the DankMaterialShell + mango
-# desktop + Ghostty) on actual silicon. Because the stack is opt-out (on by
+# desktop + WezTerm) on actual silicon. Because the stack is opt-out (on by
 # default), all this file supplies is the handful of per-host values the layer
 # can't guess; the login user is the shared `itera` account from
 # `dev/test-user.nix`.
@@ -25,7 +25,7 @@ _: {
   # disko, impermanence, hardening, and the desktop are all on by default; we
   # only fill in what they need for a real machine. Unlike `dev/vm.nix`, there
   # are NO QEMU workarounds here (no virtio_gpu initrd module, no software-GL
-  # Ghostty wrapper, no WLR_NO_HARDWARE_CURSORS, no vmVariantWithDisko sizing):
+  # WezTerm wrapper, no WLR_NO_HARDWARE_CURSORS, no vmVariantWithDisko sizing):
   # on real hardware the broad `itera.hardware.initrd.availableKernelModules`
   # default boots the machine and the real GPU drives the desktop.
   itera = {

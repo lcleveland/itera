@@ -69,8 +69,9 @@ let
     "atuin init is sourced" = lib.hasInfix "atuin init zsh" base.programs.zsh.interactiveShellInit;
     "atuin config dir is set so /etc/atuin applies" =
       base.environment.variables.ATUIN_CONFIG_DIR == "/etc/atuin";
-    "atuin enter_accept is off (avoids the Ghostty multi-Enter caret)" =
-      lib.hasInfix "enter_accept = false" base.environment.etc."atuin/config.toml".text;
+    "atuin enter_accept is off (avoids the fresh-terminal multi-Enter caret)" =
+      lib.hasInfix "enter_accept = false"
+        base.environment.etc."atuin/config.toml".text;
     "pay-respects init is sourced" =
       lib.hasInfix "pay-respects zsh" base.programs.zsh.interactiveShellInit;
 
