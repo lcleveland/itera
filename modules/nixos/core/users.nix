@@ -108,6 +108,21 @@ in
   };
 
   config = mkIf config.itera.enable {
+    # Make declarative home files always win on rebuild. hjem's linker (smfh)
+    # only overwrites an existing target path when the file's `clobber` is set,
+    # and that defaults to `hjem.clobberByDefault` = false. Under itera's
+    # default-on impermanence the root is wiped every boot and each persisted
+    # home dir (~/.config, …) is restored from /persist, so a clobber-false file
+    # is seen as already-present and the linker refuses to replace it — freezing
+    # it at whatever store path it FIRST linked, forever ignoring later config
+    # changes (this is what stranded ~/.config/mango/config.conf on the old
+    # `spawn,ghostty` bind long after the generation had switched to WezTerm).
+    # Turning the default on means every itera-managed home file tracks the
+    # active generation. A file that must survive out-of-band edits (e.g. a GUI
+    # writing its own config) still opts out with an explicit `clobber = false`,
+    # as the DankMaterialShell battery exposes.
+    hjem.clobberByDefault = mkDefault true;
+
     warnings = lib.flatten (
       lib.mapAttrsToList (
         username: user:

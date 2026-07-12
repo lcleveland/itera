@@ -126,6 +126,15 @@ in
   config = mkIf cfg.enable {
     xdg.config.files."mango/config.conf" = mkIf (configText != "") {
       source = pkgs.writeText "mango-config.conf" (configText + "\n");
+      # Explicit clobber (beyond itera's `hjem.clobberByDefault = true`) so the
+      # linker OVERWRITES an existing target instead of leaving it. Two reasons:
+      # (1) under itera's impermanence ~/.config is restored from /persist every
+      # boot, so a non-clobber file freezes at its first-ever link target; and
+      # (2) setting it here changes this entry in smfh's manifest, which forces
+      # smfh's diff to treat it as "updated" and re-link it — healing a symlink
+      # already stranded on a stale target (e.g. the old `spawn,ghostty` bind)
+      # on the next rebuild, which flipping only the global default would not do.
+      clobber = true;
     };
   };
 }
