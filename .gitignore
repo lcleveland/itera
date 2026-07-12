@@ -9,6 +9,10 @@ result-*
 .direnv/
 .envrc.local
 
+# git-hooks.nix generated config (a nix-store symlink written by the devShell's
+# pre-commit installationScript; regenerated per checkout, never committed)
+.pre-commit-config.yaml
+
 # Editor / OS cruft
 .DS_Store
 *.swp

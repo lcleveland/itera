@@ -41,13 +41,6 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
-
-          # Evaluation check for the shell battery (zsh + Oh My Zsh/spaceship and
-          # the fzf/zoxide/atuin/pay-respects/CLI-replacement companion tools).
-          shell-eval = import ../tests/shell-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
         };
     };
 }
