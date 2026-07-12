@@ -159,21 +159,21 @@ in
     # who want a different login shell use `defaultShell.enable = false` or mkForce.
     users.defaultUserShell = mkIf cfg.defaultShell.enable pkgs.zsh;
 
-    # Oh My Zsh runs compinit itself; skip NixOS's global compinit to avoid
-    # paying for two full compinit passes on every interactive startup. With OMZ
-    # off, leave the global compinit on so completions still initialize.
-    programs.zsh.enableGlobalCompInit = mkDefault (!cfg.ohMyZsh.enable);
-
-    # Trim spaceship's prompt sections. NixOS's interactiveShellInit lands in
-    # /etc/zshrc before oh-my-zsh sources the theme, so setting the array here is
-    # picked up when spaceship loads. Skipped when the list is empty or the theme
-    # isn't spaceship. See `spaceshipPromptOrder` for the perf rationale.
-    programs.zsh.interactiveShellInit = mkIf (
-      cfg.ohMyZsh.enable && cfg.ohMyZsh.theme == "spaceship" && cfg.ohMyZsh.spaceshipPromptOrder != [ ]
-    ) "SPACESHIP_PROMPT_ORDER=(${lib.concatStringsSep " " cfg.ohMyZsh.spaceshipPromptOrder})\n";
-
     programs.zsh = {
       enable = true;
+
+      # Oh My Zsh runs compinit itself; skip NixOS's global compinit to avoid
+      # paying for two full compinit passes on every interactive startup. With OMZ
+      # off, leave the global compinit on so completions still initialize.
+      enableGlobalCompInit = mkDefault (!cfg.ohMyZsh.enable);
+
+      # Trim spaceship's prompt sections. NixOS's interactiveShellInit lands in
+      # /etc/zshrc before oh-my-zsh sources the theme, so setting the array here is
+      # picked up when spaceship loads. Skipped when the list is empty or the theme
+      # isn't spaceship. See `spaceshipPromptOrder` for the perf rationale.
+      interactiveShellInit = mkIf (
+        cfg.ohMyZsh.enable && cfg.ohMyZsh.theme == "spaceship" && cfg.ohMyZsh.spaceshipPromptOrder != [ ]
+      ) "SPACESHIP_PROMPT_ORDER=(${lib.concatStringsSep " " cfg.ohMyZsh.spaceshipPromptOrder})\n";
 
       autosuggestions.enable = mkDefault cfg.autosuggestions.enable;
       syntaxHighlighting.enable = mkDefault cfg.syntaxHighlighting.enable;
