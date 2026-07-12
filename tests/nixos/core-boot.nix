@@ -18,7 +18,7 @@
       itera.enable = true;
 
       # itera's shell battery makes zsh the default login shell (Oh My Zsh +
-      # spaceship + atuin/zoxide/pay-respects init). Its heavier interactive
+      # atuin/zoxide/pay-respects init). Its heavier interactive
       # startup races the serial-console `send_chars` below — the command is typed
       # before the prompt is ready and gets lost. This test is a boot + login smoke
       # test, not a shell test (the shell battery has its own `shell-eval` check),
