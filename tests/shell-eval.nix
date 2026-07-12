@@ -66,6 +66,8 @@ let
     # --- Oh My Zsh + spaceship (default on) ---
     "oh-my-zsh is enabled" = base.programs.zsh.ohMyZsh.enable;
     "spaceship is the theme" = base.programs.zsh.ohMyZsh.theme == "spaceship";
+    "spaceship prompt order is trimmed" =
+      lib.hasInfix "SPACESHIP_PROMPT_ORDER=(" base.programs.zsh.interactiveShellInit;
     "spaceship-prompt is a custom pkg" = hasPkg "spaceship-prompt" base.programs.zsh.ohMyZsh.customPkgs;
     "git plugin is enabled" = builtins.elem "git" base.programs.zsh.ohMyZsh.plugins;
 
