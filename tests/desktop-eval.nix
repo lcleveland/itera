@@ -78,6 +78,10 @@ let
     "wezterm package is installed" = hasPkg "wezterm" cfg.environment.systemPackages;
     "JetBrains Mono Nerd Font is installed" = hasPkg "jetbrains-mono" cfg.fonts.packages;
 
+    # File-manager battery ships Nemo (default ON) and wires SUPER+f to it.
+    "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
+    "SUPER+f spawns nemo" = cfg.itera.desktop.mango.commands.fileBrowser == "nemo";
+
     # Home layer: the WezTerm user config renders. Probing the key forces the hjem
     # battery's Lua `configText` (settings + font serialization) to evaluate.
     "wezterm user config is generated" = mangoUserFiles ? "wezterm/wezterm.lua";

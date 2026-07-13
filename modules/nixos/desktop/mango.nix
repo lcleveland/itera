@@ -388,9 +388,25 @@ in
 
       fileBrowser = mkOption {
         type = nullOr str;
-        default = null;
+        # Follow the file-manager battery: when Nemo is installed
+        # (`itera.desktop.fileManager`, on by default) SUPER+f opens it. Name a
+        # different command here to override, or `null` to drop the bind.
+        default =
+          if
+            config.itera.enable
+            && config.itera.desktop.fileManager.enable
+            && config.itera.desktop.fileManager.package != null
+          then
+            "nemo"
+          else
+            null;
+        defaultText = lib.literalExpression ''"nemo" when itera.desktop.fileManager is enabled, else null'';
         example = "foot -e yazi";
-        description = "Command SUPER+f spawns. `null` (default) adds no file-browser keybind.";
+        description = ''
+          Command SUPER+f spawns. Defaults to `nemo` when the file-manager
+          battery ({option}`itera.desktop.fileManager`) is enabled; `null` adds no
+          file-browser keybind.
+        '';
       };
 
       browser = mkOption {
