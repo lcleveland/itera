@@ -152,6 +152,7 @@ in
           ".config"
           ".local/share"
           ".cache"
+          "Documents"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
       };
