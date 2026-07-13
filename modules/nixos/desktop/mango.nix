@@ -333,6 +333,16 @@ let
     };
   };
 
+  editorBind = lib.optionalAttrs (cfg.commands.editor != null) {
+    editor = {
+      modifierKeys = [ "SUPER" ];
+      flagModifiers = [ "s" ];
+      keySymbol = "e";
+      mangoCommand = "spawn";
+      commandArguments = cfg.commands.editor;
+    };
+  };
+
   defaultKeybinds =
     tagBinds
     // directionalBinds
@@ -341,7 +351,8 @@ let
     // dmsBinds
     // terminalBind
     // fileBrowserBind
-    // browserBind;
+    // browserBind
+    // editorBind;
 in
 {
   options.itera.desktop.mango = {
@@ -416,6 +427,18 @@ in
         description = ''
           Command SUPER+b spawns. `null` (default) adds no browser keybind
           (name one, or enable `itera.desktop.browser`, to get the bind).
+        '';
+      };
+
+      editor = mkOption {
+        type = nullOr str;
+        default = null;
+        example = "zeditor";
+        description = ''
+          Command SUPER+e spawns. `null` (default) adds no editor keybind; the
+          editor battery ({option}`itera.desktop.editor`, on by default) sets this
+          to `zeditor`. Name a different command here to override, or `null` to
+          drop the bind.
         '';
       };
     };

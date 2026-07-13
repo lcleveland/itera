@@ -82,6 +82,14 @@ let
     "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
     "SUPER+f spawns nemo" = cfg.itera.desktop.mango.commands.fileBrowser == "nemo";
 
+    # Editor battery ships Zed (default ON), claims the text handler, and wires
+    # SUPER+e to it. It deliberately does NOT set EDITOR/VISUAL (GUI-default only).
+    "editor battery is enabled" = cfg.itera.desktop.editor.enable;
+    "SUPER+e spawns zeditor" = cfg.itera.desktop.mango.commands.editor == "zeditor";
+    "zed-editor package is installed" = hasPkg "zed-editor" cfg.environment.systemPackages;
+    "zed is the default text/plain handler" =
+      cfg.xdg.mime.defaultApplications."text/plain" == "dev.zed.Zed.desktop";
+
     # Home layer: the WezTerm user config renders. Probing the key forces the hjem
     # battery's Lua `configText` (settings + font serialization) to evaluate.
     "wezterm user config is generated" = mangoUserFiles ? "wezterm/wezterm.lua";
@@ -91,6 +99,10 @@ let
     "wezterm config sets font_size" =
       lib.hasInfix "config.font_size = 12"
         mangoUserFiles."wezterm/wezterm.lua".text;
+
+    # Home layer: the Zed user config renders. Probing the key forces the hjem
+    # battery's gated config path (settings serialization) to evaluate.
+    "zed user config is generated" = mangoUserFiles ? "zed/settings.json";
   };
 
 in
