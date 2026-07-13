@@ -95,6 +95,7 @@ let
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
     "user home .local/share persisted by default" = builtins.elem ".local/share" (userDirs "testuser");
     "user home .cache persisted by default" = builtins.elem ".cache" (userDirs "testuser");
+    "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
 
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;
