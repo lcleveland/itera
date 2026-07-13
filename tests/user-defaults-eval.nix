@@ -100,10 +100,33 @@ let
     "per-user keybind override rendered" = lib.hasInfix "binds=SUPER,Return,spawn,foot" mangoConfigText;
     "autostart still present" = lib.hasInfix "exec-once=dms run" mangoConfigText;
 
+    # ── mango layout ─────────────────────────────────────────────────────
+    # Default tiling layout is scroller, applied to every tag (id:1..9).
+    "default layout rendered on tag 1" =
+      lib.hasInfix "tagrule=id:1,layout_name:scroller" mangoConfigText;
+    "default layout rendered on tag 9" =
+      lib.hasInfix "tagrule=id:9,layout_name:scroller" mangoConfigText;
+    "circle_layout cycle rendered" =
+      lib.hasInfix "circle_layout=scroller,tile,monocle,grid" mangoConfigText;
+    "switch-layout bind rendered (SUPER+SHIFT+n)" =
+      lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," mangoConfigText;
+    # DMS notifications keeps SUPER+n — no collision with the layout bind.
+    "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," mangoConfigText;
+
     # ── renderer unit ────────────────────────────────────────────────────
     "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;
     "renderer empty modifiers → none" =
       lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,true" renderedBind;
+    # Layout renderers: per-tag tagrule lines and the circle_layout line.
+    "tag-layout renderer emits per-tag rules" = lib.hasInfix "tagrule=id:1,layout_name:tile" (
+      self.lib.mango.mkTagLayoutLines { layout = "tile"; }
+    );
+    "circle-layout renderer joins with comma" =
+      self.lib.mango.mkCircleLayoutLine [
+        "scroller"
+        "tile"
+      ] == "circle_layout=scroller,tile";
+    "circle-layout renderer empty → omitted" = self.lib.mango.mkCircleLayoutLine [ ] == "";
   };
 
 in

@@ -246,6 +246,22 @@ keybinds / window rules via:
 }
 ```
 
+The default tiling layout is `scroller` (a PaperWM-style scrollable strip) and
+`SUPER+SHIFT+n` cycles through the layouts in `layoutCycle`
+(`scroller`, `tile`, `monocle`, `grid` by default). Change either system-wide, or
+per user (per-user overrides the system value):
+
+```nix
+{
+  # System-wide default for every user:
+  itera.desktop.mango.layout = "tile";
+  itera.desktop.mango.layoutCycle = [ "tile" "scroller" "monocle" ];
+
+  # …or just for one user:
+  hjem.users.alice.itera.programs.mango.layout = "dwindle";
+}
+```
+
 > **Hardening caveat.** `itera.hardening` (on by default with `itera.enable`) can
 > interfere with a graphical stack. If the desktop misbehaves, try
 > `itera.hardening.preset = "compatibility"` or a targeted `nix-mineral.settings.*`

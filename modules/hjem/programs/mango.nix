@@ -27,7 +27,13 @@
 let
   inherit (lib.options) mkOption mkEnableOption;
   inherit (lib.modules) mkIf;
-  inherit (lib.types) bool lines attrsOf;
+  inherit (lib.types)
+    bool
+    lines
+    attrsOf
+    enum
+    listOf
+    ;
 
   cfg = config.itera.programs.mango;
 
@@ -49,9 +55,20 @@ let
   effectiveKeybinds = (lib.optionalAttrs cfg.defaultKeybinds.enable systemKeybinds) // cfg.keybinds;
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
 
-  # Order: autostart (exec-once) → keybinds → freeform extraConfig.
+  # Tiling layout: the per-tag default (`tagrule` lines) plus the `circle_layout`
+  # cycle list. Both follow the system value from `itera.desktop.mango` unless the
+  # user overrides them below.
+  layoutConfig = lib.concatStringsSep "\n" (
+    lib.filter (line: line != "") [
+      (iteraLib.mango.mkTagLayoutLines { inherit (cfg) layout; })
+      (iteraLib.mango.mkCircleLayoutLine cfg.layoutCycle)
+    ]
+  );
+
+  # Order: autostart (exec-once) → layout → keybinds → freeform extraConfig.
   configText = lib.concatStringsSep "\n" (
     lib.optional cfg.autostart autostartConfig
+    ++ lib.optional (layoutConfig != "") layoutConfig
     ++ lib.optional (keybindsConfig != "") keybindsConfig
     ++ lib.optional (cfg.extraConfig != "") cfg.extraConfig
   );
@@ -84,6 +101,34 @@ in
         Per-user MangoWC keybinds merged over the system-wide defaults
         ({option}`itera.desktop.mango.keybinds`). A bind whose attribute name
         matches a default replaces that default; new names are added.
+      '';
+    };
+
+    layout = mkOption {
+      type = enum iteraLib.mango.supportedLayouts;
+      default = osConfig.itera.desktop.mango.layout or "scroller";
+      defaultText = lib.literalExpression "osConfig.itera.desktop.mango.layout";
+      example = "tile";
+      description = ''
+        Per-user default tiling layout, applied to every tag via `tagrule` lines.
+        Overrides the system default ({option}`itera.desktop.mango.layout`).
+      '';
+    };
+
+    layoutCycle = mkOption {
+      type = listOf (enum iteraLib.mango.supportedLayouts);
+      default =
+        osConfig.itera.desktop.mango.layoutCycle or [
+          "scroller"
+          "tile"
+          "monocle"
+          "grid"
+        ];
+      defaultText = lib.literalExpression "osConfig.itera.desktop.mango.layoutCycle";
+      description = ''
+        Layouts the SUPER+SHIFT+n `switch_layout` bind cycles through (rendered as
+        `circle_layout`). Overrides {option}`itera.desktop.mango.layoutCycle`; an
+        empty list omits the line and cycles all built-in layouts.
       '';
     };
 
