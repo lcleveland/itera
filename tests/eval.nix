@@ -131,6 +131,11 @@ let
     "nix-community substituter is configured" =
       builtins.elem "https://nix-community.cachix.org" cfg.nix.settings.extra-substituters;
 
+    # garbage-collection battery (auto-on with itera.enable)
+    "gc is automatic" = cfg.nix.gc.automatic;
+    "gc deletes old generations" = cfg.nix.gc.options == "--delete-older-than 14d";
+    "store optimise is automatic" = cfg.nix.optimise.automatic;
+
     # hibernation resume wiring (itera.disko.resume, gated on swap being set)
     "resume is gated off without a swap partition" = cfg.itera.disko.resume == false;
     "resume defaults on when a swap partition is set" = swapOn.itera.disko.resume == true;
