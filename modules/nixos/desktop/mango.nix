@@ -29,7 +29,13 @@
 let
   inherit (lib.options) mkEnableOption mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types) attrsOf nullOr str;
+  inherit (lib.types)
+    attrsOf
+    enum
+    listOf
+    nullOr
+    str
+    ;
 
   cfg = config.itera.desktop.mango;
 
@@ -180,6 +186,19 @@ let
       keySymbol = "r";
       mangoCommand = "reload_config";
     };
+    # Cycle the current tag's tiling layout through `itera.desktop.mango.layoutCycle`
+    # (rendered as `circle_layout`). SHIFT variant so it clears SUPER+n (DMS
+    # notifications); the `s` keysym flag on a lowercase symbol matches how the
+    # other SHIFT+letter binds above (quit, reloadConfig) are declared.
+    cycleLayout = {
+      modifierKeys = [
+        "SUPER"
+        "SHIFT"
+      ];
+      flagModifiers = [ "s" ];
+      keySymbol = "n";
+      mangoCommand = "switch_layout";
+    };
   };
 
   mediaBinds = {
@@ -327,6 +346,34 @@ in
 {
   options.itera.desktop.mango = {
     enable = mkEnableOption "the mango Wayland compositor";
+
+    layout = mkOption {
+      type = enum iteraLib.mango.supportedLayouts;
+      default = "scroller";
+      example = "tile";
+      description = ''
+        System-wide default tiling layout, applied to every tag as a
+        `tagrule=id:N,layout_name:<layout>` line. Defaults to `scroller` (a
+        PaperWM-style scrollable strip). The hjem battery `itera.programs.mango`
+        reads this via `osConfig` and each user may override it with
+        {option}`itera.programs.mango.layout`.
+      '';
+    };
+
+    layoutCycle = mkOption {
+      type = listOf (enum iteraLib.mango.supportedLayouts);
+      default = [
+        "scroller"
+        "tile"
+        "monocle"
+        "grid"
+      ];
+      description = ''
+        Layouts the `switch_layout` keybind (SUPER+SHIFT+n) cycles through,
+        rendered as MangoWC's `circle_layout` line. An empty list omits the line,
+        which makes `switch_layout` cycle every built-in layout instead.
+      '';
+    };
 
     commands = {
       terminal = mkOption {

@@ -13,6 +13,25 @@
 let
   inherit (lib) concatStringsSep mapAttrsToList;
 
+  # MangoWC's built-in tiling layouts (see mango's docs/window-management/layouts).
+  # Used to build the `enum` type for the layout options in both mango batteries.
+  supportedLayouts = [
+    "tile"
+    "scroller"
+    "monocle"
+    "grid"
+    "deck"
+    "center_tile"
+    "vertical_tile"
+    "right_tile"
+    "vertical_scroller"
+    "vertical_grid"
+    "vertical_deck"
+    "dwindle"
+    "fair"
+    "vertical_fair"
+  ];
+
   # A MangoWC bind directive. Its config key is `bind` plus any flag letters, so
   # a bind with `flagModifiers = [ "s" ]` renders under the key `binds`.
   #
@@ -84,7 +103,34 @@ let
   # Render a name-keyed attrset of keybinds into config.conf lines (one per
   # bind). The names are organisational only — they never reach the file.
   renderKeybinds = keybinds: concatStringsSep "\n" (mapAttrsToList (_: mkBindLine) keybinds);
+
+  # MangoWC has no single "default layout" key — the startup layout is set per
+  # tag via `tagrule=id:N,layout_name:<layout>`. Render one such line per tag to
+  # give every tag the same default. `tagCount` defaults to 9 to match itera's
+  # `SUPER+1..9` tag binds (see `tags` in modules/nixos/desktop/mango.nix); keep
+  # the two in sync.
+  mkTagLayoutLines =
+    {
+      layout,
+      tagCount ? 9,
+    }:
+    concatStringsSep "\n" (
+      map (id: "tagrule=id:${toString id},layout_name:${layout}") (lib.range 1 tagCount)
+    );
+
+  # Render the `circle_layout=` line that `switch_layout` cycles through. An
+  # empty list renders as "" so the line is omitted entirely (mango then cycles
+  # all built-in layouts).
+  mkCircleLayoutLine =
+    layouts: if layouts == [ ] then "" else "circle_layout=${concatStringsSep "," layouts}";
 in
 {
-  inherit keybindType mkBindLine renderKeybinds;
+  inherit
+    keybindType
+    mkBindLine
+    renderKeybinds
+    supportedLayouts
+    mkTagLayoutLines
+    mkCircleLayoutLine
+    ;
 }
