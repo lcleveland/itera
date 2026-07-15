@@ -12,7 +12,7 @@
 # sets wins.
 #
 # The only opinionated default here is disabling telemetry — matching itera's
-# privacy-focused stack (ungoogled-chromium). No font / format-on-save opinions are
+# privacy-focused stack (LibreWolf). No font / format-on-save opinions are
 # imposed; Zed's own defaults stand and it already respects the repo's
 # `.editorconfig`.
 #
