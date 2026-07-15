@@ -285,7 +285,7 @@ options stay reachable for fine-tuning.
 | `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on      |
 | `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on      |
 | `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on      |
-| `itera.desktop.browser`     | ungoogled-chromium (default web handler + `SUPER+b`)    | on      |
+| `itera.desktop.browser`     | LibreWolf (default web handler + `SUPER+b`)             | on      |
 | `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on      |
 | `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off     |
 | `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off     |
@@ -475,7 +475,7 @@ A few itera-specific notes:
 | `lib/`                   | helpers (module auto-import)                                                                                                                                                                     |
 | `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                                                  |
 | `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`, `shell` (nushell + carapace)      |
-| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (ungoogled-chromium), `theme` (dark mode)                                |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (LibreWolf), `theme` (dark mode)                                         |
 | `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                                                         |
 | `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                                                           |
 | `pkgs/`                  | itera's own packages                                                                                                                                                                             |

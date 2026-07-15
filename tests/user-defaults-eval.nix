@@ -95,8 +95,8 @@ let
     "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" mangoConfigText);
     "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," mangoConfigText;
     "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" mangoConfigText;
-    # Browser battery (opt-out, ON by default) wires SUPER+b to launch chromium.
-    "browser keybind launches chromium" = lib.hasInfix "binds=SUPER,b,spawn,chromium" mangoConfigText;
+    # Browser battery (opt-out, ON by default) wires SUPER+b to launch librewolf.
+    "browser keybind launches librewolf" = lib.hasInfix "binds=SUPER,b,spawn,librewolf" mangoConfigText;
     "per-user keybind override rendered" = lib.hasInfix "binds=SUPER,Return,spawn,foot" mangoConfigText;
     "autostart still present" = lib.hasInfix "exec-once=dms run" mangoConfigText;
 
