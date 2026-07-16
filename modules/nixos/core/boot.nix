@@ -13,6 +13,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -89,10 +90,11 @@ in
     kernelPackages = mkOption {
       type = nullOr attrs;
       default = null;
-      example = lib.literalExpression "pkgs.linuxPackages_latest";
+      example = lib.literalExpression "pkgs.linuxPackages";
       description = ''
-        Kernel package set to boot (e.g. {command}`pkgs.linuxPackages_latest`).
-        {command}`null` (the default) keeps the NixOS default kernel.
+        Kernel package set to boot (e.g. {command}`pkgs.linuxPackages` for the
+        NixOS default LTS kernel). {command}`null` (the default) selects the
+        latest mainline kernel ({command}`pkgs.linuxPackages_latest`).
       '';
     };
   };
@@ -121,7 +123,9 @@ in
         tmpfsSize = mkDefault cfg.tmp.size;
       };
 
-      kernelPackages = mkIf (cfg.kernelPackages != null) (mkDefault cfg.kernelPackages);
+      kernelPackages = mkDefault (
+        if cfg.kernelPackages != null then cfg.kernelPackages else pkgs.linuxPackages_latest
+      );
     };
   };
 }
