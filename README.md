@@ -459,12 +459,23 @@ A few itera-specific notes:
   box, or `ssh -p 2222 dev@localhost` for the running `itera-vm` (its sshd is
   forwarded to host port 2222). This is dev-only wiring in `dev/remote-access.nix`
   and is **not** part of `nixosModules.default` — consumers get no SSH daemon.
-- **Update in place with `itera-update`** instead of reinstalling per change. SSH
-  in and run it: it does `nh os switch` (itera's rebuild front-end, see
-  `itera.nix.nh` below) against the newest remote flake commit (`--refresh`),
-  defaulting to this host's own attr, and shows a build tree + generation diff
-  before switching. Test a branch with
-  `ITERA_UPDATE_FLAKE=github:you/itera itera-update`.
+- **Rebuild after you edit your config** with `nh` (itera's `itera.nix.nh`
+  rebuild front-end, on by default), which shows a build tree and a generation
+  diff before switching. nh needs to know where your flake is: with
+  no argument it looks at `/etc/nixos/flake.nix`, which itera never creates, so
+  point it at your config instead. Either set `itera.nix.nh.flake` to your
+  checkout — then `sudo nh os switch` just works — or pass the path each time:
+
+  ```sh
+  sudo nh os switch ~/Documents/itera-config          # or set itera.nix.nh.flake
+  # plain nixos-rebuild works too, if you disable the nh battery:
+  sudo nixos-rebuild switch --flake ~/Documents/itera-config#myhost
+  ```
+
+  Keep that checkout under a **persisted** path (`~/Documents` is persisted by
+  default) so it survives the ephemeral root. The dev-only `itera-update` command
+  (SSH wiring in `dev/remote-access.nix`, **not** part of `nixosModules.default`)
+  is only on the test hosts — consumers use `nh os switch` as above.
 
 ## Structure
 
