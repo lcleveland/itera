@@ -15,8 +15,9 @@
 # Flake-ref overrides still live in the delegated scripts (ITERA_INSTALL_FLAKE,
 # ITERA_UPDATE_FLAKE).
 #
-# To add a subcommand: add a `case` arm below (and a `usage` line), then add its
-# package to `runtimeInputs` in flake/cli.nix so the binary is on PATH.
+# To add a subcommand: add a `case` arm below (and a `usage` line), add its
+# package to `runtimeInputs` in flake/cli.nix so the binary is on PATH, and add
+# an entry to dev/itera.carapace.yaml so tab-completion knows about it.
 #
 # writeShellApplication supplies `set -euo pipefail` and runs shellcheck, so this
 # file is plain bash with no preamble of its own.

@@ -16,6 +16,7 @@
 # defaults persist `/etc/ssh/ssh_host_*` — so clients won't hit host-key-changed
 # warnings across reboots. Nothing to add here for that.
 {
+  config,
   inputs,
   lib,
   pkgs,
@@ -54,4 +55,16 @@
   environment.systemPackages = [
     inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.itera
   ];
+
+  # Tab-completion for `itera`. carapace (itera's external completer in nushell —
+  # see modules/nixos/core/shell/nushell.nix) auto-loads command specs from
+  # ~/.config/carapace/specs/, so drop the spec there for the login user. It also
+  # feeds bash/zsh/fish carapace. Gated on carapace being enabled; harmless if
+  # not. `itera` is the sole account on the test hosts (dev/test-user.nix).
+  hjem.users.itera.xdg.config.files = lib.mkIf config.itera.shell.nushell.carapace.enable {
+    "carapace/specs/itera.yaml" = {
+      source = ./itera.carapace.yaml;
+      clobber = true;
+    };
+  };
 }
