@@ -269,6 +269,61 @@ per user (per-user overrides the system value):
 }
 ```
 
+#### Monitors
+
+Configure outputs — position, resolution, scale, refresh rate, rotation, VRR/HDR,
+enable/disable — through `itera.programs.mango.monitors` (system-wide, and also
+applied to the login greeter) or `itera.users.<name>.programs.mango.monitors`
+(per user). These render to MangoWC `monitorrule=` lines in
+`~/.config/mango/config.conf`. Leaving it unset lets mango auto-configure every
+output. Each monitor is keyed by a friendly name that defaults into the `name`
+match:
+
+```nix
+{
+  # System-wide (every user + the greeter):
+  itera.programs.mango.monitors = {
+    # The key defaults into the `name` match. Laptop panel at the origin, 1.5x.
+    "eDP-1" = {
+      width = 1920;
+      height = 1080;
+      refresh = 60;
+      x = 0;
+      y = 0;
+      scale = 1.5;
+    };
+    # External display to the right of it, rotated 90°. Match by an *exact*
+    # regex (see the anchoring note) rather than the key.
+    external = {
+      name = "^DP-1$";
+      width = 2560;
+      height = 1440;
+      x = 1920;
+      y = 0;
+      transform = "90"; # normal | 90 | 180 | 270 | flipped | flipped-90 | …
+      vrr = true;
+    };
+  };
+
+  # …or just for one user (a monitor of the same key replaces the system-wide
+  # entry wholesale; other monitors still inherit):
+  itera.users.alice.programs.mango.monitors."eDP-1".scale = 1;
+
+  # Turn an output off:
+  itera.programs.mango.monitors."HDMI-1".enable = false;
+}
+```
+
+Two caveats, both straight from mango's own docs:
+
+- **`name` is a regular expression.** The unanchored key `"eDP-1"` also matches
+  `eDP-10`; anchor it (`name = "^eDP-1$"`) for an exact match. To match by
+  make/model/serial instead of connector name, set those fields (and typically
+  `name = null`) — if several match fields are set, **all** of them must match.
+- **Never use negative `x`/`y` coordinates if you run XWayland apps** — a known
+  XWayland bug breaks click events. Arrange monitors from `0,0` into positive
+  space.
+
 **How the per-user system works (and how to extend it).** Every curated program
 exposes its options once, at two levels: a system-wide default
 (`itera.programs.<app>.*`, applied to every user) and a per-user override
