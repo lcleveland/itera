@@ -129,6 +129,7 @@
         ./flake/outputs.nix
         ./flake/devshell.nix
         ./flake/checks.nix
+        ./flake/cli.nix
         ./flake/vm.nix
         ./flake/test-host.nix
       ];

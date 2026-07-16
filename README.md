@@ -330,13 +330,15 @@ bootctl status                         # verify Secure Boot is active
 
 Enabling it swaps systemd-boot for lanzaboote. **nixos-facter** likewise needs a
 per-host report. Generate it with `nix run nixpkgs#nixos-facter -- -o facter.json`
-directly, or run [`facter-report.sh`](facter-report.sh) on the target machine for
-a guided path — it writes `facter.json` _and_ prints a summary mapping the detected
-hardware to the per-host knobs facter does not cover (`itera.hardware.cpu`,
-`itera.disko.device`, `itera.nvidia` PRIME bus IDs):
+directly, or run [`facter-report.sh`](facter-report.sh) (a.k.a. `itera facter
+report`) on the target machine for a guided path — it writes `facter.json` _and_
+prints a summary mapping the detected hardware to the per-host knobs facter does
+not cover (`itera.hardware.cpu`, `itera.disko.device`, `itera.nvidia` PRIME bus IDs):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/lcleveland/itera/main/facter-report.sh | sudo bash
+# or, through the itera command:
+sudo nix run 'github:lcleveland/itera#itera' -- facter report
 ```
 
 Either way, commit `facter.json` and point `itera.hardware.facter.reportPath` at
@@ -443,6 +445,9 @@ invoke `nix` yourself? The bootstrap is just a shortcut for:
 ```sh
 sudo nix --extra-experimental-features 'nix-command flakes' \
   run 'github:lcleveland/itera#install-itera-testhost'
+# equivalently, through the itera command:
+sudo nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:lcleveland/itera#itera' -- testhost install
 ```
 
 (The live ISO ships with flakes disabled and partitioning needs root, hence the
@@ -483,28 +488,45 @@ A few itera-specific notes:
   ```
 
   Keep that checkout under a **persisted** path (`~/Documents` is persisted by
-  default) so it survives the ephemeral root. The dev-only `itera-update` command
-  (SSH wiring in `dev/remote-access.nix`, **not** part of `nixosModules.default`)
-  is only on the test hosts — consumers use `nh os switch` as above.
+  default) so it survives the ephemeral root. On the test hosts, the dev-only
+  `itera` command (`itera testhost rebuild` — SSH wiring in
+  `dev/remote-access.nix`, **not** part of `nixosModules.default`) wraps this;
+  consumers use `nh os switch` as above.
+
+### The `itera` command
+
+The repo's own tooling is grouped under a single `itera` command (the
+`packages.itera` dispatcher — run it with `nix run github:lcleveland/itera#itera -- <args>`,
+or use it directly on a test host where it is baked onto `PATH`):
+
+| Command                       | Does                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `itera facter report [path]`  | Generate a nixos-facter report + an `itera.*` hardware tuning summary.     |
+| `itera testhost rebuild [..]` | Rebuild this host in place from the latest remote commit (`nh os switch`). |
+| `itera testhost install [..]` | Install `itera-testhost` onto a disk from a live ISO (`disko-install`).    |
+
+It is dev/maintainer tooling and, like the test hosts themselves, is **not**
+part of `nixosModules.default` — downstream consumers manage their own hosts
+with `nh os switch` and set `itera.hardware.facter.reportPath` directly.
 
 ## Structure
 
-| Path                     | Purpose                                                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                                                 |
-| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                                                              |
-| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                                                      |
-| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer), `remote-access.nix` + `update-itera.sh` (SSH in + `itera-update`) |
-| `docs/`                  | reference notes (e.g. `known-boot-log-noise.md`)                                                                                                                                                 |
-| `lib/`                   | helpers (module auto-import)                                                                                                                                                                     |
-| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                                                  |
-| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`, `shell` (nushell + carapace)      |
-| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (LibreWolf), `theme` (dark mode)                                         |
-| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                                                         |
-| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                                                           |
-| `pkgs/`                  | itera's own packages                                                                                                                                                                             |
-| `templates/`             | downstream starter flake                                                                                                                                                                         |
-| `tests/`                 | NixOS VM test harness for modules                                                                                                                                                                |
+| Path                     | Purpose                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flake.nix`              | flake-parts entry point; inputs + module imports                                                                                                                                                                                                        |
+| `install-testhost.sh`    | remote bootstrap: `curl … \| sudo bash` to install `itera-testhost` from a live ISO                                                                                                                                                                     |
+| `flake/`                 | flake outputs, dev shell + formatter, checks, and the `itera-vm` / `itera-testhost` configs                                                                                                                                                             |
+| `dev/`                   | dev-only host configs: `vm.nix` (QEMU demo), `test-host.nix` (on-hardware test host), `install-itera-testhost.sh` (installer), `itera.sh` (the `itera` command dispatcher), `remote-access.nix` + `update-itera.sh` (SSH in + `itera testhost rebuild`) |
+| `docs/`                  | reference notes (e.g. `known-boot-log-noise.md`)                                                                                                                                                                                                        |
+| `lib/`                   | helpers (module auto-import)                                                                                                                                                                                                                            |
+| `modules/nixos/`         | system layer — `itera.*` NixOS options → `nixosModules.default`                                                                                                                                                                                         |
+| `modules/nixos/core/`    | core batteries: `boot`, `nix`, `locale`, `networking`, `disko`, `impermanence`, `hardening`, `secureboot`, `secrets`, `facter`, `nix-index`, `virtualisation`, `shell` (nushell + carapace)                                                             |
+| `modules/nixos/desktop/` | desktop batteries: `mango` compositor, `dankMaterialShell` shell + greeter, `flatpak`, `file-manager` (Nemo), `browser` (LibreWolf), `theme` (dark mode)                                                                                                |
+| `modules/hjem/`          | home layer — per-program modules → `hjemModules.default`                                                                                                                                                                                                |
+| `overlays/`              | `pkgs.itera.*` overlay                                                                                                                                                                                                                                  |
+| `pkgs/`                  | itera's own packages                                                                                                                                                                                                                                    |
+| `templates/`             | downstream starter flake                                                                                                                                                                                                                                |
+| `tests/`                 | NixOS VM test harness for modules                                                                                                                                                                                                                       |
 
 Adding a module is wiring-free: drop a `.nix` file into `modules/nixos/` or
 `modules/hjem/` and the auto-importer (`lib/modules.nix`) picks it up. Files

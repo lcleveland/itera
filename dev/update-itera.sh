@@ -6,10 +6,11 @@
 # time the config changes — you want to pull the newest commit and rebuild in
 # place. That is all this does: `nh os switch` against the remote flake.
 #
-# It is baked into both test systems as the `itera-update` command (see
-# dev/remote-access.nix). SSH in and run it:
+# It backs the `itera testhost rebuild` subcommand (see dev/itera.sh) and is
+# packaged as `itera-update` (flake/cli.nix); the `itera` dispatcher is what the
+# test systems bake onto PATH (see dev/remote-access.nix). SSH in and run:
 #
-#     itera-update
+#     itera testhost rebuild
 #
 # `nh os switch` is itera's rebuild front-end (see modules/nixos/core/nh.nix): it
 # builds the new system with a live build-tree view, shows a diff of what

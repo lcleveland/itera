@@ -16,6 +16,7 @@
 # defaults persist `/etc/ssh/ssh_host_*` — so clients won't hit host-key-changed
 # warnings across reboots. Nothing to add here for that.
 {
+  inputs,
   lib,
   pkgs,
   ...
@@ -40,18 +41,17 @@
   # forward set in dev/vm.nix.)
   networking.firewall.allowedTCPPorts = [ 22 ];
 
-  # ── In-place remote update command ─────────────────────────────────────────
-  # `itera-update` rebuilds the machine from the newest remote flake commit — the
-  # sibling of the install path, for iterating without reinstalling. Script and
-  # usage live in dev/update-itera.sh (same readFile pattern as the installer in
-  # flake/test-host.nix).
+  # ── The `itera` command ────────────────────────────────────────────────────
+  # Bake the unified dispatcher (flake/cli.nix, dev/itera.sh) onto the box so an
+  # SSH session can rebuild in place with `itera testhost rebuild` (the newest
+  # remote flake commit via nh) or regenerate a hardware report with `itera
+  # facter report`. This supersedes the old bare `itera-update` command — that
+  # tool is still the implementation, now reached through the dispatcher.
+  #
+  # Pulled from `inputs.self.packages` (threaded in via `specialArgs` in
+  # flake/vm.nix and flake/test-host.nix) so it is the same package `nix run`
+  # builds — no duplicate definition here.
   environment.systemPackages = [
-    (pkgs.writeShellApplication {
-      name = "itera-update";
-      # nh drives the rebuild; carry it explicitly so the command works even if
-      # the nh battery is turned off on a host.
-      runtimeInputs = [ pkgs.nh ];
-      text = builtins.readFile ./update-itera.sh;
-    })
+    inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.itera
   ];
 }
