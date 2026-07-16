@@ -16,6 +16,9 @@
 #
 #     sudo bash facter-report.sh [output-path]
 #
+# It is also the `itera facter report` subcommand and the `facter-report` flake
+# package (see flake/cli.nix), e.g.  sudo nix run github:lcleveland/itera#itera -- facter report
+#
 # Or straight from GitHub, no clone needed (the live ISO ships nix-command/flakes
 # disabled, so this enables them for the facter run):
 #

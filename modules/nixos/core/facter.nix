@@ -18,7 +18,7 @@
 #
 #   nix run nixpkgs#nixos-facter -- -o facter.json   # commit it to your flake
 #
-# or run itera's `facter-report.sh` on the target host for a guided path (it also
+# or run `itera facter report` on the target host for a guided path (it also
 # reports the knobs facter does not cover — CPU enum, disk, NVIDIA PRIME bus IDs).
 # Either way, then point this at it:  itera.hardware.facter.reportPath = ./facter.json;
 {

@@ -17,6 +17,9 @@
 {
   flake.nixosConfigurations.itera-testhost = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
+    # Give dev modules (remote-access.nix) access to flake outputs — it installs
+    # the `itera` command from `inputs.self.packages`.
+    specialArgs = { inherit inputs; };
     modules = [
       inputs.self.nixosModules.default
       ../dev/test-host.nix
