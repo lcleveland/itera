@@ -13,7 +13,8 @@
 # that subvolume simply goes unused. The two features never reference each other.
 #
 # Home directories: a curated subset of every normal user's $HOME (`.config`,
-# `.local/share`, `.cache`) is persisted by default so desktop/login state
+# `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, plus `.librewolf`
+# when the browser battery is on) is persisted by default so desktop/login state
 # survives the wiped root with no per-user wiring. This reads the account set from
 # `config.users.users` (filtered to normal users) — the same cross-battery
 # introspection the module already does for secureBoot/flatpak/virtualisation —
@@ -85,7 +86,16 @@ let
   # accounts and plain users.users normal users are covered. Merged (not replacing)
   # with any explicit `cfg.users.<name>` in the config body below.
   homeUsers = lib.filterAttrs (_: u: u.isNormalUser) config.users.users;
-  autoUsers = lib.mapAttrs (_: _: { inherit (cfg.homes) directories files; }) homeUsers;
+  # Append the LibreWolf profile dir when the browser battery is on — it lives at
+  # ~/.librewolf, none of the curated home dirs, so bookmarks/logins/history would
+  # be lost each boot otherwise. Gated so nothing is persisted when the browser is
+  # dropped, mirroring the conditional system-dir additions below.
+  homeDirectories =
+    cfg.homes.directories ++ lib.optional config.itera.desktop.browser.enable ".librewolf";
+  autoUsers = lib.mapAttrs (_: _: {
+    directories = homeDirectories;
+    inherit (cfg.homes) files;
+  }) homeUsers;
 in
 {
   options.itera.impermanence = {
@@ -151,7 +161,12 @@ in
         default = [
           ".config"
           ".local/share"
+          ".local/state"
           ".cache"
+          {
+            directory = ".ssh";
+            mode = "0700";
+          } # owner-only; SSH rejects lax perms
           "Documents"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
@@ -256,6 +271,10 @@ in
         ++ lib.optional config.itera.secureBoot.enable config.itera.secureBoot.pkiBundle
         ++ lib.optional config.itera.desktop.flatpak.enable "/var/lib/flatpak"
         ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
+        # BlueZ stores device pairings under /var/lib/bluetooth; without this every
+        # paired device (keyboard, headphones, …) must be re-paired after each boot.
+        # Gated on the switch that actually creates the dir.
+        ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth"
         # The DMS greeter's cache dir holds .local/state/memory.json — the last
         # successful username/session the greeter pre-selects. Persist it so the
         # greeter remembers the last user across the wiped tmpfs root. Gated on
