@@ -42,6 +42,10 @@ Commands:
                                (nh os switch; uses itera.nix.nh.flake).
   update [nh args]             Update your flake inputs, then rebuild
                                (nh os switch --update).
+  boot [nh args]               Rebuild from your flake, but apply on next reboot
+                               instead of now (nh os boot).
+  update-boot [nh args]        Update your flake inputs, then apply on next reboot
+                               (nh os boot --update).
   gc [nh args]                 Prune old generations to free space (nh clean all).
   help                         Show this help.
 EOF
@@ -76,6 +80,8 @@ case "$cmd" in
     ;;
   rebuild) exec nh os switch "$@" ;;
   update) exec nh os switch --update "$@" ;;
+  boot) exec nh os boot "$@" ;;
+  update-boot) exec nh os boot --update "$@" ;;
   gc) exec nh clean all "$@" ;;
   testhost)
     sub="${1:-}"

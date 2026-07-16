@@ -22,6 +22,10 @@ commands:
     description: rebuild this system from your flake (nh os switch)
   - name: update
     description: update flake inputs, then rebuild (nh os switch --update)
+  - name: boot
+    description: rebuild, but apply on next reboot (nh os boot)
+  - name: update-boot
+    description: update flake inputs, apply on next reboot (nh os boot --update)
   - name: gc
     description: prune old generations to free space (nh clean all)
   - name: help
