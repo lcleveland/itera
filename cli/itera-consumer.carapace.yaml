@@ -1,0 +1,28 @@
+# carapace completion spec for the CONSUMER `itera` command — the build shipped
+# to every itera system by the `itera.cli` battery (modules/nixos/core/cli.nix).
+# The `itera.programs.itera` home battery drops this into every user's
+# ~/.config/carapace/specs/, so `itera <TAB>` completes in nushell (and any
+# carapace-backed bash/zsh/fish).
+#
+# Same as cli/itera.carapace.yaml but WITHOUT the `testhost` group — that is
+# itera-repo dev tooling and is not part of the consumer command. Keep both specs
+# and cli/itera.sh in sync.
+name: itera
+description: control your itera system
+commands:
+  - name: facter
+    description: hardware reporting
+    commands:
+      - name: report
+        description: generate a nixos-facter report + itera.* tuning summary
+        completion:
+          positional:
+            - ["$files"]
+  - name: rebuild
+    description: rebuild this system from your flake (nh os switch)
+  - name: update
+    description: update flake inputs, then rebuild (nh os switch --update)
+  - name: gc
+    description: prune old generations to free space (nh clean all)
+  - name: help
+    description: show usage

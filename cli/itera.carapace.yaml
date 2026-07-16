@@ -1,0 +1,34 @@
+# carapace completion spec for the FULL `itera` command (cli/itera.sh) — the
+# `nix run` / dev-test-host build that includes the `testhost` verbs. The dev
+# hosts install this via dev/remote-access.nix. For the shipped consumer command,
+# see itera-consumer.carapace.yaml (same tree, minus `testhost`).
+#
+# carapace is itera's external completer in nushell (see
+# modules/nixos/core/shell/nushell.nix) and auto-loads specs from
+# ~/.config/carapace/specs/. Keep in sync with cli/itera.sh.
+name: itera
+description: control your itera system
+commands:
+  - name: facter
+    description: hardware reporting
+    commands:
+      - name: report
+        description: generate a nixos-facter report + itera.* tuning summary
+        completion:
+          positional:
+            - ["$files"]
+  - name: rebuild
+    description: rebuild this system from your flake (nh os switch)
+  - name: update
+    description: update flake inputs, then rebuild (nh os switch --update)
+  - name: gc
+    description: prune old generations to free space (nh clean all)
+  - name: testhost
+    description: itera-repo test-host tooling (dev)
+    commands:
+      - name: rebuild
+        description: rebuild itera's test host in place from itera's flake
+      - name: install
+        description: install itera-testhost onto a disk (disko-install)
+  - name: help
+    description: show usage
