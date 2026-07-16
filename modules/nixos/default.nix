@@ -9,6 +9,12 @@ inputs:
 { lib, ... }:
 let
   iteraLib = import ../../lib { inherit lib; };
+
+  # Curated-program registrations. Each contributes a `systemModule` (the
+  # system-wide `itera.programs.<app>` defaults, spliced in below) and a
+  # `usersSubmodule` (the per-user `itera.users.<name>.programs.<app>` overrides,
+  # spliced into the account submodule by modules/nixos/core/users.nix).
+  programRegistrations = import ../programs { inherit lib iteraLib; };
 in
 {
   imports =
@@ -40,7 +46,9 @@ in
       inputs.nix-flatpak.nixosModules.nix-flatpak
     ]
     # Auto-import every itera system feature/profile module.
-    ++ iteraLib.modules.listNixModules ./.;
+    ++ iteraLib.modules.listNixModules ./.
+    # Curated-program system-wide default options (`itera.programs.<app>`).
+    ++ map (r: r.systemModule) programRegistrations;
 
   config = {
     # Register itera's per-user home collection with hjem for every user.

@@ -10,10 +10,10 @@
 # points WezTerm at it — otherwise glyph-heavy CLI tooling would render as tofu.
 #
 # This module is the SYSTEM half: it installs the package + font and wires the
-# compositor bind. The per-user config (font size, padding, …) is written by the
-# matching home battery `itera.programs.wezterm`
-# (`modules/hjem/programs/wezterm.nix`), whose `enable` follows this system toggle
-# by default.
+# compositor bind. The curated config options (font size, padding, …) are declared
+# by `modules/programs/wezterm.nix` — settable system-wide at
+# `itera.programs.wezterm.*` and per-user at `itera.users.<name>.programs.wezterm.*`
+# — and rendered by `modules/hjem/programs/wezterm.nix`, gated on this system toggle.
 #
 # There is no system state to persist under impermanence — per-user WezTerm
 # settings live in $HOME (covered by the hjem / `itera.impermanence.users`

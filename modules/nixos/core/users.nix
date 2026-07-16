@@ -7,11 +7,14 @@
 # itera's "default settings for all users" reaches each user without any
 # per-user fan-out here.
 #
-# Per-user HOME *overrides* are NOT declared here. They live on the hjem option
-# path, e.g. `hjem.users.<name>.itera.programs.dankMaterialShell.settings` — the
-# account layer only decides *who* the users are, the home batteries decide
-# *what* is in their $HOME. This is the deliberate simplification over eiros,
-# which crammed the whole home surface into its `users` submodule.
+# Per-user HOME *overrides* live under `itera.users.<name>.programs.<app>.*` —
+# the curated-program framework (lib/programs.nix) splices each program's per-user
+# option set into this submodule via `imports` below. Setting one overrides the
+# system-wide default (`itera.programs.<app>.*`) per key; the matching hjem battery
+# reads the merged result via `osConfig` and renders it into the user's $HOME. The
+# account layer still only decides *who* the users are and their account fields;
+# the `programs.<app>` leaves are contributed by the desktop/program registrations,
+# so this module stays app-agnostic.
 #
 # Opt-out like the other core batteries: gated on the master `itera.enable`
 # (so `itera.enable = false` drops all itera-declared users) with `mkDefault`
@@ -21,6 +24,7 @@
 {
   config,
   lib,
+  iteraLib,
   ...
 }:
 let
@@ -35,6 +39,10 @@ let
     ;
 
   cfg = config.itera.users;
+
+  # Per-user curated-program option fragments, spliced into the account submodule
+  # so each user gets `programs.<app>.*` overrides for every registered program.
+  programRegistrations = import ../../programs { inherit lib iteraLib; };
 in
 {
   options.itera.users = mkOption {
@@ -42,14 +50,17 @@ in
     description = ''
       Declarative itera user accounts. Each entry creates a normal-user account
       and enables hjem home management for it (so the user gets itera's home
-      batteries and their system-wide defaults). Override per-user home settings
-      under {option}`hjem.users.<name>.itera.programs.*`.
+      batteries and their system-wide defaults). Set per-user curated-program
+      overrides under {option}`itera.users.<name>.programs.<app>.*` (each wins per
+      key over the system-wide default {option}`itera.programs.<app>.*`).
     '';
     example = lib.literalExpression ''
       {
         itera.users.alice = {
           extraGroups = [ "wheel" "audio" "video" ];
           initialPassword = "changeme";
+          programs.mango.layout = "tile";
+          programs.dankMaterialShell.settings.cornerRadius = 8;
         };
       }
     '';
@@ -57,6 +68,9 @@ in
       submodule (
         { name, ... }:
         {
+          # Curated-program per-user option leaves (`programs.<app>.*`).
+          imports = map (r: r.usersSubmodule) programRegistrations;
+
           options = {
             isNormalUser = mkOption {
               type = bool;

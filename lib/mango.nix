@@ -4,11 +4,11 @@
 # structured keybind declarations into the `key=value` lines mango expects in
 # {file}`$XDG_CONFIG_HOME/mango/config.conf`.
 #
-# The same `keybindType` is consumed by two option declarations of different
-# module classes — the system option `itera.desktop.mango.keybinds` (NixOS
-# class) and the per-user option `itera.programs.mango.keybinds` (hjem class).
-# `lib.types.submodule` is class-agnostic, so a single shared value is fine; do
-# NOT pin `_class` on it.
+# The same `keybindType` is consumed by both levels of the curated mango options
+# — the system-wide default `itera.programs.mango.keybinds` and the per-user
+# `itera.users.<name>.programs.mango.keybinds` (both NixOS class, generated once
+# by the curated-program framework). `lib.types.submodule` is class-agnostic, so a
+# single shared value is fine; do NOT pin `_class` on it.
 { lib }:
 let
   inherit (lib) concatStringsSep mapAttrsToList;

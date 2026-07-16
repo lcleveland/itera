@@ -1,86 +1,43 @@
-# itera's Zed user-config battery (home layer).
+# itera's Zed user-config renderer (home layer).
 #
 # The system battery `itera.desktop.editor` installs Zed, claims the text-file MIME
-# handlers, and wires the mango `SUPER+e` bind; this hjem battery writes the
-# per-user {file}`~/.config/zed/settings.json` that Zed reads. Because itera's home
-# collection is applied to every hjem user, enabling the desktop is enough for every
-# user to inherit these defaults — no per-user wiring needed.
+# handlers, and wires the mango `SUPER+e` bind; the curated-program registration
+# `modules/programs/zed.nix` declares the settings (system-wide `itera.programs.zed.*`
+# + per-user `itera.users.<name>.programs.zed.*`). THIS battery is the renderer: it
+# reads the merged result out of `osConfig` and writes `~/.config/zed/settings.json`.
 #
-# Config format: Zed's config is JSON, so `settings` is rendered with nixpkgs'
-# `pkgs.formats.json` generator (same idiom as the `_example.nix` reference). itera's
-# opinionated defaults are merged underneath via `mkDefault` so anything the user
-# sets wins.
-#
-# The only opinionated default here is disabling telemetry — matching itera's
-# privacy-focused stack (LibreWolf). No font / format-on-save opinions are
-# imposed; Zed's own defaults stand and it already respects the repo's
-# `.editorconfig`.
+# Config format: Zed's config is JSON, rendered with nixpkgs' `pkgs.formats.json`
+# generator. Merge model: `systemDefaults // perUserSettings`, shallow per key.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`): sinks like
-# `xdg.config.files` are unprefixed and `osConfig` / `pkgs` are module args. Enable
-# tracks the system toggle by default.
+# `xdg.config.files` are unprefixed and `osConfig` / `pkgs` / `name` are module args.
+# Declares NO options (the schema lives in the registration); enablement follows the
+# system editor toggle.
 {
-  config,
   lib,
   pkgs,
   osConfig ? null,
+  name,
   ...
 }:
 let
-  inherit (lib.options) mkOption mkEnableOption;
-  inherit (lib.modules) mkIf mkDefault;
+  inherit (lib.modules) mkIf;
 
   json = pkgs.formats.json { };
 
-  cfg = config.itera.programs.zed;
+  enable = osConfig.itera.desktop.editor.enable or false;
 
-  systemEnabled = osConfig.itera.desktop.editor.enable or false;
+  sys = osConfig.itera.programs.zed or { };
+  usr = osConfig.itera.users.${name}.programs.zed or { };
+
+  finalSettings = (sys.settings or { }) // (usr.settings or { });
 in
 {
-  options.itera.programs.zed = {
-    enable =
-      mkEnableOption "itera's Zed user configuration"
-      # Follow the system editor toggle by default: enabling
-      # `itera.desktop.editor` is enough to get the matching home config.
-      // {
-        default = systemEnabled;
-        defaultText = lib.literalExpression "osConfig.itera.desktop.editor.enable";
-      };
-
-    settings = mkOption {
-      inherit (json) type;
-      default = { };
-      example = {
-        vim_mode = true;
-        buffer_font_size = 14;
-      };
-      description = ''
-        Written verbatim to {file}`$XDG_CONFIG_HOME/zed/settings.json`. itera's
-        opinionated defaults (telemetry disabled) are merged underneath via
-        `mkDefault`, so anything set here wins — the module stays opt-out.
-      '';
-    };
-  };
-
-  config = mkIf cfg.enable {
-    # Warn (don't fail) if the home config is on but the system editor is off —
-    # the config would be written for a Zed that isn't installed.
-    warnings = lib.optional (!systemEnabled) ''
-      itera.programs.zed is enabled for a user but itera.desktop.editor.enable is
-      false — the Zed settings will be written to $HOME without Zed being installed.
-    '';
-
-    # Opinionated "batteries-included" default: telemetry off. Explicit user values
-    # override.
-    itera.programs.zed.settings.telemetry = {
-      diagnostics = mkDefault false;
-      metrics = mkDefault false;
-    };
-
+  config = mkIf enable {
     xdg.config.files."zed/settings.json" = {
-      source = json.generate "zed-settings.json" cfg.settings;
-      # Explicit clobber — same rationale as the wezterm/mango batteries: replace
-      # any pre-existing settings.json rather than letting hjem refuse to overwrite.
+      source = json.generate "zed-settings.json" finalSettings;
+      # Explicit clobber — replace any pre-existing settings.json rather than letting
+      # hjem refuse to overwrite (same rationale as the mango battery).
       clobber = true;
     };
   };
