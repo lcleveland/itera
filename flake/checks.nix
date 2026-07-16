@@ -55,6 +55,12 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the cli battery (the consumer `itera` command).
+          cli-eval = import ../tests/cli-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }

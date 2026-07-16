@@ -42,28 +42,31 @@
   # forward set in dev/vm.nix.)
   networking.firewall.allowedTCPPorts = [ 22 ];
 
-  # ── The `itera` command ────────────────────────────────────────────────────
-  # Bake the unified dispatcher (flake/cli.nix, dev/itera.sh) onto the box so an
-  # SSH session can rebuild in place with `itera testhost rebuild` (the newest
-  # remote flake commit via nh) or regenerate a hardware report with `itera
-  # facter report`. This supersedes the old bare `itera-update` command — that
-  # tool is still the implementation, now reached through the dispatcher.
+  # ── The full `itera` command ───────────────────────────────────────────────
+  # These are itera's own test hosts, so they want the FULL dispatcher — the one
+  # that also carries the `testhost` verbs (`itera testhost rebuild` rebuilds the
+  # box in place from itera's flake; `itera testhost install` is the ISO
+  # installer). So opt out of the consumer `itera.cli` battery (which would
+  # install the testhost-less build) and bake the full package instead.
   #
-  # Pulled from `inputs.self.packages` (threaded in via `specialArgs` in
-  # flake/vm.nix and flake/test-host.nix) so it is the same package `nix run`
-  # builds — no duplicate definition here.
+  # The full package is pulled from `inputs.self.packages` (threaded in via
+  # `specialArgs` in flake/vm.nix and flake/test-host.nix) so it is the same
+  # package `nix run .#itera` builds — no duplicate definition here.
+  itera.cli.enable = false;
+
   environment.systemPackages = [
     inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.itera
   ];
 
-  # Tab-completion for `itera`. carapace (itera's external completer in nushell —
-  # see modules/nixos/core/shell/nushell.nix) auto-loads command specs from
-  # ~/.config/carapace/specs/, so drop the spec there for the login user. It also
-  # feeds bash/zsh/fish carapace. Gated on carapace being enabled; harmless if
-  # not. `itera` is the sole account on the test hosts (dev/test-user.nix).
+  # Tab-completion for the full command. carapace (itera's external completer in
+  # nushell — see modules/nixos/core/shell/nushell.nix) auto-loads specs from
+  # ~/.config/carapace/specs/; drop the FULL spec (with `testhost`) there for the
+  # login user. Gated on carapace being enabled. `itera` is the sole account on
+  # the test hosts (dev/test-user.nix). Consumer hosts get the testhost-less spec
+  # via the `itera.programs.itera` home battery instead.
   hjem.users.itera.xdg.config.files = lib.mkIf config.itera.shell.nushell.carapace.enable {
     "carapace/specs/itera.yaml" = {
-      source = ./itera.carapace.yaml;
+      source = ../cli/itera.carapace.yaml;
       clobber = true;
     };
   };
