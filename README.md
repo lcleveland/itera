@@ -329,10 +329,20 @@ bootctl status                         # verify Secure Boot is active
 ```
 
 Enabling it swaps systemd-boot for lanzaboote. **nixos-facter** likewise needs a
-per-host report — generate it with `nix run nixpkgs#nixos-facter -- -o facter.json`,
-commit it, and point `itera.hardware.facter.reportPath` at it. Both compose with
-impermanence automatically (Secure Boot keys, Flatpak apps, and libvirt VMs are
-added to the persisted set when their battery is on).
+per-host report. Generate it with `nix run nixpkgs#nixos-facter -- -o facter.json`
+directly, or run [`facter-report.sh`](facter-report.sh) on the target machine for
+a guided path — it writes `facter.json` _and_ prints a summary mapping the detected
+hardware to the per-host knobs facter does not cover (`itera.hardware.cpu`,
+`itera.disko.device`, `itera.nvidia` PRIME bus IDs):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lcleveland/itera/main/facter-report.sh | sudo bash
+```
+
+Either way, commit `facter.json` and point `itera.hardware.facter.reportPath` at
+it. Both facter and Secure Boot compose with impermanence automatically (Secure
+Boot keys, Flatpak apps, and libvirt VMs are added to the persisted set when their
+battery is on).
 
 **NVIDIA** is opt-in too — the drivers are unfree and hardware-specific, so they
 can't be defaulted on for a hardware-agnostic image. A single switch turns on the
