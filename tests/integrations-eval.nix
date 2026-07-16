@@ -51,7 +51,22 @@ let
     itera.desktop.flatpak.enable = true;
   };
 
+  # Default-on batteries turned OFF, to assert their persisted state is gated:
+  # Bluetooth (system dir) and the LibreWolf profile (per-user home dir).
+  batteriesOff = mkEval {
+    itera = {
+      users.testuser = { };
+      bluetooth.enable = false;
+      desktop.browser.enable = false;
+    };
+  };
+  # Same account with the batteries left on, to assert the profile IS persisted.
+  batteriesOn = mkEval { itera.users.testuser = { }; };
+
   persistDirs = cfg: map (d: d.directory or d) cfg.environment.persistence."/persist".directories;
+  userDirs =
+    cfg: name:
+    map (d: d.directory or d) cfg.environment.persistence."/persist".users.${name}.directories;
 
   checks = {
     # --- agenix (default on, inert) ---
@@ -78,6 +93,19 @@ let
     "librewolf is the default https handler" =
       base.xdg.mime.defaultApplications."x-scheme-handler/https" == "librewolf.desktop";
     "browser keybind command is wired" = base.itera.desktop.mango.commands.browser == "librewolf";
+    # The ~/.librewolf profile is persisted while the battery is on, and gated off
+    # with it (it lives outside the curated home dirs, so it must be added/removed
+    # with the browser rather than persisted unconditionally).
+    "librewolf profile persisted when browser on" = builtins.elem ".librewolf" (
+      userDirs batteriesOn "testuser"
+    );
+    "librewolf profile not persisted when browser off" =
+      !builtins.elem ".librewolf" (userDirs batteriesOff "testuser");
+
+    # --- Bluetooth (default on): pairings persisted, gated on the battery ---
+    "bluetooth pairings persisted when on" = builtins.elem "/var/lib/bluetooth" (persistDirs base);
+    "bluetooth pairings not persisted when off" =
+      !builtins.elem "/var/lib/bluetooth" (persistDirs batteriesOff);
 
     # --- dark mode by default ---
     "GTK apps default to dark" = base.environment.sessionVariables.GTK_THEME == "Adwaita:dark";

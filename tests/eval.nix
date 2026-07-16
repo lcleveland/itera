@@ -90,12 +90,20 @@ let
     # The DMS greeter is on by default (itera.enable), so its cache dir — holding
     # the remembered last-user/session — is persisted across the tmpfs root.
     "dms-greeter cache is persisted" = builtins.elem "/var/lib/dms-greeter" dirNames;
+    # Bluetooth is on by default (itera.enable), so BlueZ device pairings survive
+    # the wiped root rather than needing a re-pair every boot.
+    "bluetooth pairings are persisted" = builtins.elem "/var/lib/bluetooth" dirNames;
 
     # per-user home persistence (itera.impermanence.homes, on by default)
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
     "user home .local/share persisted by default" = builtins.elem ".local/share" (userDirs "testuser");
+    "user home .local/state persisted by default" = builtins.elem ".local/state" (userDirs "testuser");
     "user home .cache persisted by default" = builtins.elem ".cache" (userDirs "testuser");
+    "user home .ssh persisted by default" = builtins.elem ".ssh" (userDirs "testuser");
     "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
+    # Browser battery is on by default, so the LibreWolf profile (~/.librewolf) —
+    # bookmarks/logins/history — survives the tmpfs root.
+    "user home .librewolf persisted when browser on" = builtins.elem ".librewolf" (userDirs "testuser");
 
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;

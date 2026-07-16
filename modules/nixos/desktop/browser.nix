@@ -11,9 +11,12 @@
 # bind (mirroring how the terminal battery wires `SUPER+t`). nixpkgs' `librewolf`
 # package provides the `librewolf` binary and the `librewolf.desktop` app id.
 #
-# There is no system state to persist under impermanence — per-user browser
-# profiles live in $HOME (covered by the hjem / `itera.impermanence.users`
-# home-persistence path), same as the terminal and file-manager batteries.
+# There is no system state to persist under impermanence, but the per-user
+# profile lives at `~/.librewolf` — none of the curated home dirs
+# (`.config`/`.local/share`/`.cache`/`Documents`). The impermanence battery
+# persists it via a browser-gated home entry (`.librewolf` is added to each
+# user's persisted dirs whenever this battery is on), so bookmarks/logins/history
+# survive the wiped root.
 #
 # Opt-OUT (default ON): set `itera.desktop.browser.enable = false` to drop it (or
 # to ship your own browser).
