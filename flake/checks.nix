@@ -48,6 +48,13 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the nh battery (nh as rebuild front-end + nh
+          # clean owning scheduled GC, with the gc.nix hand-off).
+          nh-eval = import ../tests/nh-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }

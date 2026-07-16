@@ -9,6 +9,13 @@
 # on the master `itera.enable` with a per-feature `enable` (default true), so it
 # comes along automatically but is fully overridable. Values use `mkDefault` so a
 # consuming host can override any of them.
+#
+# GC hand-off to `nh`: when `itera.nix.nh.clean.enable` is on (its default),
+# `nh clean` owns scheduled garbage collection, so the `nix.gc` timer here steps
+# aside — running both would fight, and the upstream `programs.nh` module asserts
+# against `nix.gc.automatic` while `nh clean` is scheduled. `nh clean` does not
+# optimise the store, so the optimisation pass below runs either way. The `dates`
+# / `options` settings here are the fallback used when `nh clean` is disabled.
 {
   config,
   lib,
@@ -67,7 +74,10 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    nix.gc = {
+    # Scheduled GC is handed to `nh clean` when it's on (see nh.nix); nh clean
+    # replaces nix-collect-garbage but does NOT optimise the store, so the
+    # optimise pass stays here either way.
+    nix.gc = mkIf (!config.programs.nh.clean.enable) {
       automatic = mkDefault true;
       dates = mkDefault cfg.dates;
       options = mkDefault cfg.options;

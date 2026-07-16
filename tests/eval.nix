@@ -131,9 +131,10 @@ let
     "nix-community substituter is configured" =
       builtins.elem "https://nix-community.cachix.org" cfg.nix.settings.extra-substituters;
 
-    # garbage-collection battery (auto-on with itera.enable)
-    "gc is automatic" = cfg.nix.gc.automatic;
-    "gc deletes old generations" = cfg.nix.gc.options == "--delete-older-than 14d";
+    # garbage-collection battery (auto-on with itera.enable). By default nh clean
+    # owns scheduled GC, so the nix.gc timer steps aside (see nh-eval.nix for the
+    # hand-off); the store-optimise pass runs regardless.
+    "nh clean owns GC, so nix.gc timer is off by default" = !cfg.nix.gc.automatic;
     "store optimise is automatic" = cfg.nix.optimise.automatic;
 
     # hibernation resume wiring (itera.disko.resume, gated on swap being set)

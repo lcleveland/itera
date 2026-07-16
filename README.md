@@ -84,15 +84,16 @@ own, to boot and rebuild a machine with no generated `hardware-configuration.nix
 (`itera.hardware` supplies the hardware layer, `itera.disko` the disks). Set
 `itera.enable = false` to turn everything off.
 
-| Option namespace   | Provides                                                              |
-| ------------------ | --------------------------------------------------------------------- |
-| `itera.boot`       | systemd-boot on the ESP, systemd initrd, `/tmp` on tmpfs, kernel pick |
-| `itera.hardware`   | initrd kernel modules, CPU microcode, redistributable firmware        |
-| `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`          |
-| `itera.nix.cache`  | extra binary-cache substituters (nix-community) for faster builds     |
-| `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                  |
-| `itera.networking` | hostname, NetworkManager, stable MAC (constant IP across reboots)     |
-| `itera.hardening`  | nix-mineral system hardening (kernel/network sysctls, lockdown, …)    |
+| Option namespace   | Provides                                                                          |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `itera.boot`       | systemd-boot on the ESP, systemd initrd, `/tmp` on tmpfs, kernel pick             |
+| `itera.hardware`   | initrd kernel modules, CPU microcode, redistributable firmware                    |
+| `itera.nix`        | flakes enabled, unfree allowed, pinned `system.stateVersion`                      |
+| `itera.nix.nh`     | `nh` as the rebuild front-end (build tree + diff) and scheduled GC via `nh clean` |
+| `itera.nix.cache`  | extra binary-cache substituters (nix-community) for faster builds                 |
+| `itera.locale`     | time zone, system locale (all `LC_*`), NTP time sync                              |
+| `itera.networking` | hostname, NetworkManager, stable MAC (constant IP across reboots)                 |
+| `itera.hardening`  | nix-mineral system hardening (kernel/network sysctls, lockdown, …)                |
 
 Every value is a `mkDefault`, so override any of them individually:
 
@@ -459,9 +460,11 @@ A few itera-specific notes:
   forwarded to host port 2222). This is dev-only wiring in `dev/remote-access.nix`
   and is **not** part of `nixosModules.default` — consumers get no SSH daemon.
 - **Update in place with `itera-update`** instead of reinstalling per change. SSH
-  in and run it: it does `nixos-rebuild switch` against the newest remote flake
-  commit (`--refresh`), defaulting to this host's own attr. Test a branch with
-  `ITERA_UPDATE_FLAKE=github:you/itera#itera-testhost itera-update`.
+  in and run it: it does `nh os switch` (itera's rebuild front-end, see
+  `itera.nix.nh` below) against the newest remote flake commit (`--refresh`),
+  defaulting to this host's own attr, and shows a build tree + generation diff
+  before switching. Test a branch with
+  `ITERA_UPDATE_FLAKE=github:you/itera itera-update`.
 
 ## Structure
 
