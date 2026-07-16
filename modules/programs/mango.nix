@@ -22,6 +22,7 @@ let
     bool
     lines
     ;
+  inherit (iteraLib.mango) monitorRuleType;
 in
 iteraLib.programs.mkCuratedProgram {
   name = "mango";
@@ -71,6 +72,46 @@ iteraLib.programs.mkCuratedProgram {
         Layouts the SUPER+SHIFT+n `switch_layout` bind cycles through (rendered as
         MangoWC's `circle_layout`). An empty list omits the line and cycles every
         built-in layout instead.
+      '';
+    };
+
+    monitors = {
+      type = attrsOf monitorRuleType;
+      attrs = true;
+      description = ''
+        MangoWC output configuration (position, resolution, scale, refresh,
+        rotation, VRR/HDR, enable), rendered as `monitorrule=` lines in
+        {file}`mango/config.conf`. Keyed by a friendly name that defaults into the
+        `name` match regex, so keying by connector name (e.g. `"eDP-1"`) is usually
+        enough.
+
+        At the system-wide level ({option}`itera.programs.mango.monitors`) this is
+        the default for every user (and also feeds the login greeter); per-user
+        ({option}`itera.users.<name>.programs.mango.monitors`) a monitor whose
+        attribute name matches a default replaces it wholesale, and new names are
+        added.
+
+        Empty by default, which lets mango auto-configure every output.
+      '';
+      example = lib.literalExpression ''
+        {
+          # Laptop panel at the origin, 1.5x scale.
+          "eDP-1" = {
+            width = 1920;
+            height = 1080;
+            refresh = 60;
+            x = 0;
+            y = 0;
+            scale = 1.5;
+          };
+          # External display to the right, rotated 90°, matched by an exact regex.
+          external = {
+            name = "^DP-1$";
+            x = 1920;
+            y = 0;
+            transform = "90";
+          };
+        }
       '';
     };
   };

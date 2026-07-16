@@ -34,6 +34,7 @@
 {
   config,
   lib,
+  iteraLib,
   ...
 }:
 let
@@ -98,6 +99,16 @@ in
         enable = mkDefault true;
         # `compositor.name` has no upstream default; render the greeter under mango.
         compositor.name = mkDefault "mango";
+        # Give the greeter's mango instance the same monitor layout as the session
+        # so the login screen comes up with the right resolution/position on
+        # multi-monitor setups. The greeter is pre-login and single-instance, so it
+        # takes the SYSTEM-WIDE monitors (`itera.programs.mango.monitors`) — the
+        # per-user layer does not apply here. `customConfig` (type lines) is passed
+        # to mango via `-C`; empty when no monitors are set, leaving mango to
+        # auto-configure exactly as before.
+        compositor.customConfig = mkDefault (
+          iteraLib.mango.renderMonitorRules config.itera.programs.mango.monitors
+        );
       };
 
       # Default the post-login session picker to the mango session that the mango

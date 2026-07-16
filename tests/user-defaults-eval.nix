@@ -34,19 +34,52 @@ let
         # A system-wide DMS default override (should reach EVERY user).
         programs.dankMaterialShell.settings.currentThemeName = "blue";
 
+        # System-wide monitor rules (should reach EVERY user, and the greeter).
+        # The keys default into the `name` match — no explicit `name` set here, so
+        # the rendered lines proving `name:HDMI-1` / `name:DP-2` also prove the
+        # key→name default.
+        programs.mango.monitors = {
+          "HDMI-1" = {
+            width = 1920;
+            height = 1080;
+            refresh = 60;
+            x = 0;
+            y = 0;
+          };
+          "DP-2" = {
+            width = 2560;
+            height = 1440;
+            x = 1920;
+            y = 0;
+          };
+        };
+
         users = {
           # alice: account + per-user deviations from the system-wide defaults.
           alice = {
             initialPassword = "changeme";
             programs = {
               dankMaterialShell.settings.cornerRadius = 8;
-              mango.layout = "tile";
-              mango.keybinds.terminal = {
-                modifierKeys = [ "SUPER" ];
-                keySymbol = "Return";
-                mangoCommand = "spawn";
-                commandArguments = "foot";
-                flagModifiers = [ "s" ];
+              mango = {
+                layout = "tile";
+                keybinds.terminal = {
+                  modifierKeys = [ "SUPER" ];
+                  keySymbol = "Return";
+                  mangoCommand = "spawn";
+                  commandArguments = "foot";
+                  flagModifiers = [ "s" ];
+                };
+                # Override HDMI-1 wholesale (new mode + scale + rotation); DP-2 is
+                # left untouched so it must still inherit the system-wide rule.
+                monitors."HDMI-1" = {
+                  width = 3840;
+                  height = 2160;
+                  refresh = 120;
+                  x = 0;
+                  y = 0;
+                  scale = 1.5;
+                  transform = "270";
+                };
               };
             };
           };
@@ -67,6 +100,10 @@ let
   aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
   bobMango = builtins.readFile bobFiles."mango/config.conf".source;
 
+  # The DMS greeter (on by default) runs its own mango instance; itera feeds it
+  # the SYSTEM-WIDE monitors via `compositor.customConfig`.
+  greeterMonitors = cfg.programs.dank-material-shell.greeter.compositor.customConfig;
+
   # Unit-check the keybind renderer directly via the flake's lib output.
   renderedBind = self.lib.mango.renderKeybinds {
     demo = {
@@ -83,6 +120,25 @@ let
       mangoCommand = "spawn_shell";
       commandArguments = "true";
       flagModifiers = [ "s" ];
+    };
+  };
+
+  # Unit-check the monitor renderer directly (plain attrs — no submodule name
+  # default, so `name` is given explicitly).
+  renderedMonitor = self.lib.mango.renderMonitorRules {
+    primary = {
+      name = "^eDP-1$";
+      width = 1920;
+      height = 1080;
+      refresh = 59.951;
+      scale = 1.5;
+      transform = "90";
+      vrr = true;
+    };
+    off = {
+      name = "HDMI-2";
+      enable = false;
+      width = 9999;
     };
   };
 
@@ -136,6 +192,39 @@ let
       lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
     # DMS notifications keeps SUPER+n — no collision with the layout bind.
     "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," bobMango;
+
+    # ── mango monitors: system-wide default reaches every user ───────────
+    # bob inherits both system rules; the key→name default renders `name:HDMI-1`.
+    "monitor default reaches user (bob HDMI-1)" =
+      lib.hasInfix "monitorrule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
+    "monitor default reaches user (bob DP-2)" =
+      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" bobMango;
+
+    # ── mango monitors: per-user override wins per KEY, sibling still inherits ──
+    "per-user monitor override wins (alice HDMI-1)" =
+      lib.hasInfix "monitorrule=name:HDMI-1,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
+    "per-user override replaces the system rule (alice)" =
+      !(lib.hasInfix "monitorrule=name:HDMI-1,width:1920" aliceMango);
+    "sibling monitor still inherited (alice DP-2)" =
+      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" aliceMango;
+    # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
+    "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
+
+    # ── mango monitors: the login greeter gets the system-wide layout ────
+    "greeter gets system-wide monitors (HDMI-1)" =
+      lib.hasInfix "monitorrule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
+    "greeter gets system-wide monitors (DP-2)" =
+      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" greeterMonitors;
+
+    # ── monitor renderer unit ────────────────────────────────────────────
+    "monitor renderer: anchored name preserved" = lib.hasInfix "name:^eDP-1$" renderedMonitor;
+    "monitor renderer: float refresh stripped" = lib.hasInfix "refresh:59.951," renderedMonitor;
+    "monitor renderer: float scale stripped" = lib.hasInfix "scale:1.5," renderedMonitor;
+    "monitor renderer: transform maps to rr" = lib.hasInfix "rr:1" renderedMonitor;
+    "monitor renderer: bool renders as 1" = lib.hasInfix "vrr:1" renderedMonitor;
+    "monitor renderer: disabled emits disable:1" =
+      lib.hasInfix "monitorrule=name:HDMI-2,disable:1" renderedMonitor;
+    "monitor renderer: disabled omits setting fields" = !(lib.hasInfix "width:9999" renderedMonitor);
 
     # ── renderer unit ────────────────────────────────────────────────────
     "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;

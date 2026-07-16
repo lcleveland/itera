@@ -62,6 +62,10 @@ let
   userKeybinds = usr.keybinds or { };
   effectiveKeybinds = (lib.optionalAttrs useDefaultKeybinds systemKeybinds) // userKeybinds;
 
+  # monitors: system-wide output rules merged with this user's. A per-user
+  # monitor of the same key replaces the system entry wholesale; new keys add.
+  monitors = (sys.monitors or { }) // (usr.monitors or { });
+
   # itera's opinionated startup: refresh the D-Bus/systemd user environment (so
   # portals and user services see WAYLAND_DISPLAY etc.), start the removable-
   # storage automount agent (when the storage battery is on — udisks2 has no
@@ -74,6 +78,7 @@ let
   );
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
+  monitorsConfig = iteraLib.mango.renderMonitorRules monitors;
 
   # Tiling layout: the per-tag default (`tagrule` lines) plus the `circle_layout`
   # cycle list.
@@ -84,9 +89,12 @@ let
     ]
   );
 
-  # Order: autostart (exec-once) → layout → keybinds → freeform extraConfig.
+  # Order: autostart (exec-once) → monitors → layout → keybinds → freeform
+  # extraConfig. (mango matches monitor rules by name, so their position in the
+  # file is not significant — placed early for readability.)
   configText = lib.concatStringsSep "\n" (
     lib.optional autostart autostartConfig
+    ++ lib.optional (monitorsConfig != "") monitorsConfig
     ++ lib.optional (layoutConfig != "") layoutConfig
     ++ lib.optional (keybindsConfig != "") keybindsConfig
     ++ lib.optional (extraConfig != "") extraConfig
