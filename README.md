@@ -213,11 +213,12 @@ unusual hardware or software — reach for the `compatibility` preset (or a targ
 Quickshell desktop shell), with login handled by DankMaterialShell's own greetd
 greeter. Both upstreams are bundled — you do **not** add them as inputs.
 
-| Option namespace                  | Provides                                                        |
-| --------------------------------- | --------------------------------------------------------------- |
-| `itera.desktop.mango`             | the mango compositor (portals, polkit, xwayland, session)       |
-| `itera.desktop.dankMaterialShell` | the DMS shell + greeter; pulls in mango                         |
-| `itera.programs.mango` (home)     | per-user `mango/config.conf` that autostarts DMS in the session |
+| Option namespace                    | Provides                                                             |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `itera.desktop.mango`               | the mango compositor (portals, polkit, xwayland, session)            |
+| `itera.desktop.dankMaterialShell`   | the DMS shell + greeter; pulls in mango                              |
+| `itera.programs.<app>`              | curated program options — the **system-wide default** for every user |
+| `itera.users.<name>.programs.<app>` | **per-user override** of those options (wins per key)                |
 
 Like the other opinionated defaults it is **opt-out**: on automatically with
 `itera.enable`, so importing itera already gives you mango + DankMaterialShell +
@@ -238,11 +239,11 @@ the DMS greeter, all wired together. Override as needed:
 
 The matching per-user config is enabled automatically for every hjem user once
 `itera.desktop.mango` is on (it follows the system toggle). Add your own mango
-keybinds / window rules via:
+keybinds / window rules for one user via:
 
 ```nix
 {
-  hjem.users.alice.itera.programs.mango.extraConfig = ''
+  itera.users.alice.programs.mango.extraConfig = ''
     bind=SUPER,Return,spawn,foot
   '';
 }
@@ -256,13 +257,25 @@ per user (per-user overrides the system value):
 ```nix
 {
   # System-wide default for every user:
-  itera.desktop.mango.layout = "tile";
-  itera.desktop.mango.layoutCycle = [ "tile" "scroller" "monocle" ];
+  itera.programs.mango.layout = "tile";
+  itera.programs.mango.layoutCycle = [ "tile" "scroller" "monocle" ];
 
   # …or just for one user:
-  hjem.users.alice.itera.programs.mango.layout = "dwindle";
+  itera.users.alice.programs.mango.layout = "dwindle";
+
+  # DankMaterialShell settings work the same way — system-wide or per user:
+  itera.programs.dankMaterialShell.settings.currentThemeName = "blue"; # everyone
+  itera.users.alice.programs.dankMaterialShell.settings.cornerRadius = 8; # just alice
 }
 ```
+
+**How the per-user system works (and how to extend it).** Every curated program
+exposes its options once, at two levels: a system-wide default
+(`itera.programs.<app>.*`, applied to every user) and a per-user override
+(`itera.users.<name>.programs.<app>.*`, which wins per key). Adding a new program
+is a single registration file in `modules/programs/` — it is then automatically
+settable both system-wide and per user, with no extra wiring. See
+[lib/programs.nix](lib/programs.nix).
 
 > **Hardening caveat.** `itera.hardening` (on by default with `itera.enable`) can
 > interfere with a graphical stack. If the desktop misbehaves, try

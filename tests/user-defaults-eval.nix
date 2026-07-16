@@ -1,10 +1,13 @@
-# Evaluation check for itera's "default settings for all users" system:
-# the `itera.users` account battery, the system-wide DankMaterialShell settings
-# applied per-user, and the mango default keybinds (with per-user override).
+# Evaluation check for itera's curated per-program options system:
+# the `itera.users` account battery, the system-wide defaults
+# (`itera.programs.<app>`) reaching every user, and the per-user overrides
+# (`itera.users.<name>.programs.<app>`) winning per key.
 #
-# It evaluates a NixOS configuration and asserts the generated config, then also
-# unit-checks the mango keybind renderer directly. `nix build` forces evaluation
-# and fails loudly if any assertion is false.
+# Drives TWO users — alice (with overrides) and bob (with none) — so
+# "system default reaches the user" is a real assertion, not a tautology. It
+# evaluates a NixOS configuration and asserts the generated config, then
+# unit-checks the mango keybind/layout renderers directly. `nix build` forces
+# evaluation and fails loudly if any assertion is false.
 {
   pkgs,
   lib,
@@ -27,30 +30,42 @@ let
 
   cfg = mkConfig [
     {
-      # A system-level DMS default override (should reach every user).
-      itera.desktop.dankMaterialShell.settings.currentThemeName = "blue";
+      itera = {
+        # A system-wide DMS default override (should reach EVERY user).
+        programs.dankMaterialShell.settings.currentThemeName = "blue";
 
-      # Account battery: creates the account AND enables hjem.
-      itera.users.alice.initialPassword = "changeme";
+        users = {
+          # alice: account + per-user deviations from the system-wide defaults.
+          alice = {
+            initialPassword = "changeme";
+            programs = {
+              dankMaterialShell.settings.cornerRadius = 8;
+              mango.layout = "tile";
+              mango.keybinds.terminal = {
+                modifierKeys = [ "SUPER" ];
+                keySymbol = "Return";
+                mangoCommand = "spawn";
+                commandArguments = "foot";
+                flagModifiers = [ "s" ];
+              };
+            };
+          };
 
-      # Per-user deviations from the system-wide defaults.
-      hjem.users.alice.itera.programs = {
-        dankMaterialShell.settings.cornerRadius = 8;
-        mango.keybinds.terminal = {
-          modifierKeys = [ "SUPER" ];
-          keySymbol = "Return";
-          mangoCommand = "spawn";
-          commandArguments = "foot";
-          flagModifiers = [ "s" ];
+          # bob: an account with NO per-user overrides — inherits every default.
+          bob = { };
         };
       };
     }
   ];
 
   aliceFiles = cfg.hjem.users.alice.xdg.config.files;
-  dmsSettings = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
-  mangoConfig = aliceFiles."mango/config.conf".source; # a derivation (text → writeText)
-  mangoConfigText = builtins.readFile mangoConfig;
+  bobFiles = cfg.hjem.users.bob.xdg.config.files;
+
+  aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
+  bobDms = builtins.fromJSON bobFiles."DankMaterialShell/settings.json".text;
+
+  aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
+  bobMango = builtins.readFile bobFiles."mango/config.conf".source;
 
   # Unit-check the keybind renderer directly via the flake's lib output.
   renderedBind = self.lib.mango.renderKeybinds {
@@ -77,41 +92,50 @@ let
     "account has default groups" = builtins.elem "wheel" cfg.users.users.alice.extraGroups;
     "account initialPassword applied" = cfg.users.users.alice.initialPassword == "changeme";
     "hjem enabled for the user" = cfg.hjem.users.alice.enable;
+    "second (override-free) account created" = cfg.users.users.bob.isNormalUser;
 
-    # ── DMS settings for all users ───────────────────────────────────────
-    "curated system default present" = dmsSettings.configVersion == 11;
-    "system-level override reaches user" = dmsSettings.currentThemeName == "blue";
-    "opinionated default present" = dmsSettings.use24HourClock == true;
-    "dark mode default present" = dmsSettings.syncModeWithPortal == false;
-    "per-user override merges per key" = dmsSettings.cornerRadius == 8;
+    # ── DMS settings: system-wide default reaches an un-overridden user ───
+    "curated system default present (bob)" = bobDms.configVersion == 11;
+    "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
+    "opinionated default present (bob)" = bobDms.use24HourClock == true;
+    "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
 
-    # ── mango keybinds ───────────────────────────────────────────────────
-    "default keybind rendered" = lib.hasInfix "binds=SUPER,q,killclient," mangoConfigText;
+    # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
+    "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
+    "sibling key still inherited (alice)" = aliceDms.use24HourClock == true;
+    "system-level override still inherited (alice)" = aliceDms.currentThemeName == "blue";
+
+    # ── mango keybinds: system defaults reach every user ─────────────────
+    "default keybind rendered (alice)" = lib.hasInfix "binds=SUPER,q,killclient," aliceMango;
+    "default keybind rendered (bob)" = lib.hasInfix "binds=SUPER,q,killclient," bobMango;
     # viewTag stays a keysym bind (SUPER+digit yields the digit keysym).
-    "view-tag keybind rendered (keysym)" = lib.hasInfix "binds=SUPER,1,view,1" mangoConfigText;
+    "view-tag keybind rendered (keysym)" = lib.hasInfix "binds=SUPER,1,view,1" bobMango;
     # moveToTag must be a keycode bind: SHIFT+digit emits a punctuation keysym,
     # so a keysym bind (`binds=`) would never fire. Guard against regressing to `s`.
-    "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" mangoConfigText;
-    "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" mangoConfigText);
-    "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," mangoConfigText;
-    "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" mangoConfigText;
+    "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" bobMango;
+    "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" bobMango);
+    "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," bobMango;
+    "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" bobMango;
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch librewolf.
-    "browser keybind launches librewolf" = lib.hasInfix "binds=SUPER,b,spawn,librewolf" mangoConfigText;
-    "per-user keybind override rendered" = lib.hasInfix "binds=SUPER,Return,spawn,foot" mangoConfigText;
-    "autostart still present" = lib.hasInfix "exec-once=dms run" mangoConfigText;
+    "browser keybind launches librewolf" = lib.hasInfix "binds=SUPER,b,spawn,librewolf" bobMango;
+    "autostart still present" = lib.hasInfix "exec-once=dms run" bobMango;
 
-    # ── mango layout ─────────────────────────────────────────────────────
-    # Default tiling layout is scroller, applied to every tag (id:1..9).
-    "default layout rendered on tag 1" =
-      lib.hasInfix "tagrule=id:1,layout_name:scroller" mangoConfigText;
-    "default layout rendered on tag 9" =
-      lib.hasInfix "tagrule=id:9,layout_name:scroller" mangoConfigText;
-    "circle_layout cycle rendered" =
-      lib.hasInfix "circle_layout=scroller,tile,monocle,grid" mangoConfigText;
+    # ── mango keybinds: per-user override ────────────────────────────────
+    "per-user keybind override rendered (alice)" =
+      lib.hasInfix "binds=SUPER,Return,spawn,foot" aliceMango;
+
+    # ── mango layout: default reaches bob, per-user override wins for alice ──
+    "default layout rendered on tag 1 (bob)" =
+      lib.hasInfix "tagrule=id:1,layout_name:scroller" bobMango;
+    "default layout rendered on tag 9 (bob)" =
+      lib.hasInfix "tagrule=id:9,layout_name:scroller" bobMango;
+    "circle_layout cycle rendered (bob)" =
+      lib.hasInfix "circle_layout=scroller,tile,monocle,grid" bobMango;
+    "per-user layout override wins (alice)" = lib.hasInfix "tagrule=id:1,layout_name:tile" aliceMango;
     "switch-layout bind rendered (SUPER+SHIFT+n)" =
-      lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," mangoConfigText;
+      lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
     # DMS notifications keeps SUPER+n — no collision with the layout bind.
-    "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," mangoConfigText;
+    "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," bobMango;
 
     # ── renderer unit ────────────────────────────────────────────────────
     "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;

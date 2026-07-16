@@ -1,41 +1,66 @@
-# itera's mango user-config battery (home layer).
+# itera's mango user-config renderer (home layer).
 #
 # The system battery `itera.desktop.mango` installs the compositor and registers
-# its session; this hjem battery writes the per-user
-# {file}`$XDG_CONFIG_HOME/mango/config.conf` that actually makes the desktop
-# usable — most importantly the autostart lines that launch DankMaterialShell
-# inside the session.
+# its session; the curated-program registration `modules/programs/mango.nix`
+# declares the tunable options (system-wide `itera.programs.mango.*` + per-user
+# `itera.users.<name>.programs.mango.*`). THIS battery is the renderer: it reads
+# the merged result out of `osConfig` and writes the per-user
+# {file}`$XDG_CONFIG_HOME/mango/config.conf` — most importantly the autostart lines
+# that launch DankMaterialShell inside the session.
 #
 # Why autostart `dms` here rather than via DMS's systemd user service: a bare
 # wlroots compositor launched by greetd does not bring up
-# {file}`graphical-session.target` on its own, so the DMS systemd unit would
-# never start. mango runs `exec-once=` commands on startup and `dms` is on the
-# system PATH, so spawning it directly is the reliable path.
+# {file}`graphical-session.target` on its own, so the DMS systemd unit would never
+# start. mango runs `exec-once=` commands on startup and `dms` is on the system
+# PATH, so spawning it directly is the reliable path.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`), so sinks
-# like `xdg.config.files` are written unprefixed and `osConfig` / `pkgs` are
-# available as module args. Enable tracks the system toggle by default, so
-# turning on `itera.desktop.mango` is enough — no separate opt-in needed.
+# like `xdg.config.files` are written unprefixed, `osConfig`/`pkgs`/`iteraLib` are
+# module args, and `name` is the username. This battery declares NO options — the
+# schema lives in the registration; enablement follows the system compositor toggle.
 {
-  config,
   lib,
   pkgs,
   iteraLib,
   osConfig ? null,
+  name,
   ...
 }:
 let
-  inherit (lib.options) mkOption mkEnableOption;
   inherit (lib.modules) mkIf;
-  inherit (lib.types)
-    bool
-    lines
-    attrsOf
-    enum
-    listOf
-    ;
 
-  cfg = config.itera.programs.mango;
+  enable = osConfig.itera.desktop.mango.enable or false;
+
+  # System-wide defaults (itera.programs.mango) and this user's overrides
+  # (itera.users.<name>.programs.mango). A user declared the plain NixOS way has
+  # no `itera.users.<name>` entry, so `usr` is empty and the system defaults apply.
+  sys = osConfig.itera.programs.mango or { };
+  usr = osConfig.itera.users.${name}.programs.mango or { };
+
+  # scalar/list overrides: per-user value wins when set (non-null), else system.
+  layout = if (usr.layout or null) != null then usr.layout else (sys.layout or "scroller");
+  layoutCycle =
+    if (usr.layoutCycle or null) != null then
+      usr.layoutCycle
+    else
+      (sys.layoutCycle or [
+        "scroller"
+        "tile"
+        "monocle"
+        "grid"
+      ]
+      );
+
+  # per-user-only knobs (fall back to the schema defaults for plain users).
+  autostart = usr.autostart or true;
+  extraConfig = usr.extraConfig or "";
+  useDefaultKeybinds = usr.defaultKeybinds.enable or true;
+
+  # keybinds: system defaults (unless the user opted out) merged with per-user
+  # binds. A per-user bind of the same name replaces the default; new names add.
+  systemKeybinds = sys.keybinds or { };
+  userKeybinds = usr.keybinds or { };
+  effectiveKeybinds = (lib.optionalAttrs useDefaultKeybinds systemKeybinds) // userKeybinds;
 
   # itera's opinionated startup: refresh the D-Bus/systemd user environment (so
   # portals and user services see WAYLAND_DISPLAY etc.), start the removable-
@@ -48,127 +73,27 @@ let
     ++ [ "exec-once=dms run" ]
   );
 
-  # System-wide default keybinds (from itera.desktop.mango.keybinds) merged with
-  # per-user overrides. Merge is name-keyed `//`, so a per-user bind of the same
-  # name replaces the default; unknown names are added.
-  systemKeybinds = osConfig.itera.desktop.mango.keybinds or { };
-  effectiveKeybinds = (lib.optionalAttrs cfg.defaultKeybinds.enable systemKeybinds) // cfg.keybinds;
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
 
   # Tiling layout: the per-tag default (`tagrule` lines) plus the `circle_layout`
-  # cycle list. Both follow the system value from `itera.desktop.mango` unless the
-  # user overrides them below.
+  # cycle list.
   layoutConfig = lib.concatStringsSep "\n" (
     lib.filter (line: line != "") [
-      (iteraLib.mango.mkTagLayoutLines { inherit (cfg) layout; })
-      (iteraLib.mango.mkCircleLayoutLine cfg.layoutCycle)
+      (iteraLib.mango.mkTagLayoutLines { inherit layout; })
+      (iteraLib.mango.mkCircleLayoutLine layoutCycle)
     ]
   );
 
   # Order: autostart (exec-once) → layout → keybinds → freeform extraConfig.
   configText = lib.concatStringsSep "\n" (
-    lib.optional cfg.autostart autostartConfig
+    lib.optional autostart autostartConfig
     ++ lib.optional (layoutConfig != "") layoutConfig
     ++ lib.optional (keybindsConfig != "") keybindsConfig
-    ++ lib.optional (cfg.extraConfig != "") cfg.extraConfig
+    ++ lib.optional (extraConfig != "") extraConfig
   );
 in
 {
-  options.itera.programs.mango = {
-    enable =
-      mkEnableOption "itera's mango user configuration"
-      # Follow the system compositor toggle by default: enabling
-      # `itera.desktop.mango` is enough to get the matching home config.
-      // {
-        default = osConfig.itera.desktop.mango.enable or false;
-        defaultText = lib.literalExpression "osConfig.itera.desktop.mango.enable";
-      };
-
-    keybinds = mkOption {
-      type = attrsOf iteraLib.mango.keybindType;
-      default = { };
-      example = lib.literalExpression ''
-        {
-          terminal = {
-            modifierKeys = [ "SUPER" ];
-            keySymbol = "Return";
-            mangoCommand = "spawn";
-            commandArguments = "foot";
-          };
-        }
-      '';
-      description = ''
-        Per-user MangoWC keybinds merged over the system-wide defaults
-        ({option}`itera.desktop.mango.keybinds`). A bind whose attribute name
-        matches a default replaces that default; new names are added.
-      '';
-    };
-
-    layout = mkOption {
-      type = enum iteraLib.mango.supportedLayouts;
-      default = osConfig.itera.desktop.mango.layout or "scroller";
-      defaultText = lib.literalExpression "osConfig.itera.desktop.mango.layout";
-      example = "tile";
-      description = ''
-        Per-user default tiling layout, applied to every tag via `tagrule` lines.
-        Overrides the system default ({option}`itera.desktop.mango.layout`).
-      '';
-    };
-
-    layoutCycle = mkOption {
-      type = listOf (enum iteraLib.mango.supportedLayouts);
-      default =
-        osConfig.itera.desktop.mango.layoutCycle or [
-          "scroller"
-          "tile"
-          "monocle"
-          "grid"
-        ];
-      defaultText = lib.literalExpression "osConfig.itera.desktop.mango.layoutCycle";
-      description = ''
-        Layouts the SUPER+SHIFT+n `switch_layout` bind cycles through (rendered as
-        `circle_layout`). Overrides {option}`itera.desktop.mango.layoutCycle`; an
-        empty list omits the line and cycles all built-in layouts.
-      '';
-    };
-
-    defaultKeybinds.enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Include itera's system-wide default keybinds
-        ({option}`itera.desktop.mango.keybinds`). Set `false` to start from an
-        empty set and define all binds via {option}`itera.programs.mango.keybinds`.
-      '';
-    };
-
-    autostart = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Inject itera's default `exec-once` autostart into
-        {file}`mango/config.conf`: refresh the D-Bus/systemd user environment and
-        launch DankMaterialShell (`dms run`). Turn off to manage startup yourself
-        via {option}`itera.programs.mango.extraConfig`.
-      '';
-    };
-
-    extraConfig = mkOption {
-      type = lines;
-      default = "";
-      example = ''
-        # SUPER+Return opens a terminal
-        bind=SUPER,Return,spawn,foot
-      '';
-      description = ''
-        Extra lines appended verbatim to {file}`$XDG_CONFIG_HOME/mango/config.conf`
-        (keybinds, window rules, `env=` lines, further `exec-once=`, …). See the
-        mango docs for the configuration syntax.
-      '';
-    };
-  };
-
-  config = mkIf cfg.enable {
+  config = mkIf enable {
     xdg.config.files."mango/config.conf" = mkIf (configText != "") {
       source = pkgs.writeText "mango-config.conf" (configText + "\n");
       # Explicit clobber (beyond itera's `hjem.clobberByDefault = true`) so the

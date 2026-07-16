@@ -24,6 +24,13 @@
 # greetd module) already creates the `greeter` system user and defaults
 # `services.greetd.settings.default_session.user` to `"greeter"` — so we do not
 # declare that user here.
+#
+# Scope: this module owns *installation* and the greeter/session wiring. The
+# curated DMS *settings* are declared once by the curated-program registration
+# `modules/programs/dankmaterialshell.nix`, exposed system-wide at
+# `itera.programs.dankMaterialShell.*` and per-user at
+# `itera.users.<name>.programs.dankMaterialShell.*`; the hjem battery
+# `modules/hjem/programs/dankmaterialshell.nix` renders the merged result.
 {
   config,
   lib,
@@ -32,7 +39,7 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkMerge mkDefault;
-  inherit (lib.types) bool attrsOf anything;
+  inherit (lib.types) bool;
 
   cfg = config.itera.desktop.dankMaterialShell;
 in
@@ -56,38 +63,6 @@ in
         login manager. On by default whenever the desktop is enabled; set this to
         `false` to install the shell without a display manager (you then arrange
         login yourself).
-      '';
-    };
-
-    settings = mkOption {
-      type = attrsOf anything;
-      default = { };
-      example = {
-        currentThemeName = "blue";
-        cornerRadius = 12;
-        use24HourClock = true;
-      };
-      description = ''
-        System-wide DankMaterialShell settings applied to *every* user, written
-        (by the {option}`hjem.users.<name>.itera.programs.dankMaterialShell`
-        battery) to {file}`~/.config/DankMaterialShell/settings.json`. This is the
-        single source of truth for the "default settings for all users" — each
-        user inherits it and overrides individual keys under
-        {option}`hjem.users.<name>.itera.programs.dankMaterialShell.settings`.
-
-        The schema is DMS's own flat camelCase settings object; itera only sets a
-        small curated subset here (`mkDefault`, so overridable per key). Keys you
-        do not set fall back to DMS's own runtime defaults.
-      '';
-    };
-
-    pluginSettings = mkOption {
-      type = attrsOf anything;
-      default = { };
-      description = ''
-        System-wide DankMaterialShell external plugin settings, written to
-        {file}`~/.config/DankMaterialShell/plugin_settings.json` for every user.
-        Same override model as {option}`itera.desktop.dankMaterialShell.settings`.
       '';
     };
   };
@@ -115,24 +90,6 @@ in
         enable = mkDefault true;
         nssmdns4 = mkDefault true;
         nssmdns6 = mkDefault true;
-      };
-
-      # itera's curated system-wide DMS defaults. Kept intentionally small —
-      # pin the settings schema version DMS expects and a couple of opinionated
-      # choices; everything else is left to DMS's own runtime defaults. Each key
-      # is mkDefault, so a consumer overrides individual keys (per-user overrides
-      # then merge on top in the hjem battery). No null-valued keys (toJSON would
-      # emit `null`, which DMS may reject).
-      itera.desktop.dankMaterialShell.settings = {
-        configVersion = mkDefault 11;
-        use24HourClock = mkDefault true;
-        # Dark mode by default: don't follow the desktop portal's color-scheme
-        # (which reports "no preference" on a fresh session and would flip DMS to
-        # light). With portal sync off, DMS uses its stored isLightMode, which
-        # defaults to false (dark). Users can still toggle light in the DMS UI —
-        # that writes ~/.local/state/DankMaterialShell/session.json, which itera
-        # does not manage.
-        syncModeWithPortal = mkDefault false;
       };
     }
 

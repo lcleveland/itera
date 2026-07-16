@@ -119,17 +119,19 @@
                 "networkmanager"
               ];
               initialPassword = "changeme";
-            };
 
-            # Per-user home overrides plug in under the hjem namespace, e.g.:
-            #   hjem.users.alice.itera.programs.helix.enable = true;
-            #   # Deviate from the system-wide DMS defaults for just this user:
-            #   hjem.users.alice.itera.programs.dankMaterialShell.settings.cornerRadius = 8;
-            #   # Add or override a single mango keybind:
-            #   hjem.users.alice.itera.programs.mango.keybinds.terminal = {
-            #     modifierKeys = [ "SUPER" ]; keySymbol = "Return";
-            #     mangoCommand = "spawn"; commandArguments = "foot";
-            #   };
+              # Per-user curated-program overrides live right here — each wins
+              # per key over the system-wide default (itera.programs.<app>.*):
+              #   # Deviate from the system-wide DMS defaults for just this user:
+              #   programs.dankMaterialShell.settings.cornerRadius = 8;
+              #   # Pick a per-user tiling layout:
+              #   programs.mango.layout = "tile";
+              #   # Add or override a single mango keybind:
+              #   programs.mango.keybinds.terminal = {
+              #     modifierKeys = [ "SUPER" ]; keySymbol = "Return";
+              #     mangoCommand = "spawn"; commandArguments = "foot";
+              #   };
+            };
           }
         ];
       };

@@ -1,67 +1,84 @@
 # REFERENCE ONLY — this file is `_`-prefixed so it is NOT auto-imported.
 #
 # It documents the convention every itera "battery" (curated per-program home
-# module) follows. To ship a real battery, copy this into a non-underscore file
-# (e.g. `programs/helix.nix`), rename the namespace, and fill in the config.
+# module) follows. A curated program is now TWO pieces:
 #
-# Reminder: this module runs inside the hjem user submodule, so the full
-# downstream option path is `hjem.users.<name>.itera.programs.<name>` and the
-# sinks (`packages`, `xdg.config.files`, `environment.sessionVariables`, …) are
-# written unprefixed. Available module args include `config`, `lib`, `pkgs`,
-# `osConfig`, `osOptions`, `hjem-lib`, `utils`, and itera's `iteraLib`.
+#   1. A registration `modules/programs/<app>.nix` that declares the curated
+#      options ONCE via `iteraLib.programs.mkCuratedProgram`. The framework exposes
+#      them at two levels — system-wide `itera.programs.<app>.*` (default for every
+#      user) and per-user `itera.users.<name>.programs.<app>.*` (wins per key). See
+#      lib/programs.nix and `modules/programs/mango.nix` for a worked example.
+#
+#   2. A RENDERER here in `modules/hjem/programs/<app>.nix` (this file's location)
+#      that reads the merged result out of `osConfig` and writes the actual $HOME
+#      files. It declares NO options — the schema lives in the registration.
+#
+# A battery with no user-facing options (e.g. a static file gated on a system
+# toggle, like `itera.nix` for the carapace spec) skips step 1 and is just a
+# renderer.
+#
+# Reminder: this module runs inside the hjem user submodule, so the sinks
+# (`packages`, `xdg.config.files`, `environment.sessionVariables`, …) are written
+# unprefixed, and `name` is the username. Available module args include `config`,
+# `lib`, `pkgs`, `osConfig`, `osOptions`, `hjem-lib`, `utils`, and `iteraLib`.
+#
+# ── The registration (put in modules/programs/example.nix) ──────────────────
+#
+#   { lib, iteraLib }:
+#   iteraLib.programs.mkCuratedProgram {
+#     name = "example";
+#     fields = {
+#       # attrs option: system // per-user, merged per key.
+#       settings = {
+#         type = lib.types.attrsOf lib.types.anything;
+#         attrs = true;
+#         description = "Written to $XDG_CONFIG_HOME/example/config.toml.";
+#       };
+#       # scalar option: per-user (nullOr) value wins when set, else the system default.
+#       theme = {
+#         type = lib.types.str;
+#         default = "itera";
+#         description = "Colour theme.";
+#       };
+#     };
+#     # Opinionated system-wide defaults (per-key mkDefault so users override).
+#     systemConfig = _: { settings.greeting = lib.mkDefault "hei"; };
+#   }
+#
+# ── The renderer (this file's shape) ────────────────────────────────────────
 {
-  config,
   lib,
   pkgs,
+  osConfig ? null,
+  name,
   ...
 }:
 let
-  inherit (lib.options) mkEnableOption mkOption mkPackageOption;
-  inherit (lib.modules) mkIf mkDefault;
+  inherit (lib.modules) mkIf;
 
   # Structured settings serialised with nixpkgs' format generators.
   toml = pkgs.formats.toml { };
 
-  cfg = config.itera.programs.example;
+  # Enablement follows the matching system battery toggle.
+  enable = osConfig.itera.desktop.example.enable or false;
+
+  # Merge the system-wide defaults with this user's overrides (a plain,
+  # non-`itera.users` user simply has no overrides and inherits the defaults).
+  sys = osConfig.itera.programs.example or { };
+  usr = osConfig.itera.users.${name}.programs.example or { };
+
+  finalSettings = (sys.settings or { }) // (usr.settings or { });
+  theme = if (usr.theme or null) != null then usr.theme else (sys.theme or "itera");
 in
 {
-  options.itera.programs.example = {
-    enable = mkEnableOption "the example program, configured with itera defaults";
-
-    # `nullable = true` lets a user drop the package (e.g. to supply their own).
-    package = mkPackageOption pkgs "hello" { nullable = true; };
-
-    settings = mkOption {
-      inherit (toml) type;
-      default = { };
-      example = {
-        theme = "itera";
-        greeting = "hei";
-      };
-      description = ''
-        Written verbatim to {file}`$XDG_CONFIG_HOME/example/config.toml`.
-        itera's opinionated defaults are merged underneath via `mkDefault`, so
-        anything set here wins — the module stays opt-out.
-      '';
-    };
-  };
-
-  config = mkIf cfg.enable {
-    # hjem sink: per-user packages.
-    packages = mkIf (cfg.package != null) [ cfg.package ];
-
+  config = mkIf enable {
     # hjem sink: per-user session variables.
-    environment.sessionVariables.EXAMPLE_CONFIGURED = "1";
-
-    # Opinionated "batteries-included" defaults; explicit user values override.
-    itera.programs.example.settings = {
-      theme = mkDefault "itera";
-      greeting = mkDefault "hei";
-    };
+    environment.sessionVariables.EXAMPLE_THEME = theme;
 
     # hjem sink: an XDG config file generated from the merged settings.
-    xdg.config.files."example/config.toml" = mkIf (cfg.settings != { }) {
-      source = toml.generate "example-config.toml" cfg.settings;
+    xdg.config.files."example/config.toml" = mkIf (finalSettings != { }) {
+      source = toml.generate "example-config.toml" finalSettings;
+      clobber = true;
     };
   };
 }

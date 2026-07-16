@@ -13,10 +13,10 @@
 # CLI to `zeditor` (the `.desktop` id is `dev.zed.Zed.desktop`).
 #
 # This module is the SYSTEM half: it installs the package and wires the handler +
-# compositor bind. The per-user config (`~/.config/zed/settings.json`, with
-# telemetry disabled) is written by the matching home battery `itera.programs.zed`
-# (`modules/hjem/programs/zed.nix`), whose `enable` follows this system toggle by
-# default.
+# compositor bind. The curated config (`~/.config/zed/settings.json`, telemetry
+# disabled) is declared by `modules/programs/zed.nix` — settable system-wide at
+# `itera.programs.zed.*` and per-user at `itera.users.<name>.programs.zed.*` — and
+# rendered by `modules/hjem/programs/zed.nix`, gated on this system toggle.
 #
 # There is no system state to persist under impermanence — per-user Zed settings
 # live in $HOME (covered by the hjem / `itera.impermanence.users` home-persistence

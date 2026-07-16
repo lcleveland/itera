@@ -110,7 +110,7 @@ let
     # --- dark mode by default ---
     "GTK apps default to dark" = base.environment.sessionVariables.GTK_THEME == "Adwaita:dark";
     "DMS shell defaults to dark (portal sync off)" =
-      base.itera.desktop.dankMaterialShell.settings.syncModeWithPortal == false;
+      base.itera.programs.dankMaterialShell.settings.syncModeWithPortal == false;
 
     # --- Secure Boot (default OFF, so systemd-boot stays) ---
     "lanzaboote is off by default" = !base.boot.lanzaboote.enable;
