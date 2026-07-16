@@ -48,6 +48,9 @@
   environment.systemPackages = [
     (pkgs.writeShellApplication {
       name = "itera-update";
+      # nh drives the rebuild; carry it explicitly so the command works even if
+      # the nh battery is turned off on a host.
+      runtimeInputs = [ pkgs.nh ];
       text = builtins.readFile ./update-itera.sh;
     })
   ];
