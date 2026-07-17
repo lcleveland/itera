@@ -36,6 +36,7 @@ let
     listOf
     str
     bool
+    package
     ;
 
   cfg = config.itera.users;
@@ -91,6 +92,17 @@ in
                 "libvirtd"
               ];
               description = "Supplementary groups for the user.";
+            };
+
+            packages = mkOption {
+              type = listOf package;
+              default = [ ];
+              example = lib.literalExpression "[ pkgs.firefox pkgs.thunderbird ]";
+              description = ''
+                Packages installed for this user only (mapped to
+                {option}`users.users.<name>.packages`). The escape hatch for apps a
+                single user wants without adding them to the system-wide profile.
+              '';
             };
 
             initialPassword = mkOption {
@@ -152,6 +164,10 @@ in
       extraGroups = mkDefault user.extraGroups;
       initialPassword = mkDefault user.initialPassword;
       description = mkDefault user.description;
+      # Plain (not mkDefault): `packages` is a list, so this merges with any
+      # `users.users.<name>.packages` a consumer sets the raw NixOS way instead of
+      # one winning over the other.
+      inherit (user) packages;
     }) cfg;
 
     # Enable hjem for each user (unless enableHome is false). `user`/`directory`

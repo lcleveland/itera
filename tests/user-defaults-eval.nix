@@ -31,26 +31,41 @@ let
   cfg = mkConfig [
     {
       itera = {
-        # A system-wide DMS default override (should reach EVERY user).
-        programs.dankMaterialShell.settings.currentThemeName = "blue";
+        # System-wide keyboard layout (should reach every mango session + greeter).
+        keyboard.variant = "colemak_dh";
 
-        # System-wide monitor rules (should reach EVERY user, and the greeter).
-        # The keys default into the `name` match — no explicit `name` set here, so
-        # the rendered lines proving `name:HDMI-1` / `name:DP-2` also prove the
-        # key→name default.
-        programs.mango.monitors = {
-          "HDMI-1" = {
-            width = 1920;
-            height = 1080;
-            refresh = 60;
-            x = 0;
-            y = 0;
-          };
-          "DP-2" = {
-            width = 2560;
-            height = 1440;
-            x = 1920;
-            y = 0;
+        programs = {
+          # A system-wide DMS default override (should reach EVERY user).
+          dankMaterialShell.settings.currentThemeName = "blue";
+
+          mango = {
+            # System-wide mango gestures (should reach EVERY user).
+            gestures.focusRight = {
+              direction = "left";
+              fingerCount = 3;
+              mangoCommand = "focusdir";
+              commandArguments = "right";
+            };
+
+            # System-wide monitor rules (should reach EVERY user, and the greeter).
+            # The keys default into the `name` match — no explicit `name` set here,
+            # so the rendered lines proving `name:HDMI-1` / `name:DP-2` also prove
+            # the key→name default.
+            monitors = {
+              "HDMI-1" = {
+                width = 1920;
+                height = 1080;
+                refresh = 60;
+                x = 0;
+                y = 0;
+              };
+              "DP-2" = {
+                width = 2560;
+                height = 1440;
+                x = 1920;
+                y = 0;
+              };
+            };
           };
         };
 
@@ -58,10 +73,19 @@ let
           # alice: account + per-user deviations from the system-wide defaults.
           alice = {
             initialPassword = "changeme";
+            # Per-user package escape hatch.
+            packages = [ pkgs.hello ];
             programs = {
               dankMaterialShell.settings.cornerRadius = 8;
               mango = {
                 layout = "tile";
+                # Per-user gesture: new name adds alongside the system default.
+                gestures.cycleLayout = {
+                  modifierKeys = [ "SUPER" ];
+                  direction = "up";
+                  fingerCount = 4;
+                  mangoCommand = "switch_layout";
+                };
                 keybinds.terminal = {
                   modifierKeys = [ "SUPER" ];
                   keySymbol = "Return";
@@ -215,6 +239,26 @@ let
       lib.hasInfix "monitorrule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
     "greeter gets system-wide monitors (DP-2)" =
       lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" greeterMonitors;
+
+    # ── mango gestures: system default reaches every user, per-user adds ──
+    "gesture default reaches user (bob)" =
+      lib.hasInfix "gesturebind=none,left,3,focusdir,right" bobMango;
+    "gesture default reaches user (alice)" =
+      lib.hasInfix "gesturebind=none,left,3,focusdir,right" aliceMango;
+    "per-user gesture added (alice)" = lib.hasInfix "gesturebind=SUPER,up,4,switch_layout," aliceMango;
+    "per-user gesture not leaked to other user (bob)" =
+      !(lib.hasInfix "gesturebind=SUPER,up,4,switch_layout" bobMango);
+
+    # ── mango keyboard layout: system xkb reaches every session + greeter ──
+    "session xkb variant reaches user (bob)" = lib.hasInfix "xkb_rules_variant=colemak_dh" bobMango;
+    "session xkb variant reaches user (alice)" = lib.hasInfix "xkb_rules_variant=colemak_dh" aliceMango;
+    "greeter gets system xkb variant" = lib.hasInfix "xkb_rules_variant=colemak_dh" greeterMonitors;
+
+    # ── per-user packages escape hatch ───────────────────────────────────
+    "per-user package installed (alice)" = builtins.elem "hello" (
+      map lib.getName cfg.users.users.alice.packages
+    );
+    "per-user packages empty by default (bob)" = cfg.users.users.bob.packages == [ ];
 
     # ── monitor renderer unit ────────────────────────────────────────────
     "monitor renderer: anchored name preserved" = lib.hasInfix "name:^eDP-1$" renderedMonitor;

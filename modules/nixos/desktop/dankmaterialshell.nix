@@ -99,15 +99,24 @@ in
         enable = mkDefault true;
         # `compositor.name` has no upstream default; render the greeter under mango.
         compositor.name = mkDefault "mango";
-        # Give the greeter's mango instance the same monitor layout as the session
-        # so the login screen comes up with the right resolution/position on
-        # multi-monitor setups. The greeter is pre-login and single-instance, so it
-        # takes the SYSTEM-WIDE monitors (`itera.programs.mango.monitors`) — the
-        # per-user layer does not apply here. `customConfig` (type lines) is passed
-        # to mango via `-C`; empty when no monitors are set, leaving mango to
-        # auto-configure exactly as before.
+        # Give the greeter's mango instance the same monitor layout AND keyboard
+        # layout as the session so the login screen comes up with the right
+        # resolution/position on multi-monitor setups and accepts the configured
+        # XKB layout at the password prompt. The greeter is pre-login and
+        # single-instance, so it takes the SYSTEM-WIDE monitors
+        # (`itera.programs.mango.monitors`) and the system XKB config
+        # (`itera.keyboard` via `services.xserver.xkb`) — the per-user layer does
+        # not apply here. `customConfig` (type lines) is passed to mango via `-C`;
+        # empty when nothing is set, leaving mango to auto-configure exactly as before.
         compositor.customConfig = mkDefault (
-          iteraLib.mango.renderMonitorRules config.itera.programs.mango.monitors
+          lib.concatStringsSep "\n" (
+            lib.filter (line: line != "") [
+              (iteraLib.mango.renderMonitorRules config.itera.programs.mango.monitors)
+              (iteraLib.mango.renderXkb {
+                inherit (config.services.xserver.xkb) layout variant options;
+              })
+            ]
+          )
         );
       };
 

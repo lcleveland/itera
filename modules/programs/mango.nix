@@ -50,6 +50,29 @@ iteraLib.programs.mkCuratedProgram {
       '';
     };
 
+    gestures = {
+      type = attrsOf iteraLib.mango.gestureType;
+      attrs = true;
+      description = ''
+        MangoWC touchpad gestures, name-keyed, rendered as `gesturebind=` lines.
+        Merges like `keybinds`: the system-wide level
+        ({option}`itera.programs.mango.gestures`) is the default set; per-user
+        ({option}`itera.users.<name>.programs.mango.gestures`) a gesture whose
+        attribute name matches replaces it, new names are added. Empty by default.
+      '';
+      example = lib.literalExpression ''
+        {
+          # 3-finger swipe left focuses the window to the right.
+          focusRight = {
+            direction = "left";
+            fingerCount = 3;
+            mangoCommand = "focusdir";
+            commandArguments = "right";
+          };
+        }
+      '';
+    };
+
     layout = {
       type = enum iteraLib.mango.supportedLayouts;
       default = "scroller";
