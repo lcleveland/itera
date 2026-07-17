@@ -431,6 +431,28 @@ password exactly as before.
   authenticates the lock through its own PAM stack, separate from the greeter/TTY
   login stacks where fingerprint is explicitly disabled.)
 
+  > **Reader support.** `fprintd` talks to your reader through **libfprint**, so
+  > only readers libfprint has a driver for work. If `fprintd-enroll` reports
+  > `No devices available` even though the machine has a reader, libfprint most
+  > likely has no driver for that specific sensor — check its USB id against
+  > libfprint's [supported-devices list](https://fprint.freedesktop.org/supported-devices.html):
+  >
+  > ```sh
+  > # print vendor:product for every USB device (no lsusb needed):
+  > for d in /sys/bus/usb/devices/*/idVendor; do
+  >   dir=$(dirname "$d"); printf '%s:%s %s\n' \
+  >     "$(cat "$dir/idVendor")" "$(cat "$dir/idProduct")" "$(cat "$dir/product" 2>/dev/null)"
+  > done
+  > ```
+  >
+  > Some Validity/Synaptics sensors (e.g. the VFS7552, USB `138a:0097`, and
+  > related `138a:*`/`06cb:*` chips) are **not** in libfprint at all — they need
+  > the out-of-tree [`python-validity`](https://github.com/uunicorn/python-validity)
+  > backend behind [`open-fprintd`](https://github.com/uunicorn/open-fprintd).
+  > `open-fprintd` is in nixpkgs but `python-validity` is not, so those readers are
+  > **not supported by this battery** today; fall back to password/security-key on
+  > such machines.
+
 **nixos-facter** is fully automatic. `itera rebuild` (and `update`/`boot`/
 `update-boot`) regenerate a hardware report at `/var/lib/itera/facter.json` on the
 target machine and build with it — the build runs `--impure` to read that

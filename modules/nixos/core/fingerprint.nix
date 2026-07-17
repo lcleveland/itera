@@ -30,6 +30,15 @@
 # itera's impermanence layer persists (gated on this battery) so they survive the
 # wiped root.
 #
+# Reader support: fprintd drives the reader through libfprint, so only readers
+# libfprint has a driver for work. If `fprintd-enroll` says "No devices available"
+# on a machine that has a reader, libfprint has no driver for that specific sensor
+# (check its USB id against libfprint's supported-devices list). Notably the
+# Validity/Synaptics VFS7552 family (USB 138a:0097 and related 138a:*/06cb:* chips)
+# is NOT in libfprint — it needs the out-of-tree python-validity backend behind
+# open-fprintd, which is not packaged in nixpkgs, so those readers are unsupported
+# by this battery. See README (Ecosystem integration → fingerprint).
+#
 # Opt-out like the other core batteries: gated on the master `itera.enable` with
 # `mkDefault` values, so it is on by default yet fully overridable.
 {
