@@ -117,6 +117,11 @@ in
   # is the whole hardware side of the VM — there is no hardware-configuration.nix.
   itera.hardware.initrd.kernelModules = [ "virtio_gpu" ];
 
+  # facter auto-generation is on by default for consumers, but it makes builds
+  # impure and runs `nixos-facter` on rebuild. The VM is built purely (`nix run
+  # .#vm`, `nix flake check`) and uses the curated module list, so keep it off.
+  itera.hardware.facter.autoGenerate = false;
+
   # ── Graphical QEMU tuning (only applied to the vmWithDisko runner) ────────
   virtualisation.vmVariantWithDisko = {
     virtualisation = {

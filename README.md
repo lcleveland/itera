@@ -349,20 +349,21 @@ itera bundles a set of complementary NixOS projects as plain modules (no extra
 inputs on your side). Each is a thin `itera.*` wrapper; the underlying upstream
 options stay reachable for fine-tuning.
 
-| Option namespace            | Provides                                                | Default |
-| --------------------------- | ------------------------------------------------------- | ------- |
-| `itera.secrets`             | agenix declarative secrets (decrypted to `/run/agenix`) | on\*    |
-| `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on      |
-| `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on      |
-| `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on      |
-| `itera.desktop.browser`     | LibreWolf (default web handler + `SUPER+b`)             | on      |
-| `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on      |
-| `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off     |
-| `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off     |
-| `itera.hardware.facter`     | declarative hardware detection via nixos-facter         | off     |
-| `itera.nvidia`              | NVIDIA drivers (open module, container toolkit, PRIME)  | off     |
+| Option namespace            | Provides                                                | Default  |
+| --------------------------- | ------------------------------------------------------- | -------- |
+| `itera.secrets`             | agenix declarative secrets (decrypted to `/run/agenix`) | on\*     |
+| `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on       |
+| `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on       |
+| `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on       |
+| `itera.desktop.browser`     | LibreWolf (default web handler + `SUPER+b`)             | on       |
+| `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on       |
+| `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off      |
+| `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off      |
+| `itera.hardware.facter`     | automatic hardware detection via nixos-facter           | on       |
+| `itera.nvidia`              | NVIDIA drivers (open module, container toolkit, PRIME)  | auto\*\* |
 
 \* on, but inert until you declare a secret.
+\*\* off by default, but auto-enabled when `itera.hardware.facter` detects an NVIDIA GPU.
 
 ```nix
 {
@@ -379,7 +380,8 @@ options stay reachable for fine-tuning.
     enable = true;
     packages = [ "com.brave.Browser" ];
   };
-  itera.hardware.facter.reportPath = ./facter.json; # generate per host, see below
+  # nixos-facter runs automatically (see below) — no wiring needed. Opt out with:
+  #   itera.hardware.facter.autoGenerate = false;
 }
 ```
 
@@ -397,12 +399,28 @@ sudo nixos-rebuild switch && reboot
 bootctl status                         # verify Secure Boot is active
 ```
 
-Enabling it swaps systemd-boot for lanzaboote. **nixos-facter** likewise needs a
-per-host report. Generate it with `nix run nixpkgs#nixos-facter -- -o facter.json`
-directly, or run [`facter-report.sh`](facter-report.sh) (a.k.a. `itera facter
-report`) on the target machine for a guided path — it writes `facter.json` _and_
-prints a summary mapping the detected hardware to the per-host knobs facter does
-not cover (`itera.hardware.cpu`, `itera.disko.device`, `itera.nvidia` PRIME bus IDs):
+Enabling it swaps systemd-boot for lanzaboote.
+
+**nixos-facter** is fully automatic. `itera rebuild` (and `update`/`boot`/
+`update-boot`) regenerate a hardware report at `/var/lib/itera/facter.json` on the
+target machine and build with it — the build runs `--impure` to read that
+host-local path, so there is **nothing to commit** and no git churn. When the
+report shows an NVIDIA GPU, `itera.nvidia` is enabled automatically (the base
+stack; PRIME/hybrid graphics still needs its bus IDs — see below). Turn any of
+this off with:
+
+```nix
+{
+  itera.hardware.facter.autoGenerate = false; # stop regenerating on rebuild
+  # …then either commit a report and point at it (a pure, in-flake build):
+  itera.hardware.facter.reportPath = ./facter.json;
+  itera.hardware.facter.autoNvidia = false;    # keep nouveau over the NVIDIA driver
+}
+```
+
+To inspect the detected hardware (and the per-host knobs facter does **not** cover
+— `itera.hardware.cpu`, `itera.disko.device`, `itera.nvidia` PRIME bus IDs), run
+the guided report, which writes `facter.json` _and_ prints that summary:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/lcleveland/itera/main/facter-report.sh | sudo bash
@@ -410,10 +428,9 @@ curl -fsSL https://raw.githubusercontent.com/lcleveland/itera/main/facter-report
 sudo nix run 'github:lcleveland/itera#itera' -- facter report
 ```
 
-Either way, commit `facter.json` and point `itera.hardware.facter.reportPath` at
-it. Both facter and Secure Boot compose with impermanence automatically (Secure
-Boot keys, Flatpak apps, and libvirt VMs are added to the persisted set when their
-battery is on).
+Both facter and Secure Boot compose with impermanence automatically (the facter
+report dir, Secure Boot keys, Flatpak apps, and libvirt VMs are added to the
+persisted set when their battery is on).
 
 **NVIDIA** is opt-in too — the drivers are unfree and hardware-specific, so they
 can't be defaulted on for a hardware-agnostic image. A single switch turns on the

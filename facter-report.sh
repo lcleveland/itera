@@ -143,8 +143,12 @@ note "firmware blobs — no action needed unless you deliberately disabled it."
 
 # 3. Point at the report.
 h "Next steps"
-note "Commit the report into your flake, then enable it:"
+note "This is an inspection/one-off report. itera normally regenerates the report"
+note "automatically on every rebuild (itera.hardware.facter.autoGenerate, default"
+note "on) at /var/lib/itera/facter.json — nothing to commit. To manage it yourself"
+note "instead, set autoGenerate = false and commit + point at this file:"
 note "  itera.hardware.facter.reportPath = ./facter.json;"
-note "facter derives kernel modules/microcode/drivers from it; the summary above"
-note "covers the knobs facter does not (disk, CPU enum, NVIDIA opt-in)."
+note "facter derives kernel modules/microcode/drivers from it (and itera auto-enables"
+note "itera.nvidia when it sees an NVIDIA GPU); the summary above covers the knobs"
+note "facter does not (disk, CPU enum, NVIDIA PRIME bus IDs)."
 printf '\n'

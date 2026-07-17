@@ -63,6 +63,10 @@
           name = "itera";
           runtimeInputs = [
             pkgs.nh
+            # `nixos-facter` backs the auto-regeneration the rebuild verbs run
+            # before switching (see cli/itera.sh `itera_facter_refresh`); pinned +
+            # offline, unlike facter-report.sh's `nix run nixpkgs#nixos-facter`.
+            pkgs.nixos-facter
             config.packages.facter-report
           ];
           text = iteraSrc;
@@ -76,6 +80,7 @@
           name = "itera";
           runtimeInputs = [
             pkgs.nh
+            pkgs.nixos-facter
             config.packages.facter-report
             config.packages.itera-update
             config.packages.install-itera-testhost

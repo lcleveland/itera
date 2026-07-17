@@ -52,6 +52,11 @@ _: {
     # kvm-* module for virtualization on this box:
     #   hardware.cpu = "amd";
 
+    # facter auto-generation is on by default for consumers, but it makes builds
+    # impure and runs `nixos-facter` on rebuild. The test host is built purely in
+    # CI / disko-install and relies on the curated module list, so keep it off.
+    hardware.facter.autoGenerate = false;
+
     networking.hostName = "itera-testhost";
 
     # Pin the release this host was installed from; set once, never change.
