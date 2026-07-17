@@ -63,6 +63,12 @@ let
   # Same account with the batteries left on, to assert the profile IS persisted.
   batteriesOn = mkEval { itera.users.testuser = { }; };
 
+  # Browser with Firefox Sync opted out, to assert the extraPrefs override is
+  # actually applied to the packaged LibreWolf (it changes the derivation).
+  syncOff = mkEval { itera.desktop.browser.enableSync = false; };
+  librewolfPkg =
+    cfg: lib.findFirst (p: lib.hasInfix "librewolf" (p.name or "")) null cfg.environment.systemPackages;
+
   # facter auto-NVIDIA: feed a synthetic report directly (pure — no impure file
   # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
   # AMD 4098 (0x1002). The battery auto-enables itera.nvidia only for NVIDIA.
@@ -109,6 +115,11 @@ let
     );
     "librewolf profile not persisted when browser off" =
       !builtins.elem ".librewolf" (userDirs batteriesOff "testuser");
+    # Firefox Sync is enabled by default and its extraPrefs override actually
+    # rebuilds LibreWolf (turning it off yields a different derivation).
+    "firefox sync enabled by default" = base.itera.desktop.browser.enableSync;
+    "enabling sync overrides the librewolf derivation" =
+      (librewolfPkg base).drvPath != (librewolfPkg syncOff).drvPath;
 
     # --- Bluetooth (default on): pairings persisted, gated on the battery ---
     "bluetooth pairings persisted when on" = builtins.elem "/var/lib/bluetooth" (persistDirs base);
