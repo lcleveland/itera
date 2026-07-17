@@ -63,6 +63,14 @@ let
   # Same account with the batteries left on, to assert the profile IS persisted.
   batteriesOn = mkEval { itera.users.testuser = { }; };
 
+  # facter auto-NVIDIA: feed a synthetic report directly (pure — no impure file
+  # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
+  # AMD 4098 (0x1002). The battery auto-enables itera.nvidia only for NVIDIA.
+  gpuReport = vendorId: { facter.report.hardware.graphics_card = [ { vendor.value = vendorId; } ]; };
+  nvidiaHost = mkEval (gpuReport 4318);
+  amdHost = mkEval (gpuReport 4098);
+  nvidiaOptOut = mkEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
+
   persistDirs = cfg: map (d: d.directory or d) cfg.environment.persistence."/persist".directories;
   userDirs =
     cfg: name:
@@ -119,8 +127,23 @@ let
     # --- Flatpak (default OFF) ---
     "flatpak is off by default" = !base.services.flatpak.enable;
 
-    # --- facter (default: no report) ---
-    "facter reportPath is null by default" = base.facter.reportPath == null;
+    # --- facter (default: auto-generate a host-local report) ---
+    # Auto-generation is on by default and points at a persisted host-local path.
+    "facter autoGenerate is on by default" = base.itera.hardware.facter.autoGenerate;
+    "facter reportPath defaults to the host-local path" =
+      base.itera.hardware.facter.reportPath == "/var/lib/itera/facter.json";
+    # In a PURE eval, the absolute report path is not present (pathExists is false
+    # for absolute paths in pure mode), so the report stays unwired and detection
+    # falls back to the curated module list — no impure read, no failure.
+    "facter reportPath is unwired when the report is absent" = base.facter.reportPath == null;
+    # The auto-generated report's directory is persisted across the tmpfs root.
+    "facter report dir is persisted" = builtins.elem "/var/lib/itera" (persistDirs base);
+
+    # --- facter auto-NVIDIA (default on) ---
+    "an NVIDIA GPU auto-enables itera.nvidia" = nvidiaHost.itera.nvidia.enable;
+    "a non-NVIDIA GPU leaves itera.nvidia off" = !amdHost.itera.nvidia.enable;
+    "no report leaves itera.nvidia off" = !base.itera.nvidia.enable;
+    "autoNvidia = false is honored with an NVIDIA GPU present" = !nvidiaOptOut.itera.nvidia.enable;
 
     # --- Secure Boot opt-in: swaps bootloader + persists keys ---
     "lanzaboote turns on when opted in" = optIn.boot.lanzaboote.enable;

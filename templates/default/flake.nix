@@ -64,6 +64,14 @@
               hardware.cpu = "auto"; # or "intel" / "amd"
               #   hardware.initrd.availableKernelModules = [ ... ]; # exotic controller
 
+              # nixos-facter hardware detection is AUTOMATIC (on by default):
+              # `itera rebuild` regenerates /var/lib/itera/facter.json on this
+              # machine and builds with it (impurely) — nothing to commit. An
+              # NVIDIA GPU in the report auto-enables `itera.nvidia`. Opt out with:
+              #   hardware.facter.autoGenerate = false; # or use a committed report:
+              #   hardware.facter.reportPath = ./facter.json;
+              #   hardware.facter.autoNvidia = false;   # keep nouveau instead
+
               # Declarative disk layout + ephemeral (tmpfs) root, bundled with
               # itera (no extra inputs). Both are ON by default. disko WIPES the
               # target device and has no safe default, so you MUST point it at a
@@ -99,7 +107,6 @@
               #   secureBoot.enable = true;      # then: sbctl create-keys && sbctl enroll-keys
               #   desktop.flatpak.enable = true; # declarative Flatpak (Flathub)
               #   desktop.flatpak.packages = [ "com.brave.Browser" ];
-              #   hardware.facter.reportPath = ./facter.json; # nix run nixpkgs#nixos-facter -- -o facter.json
             };
 
             # A login user via itera's account battery. `itera.users.<name>`

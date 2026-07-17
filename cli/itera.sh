@@ -18,6 +18,29 @@
 # writeShellApplication supplies `set -euo pipefail` and runs shellcheck, so this
 # file is plain bash with no preamble of its own.
 
+# Regenerate the nixos-facter hardware report before a build, when the facter
+# battery has auto-generation on. modules/nixos/core/facter.nix drops the
+# effective settings at /etc/itera/facter.env; an absent/AUTOGEN=0 file means the
+# feature is off, so we behave exactly like a plain `nh` call (return non-zero and
+# the caller skips both the regen and `--impure`). Returns 0 only when it wrote a
+# report and the build should therefore be impure.
+itera_facter_refresh() {
+  [ -r /etc/itera/facter.env ] || return 1
+  # shellcheck disable=SC1091
+  . /etc/itera/facter.env
+  [ "${ITERA_FACTER_AUTOGEN:-0}" = "1" ] || return 1
+  local path="${ITERA_FACTER_REPORT_PATH:-/var/lib/itera/facter.json}"
+  echo "itera: refreshing nixos-facter report at ${path} …"
+  sudo mkdir -p "$(dirname "$path")"
+  # sudo resets PATH (secure_path), so resolve the store path before elevating.
+  sudo -- "$(command -v nixos-facter)" -o "$path"
+  # nixos-facter writes the report root-only; make it world-readable so a
+  # non-root `nixos-rebuild build --impure` can read it too (the hardware
+  # inventory is not secret). The `nh`-driven rebuild below already runs the
+  # eval as root, so this is belt-and-suspenders.
+  sudo chmod 0644 "$path"
+}
+
 # testhost tooling is itera-repo dev-only. It is absent from the consumer build,
 # so guide the user to the flake instead of failing obscurely.
 require() {
@@ -78,10 +101,18 @@ case "$cmd" in
         ;;
     esac
     ;;
-  rebuild) exec nh os switch "$@" ;;
-  update) exec nh os switch --update "$@" ;;
-  boot) exec nh os boot "$@" ;;
-  update-boot) exec nh os boot --update "$@" ;;
+  rebuild)
+    if itera_facter_refresh; then exec nh os switch "$@" -- --impure; else exec nh os switch "$@"; fi
+    ;;
+  update)
+    if itera_facter_refresh; then exec nh os switch --update "$@" -- --impure; else exec nh os switch --update "$@"; fi
+    ;;
+  boot)
+    if itera_facter_refresh; then exec nh os boot "$@" -- --impure; else exec nh os boot "$@"; fi
+    ;;
+  update-boot)
+    if itera_facter_refresh; then exec nh os boot --update "$@" -- --impure; else exec nh os boot --update "$@"; fi
+    ;;
   gc) exec nh clean all "$@" ;;
   testhost)
     sub="${1:-}"
