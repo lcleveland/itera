@@ -349,21 +349,26 @@ itera bundles a set of complementary NixOS projects as plain modules (no extra
 inputs on your side). Each is a thin `itera.*` wrapper; the underlying upstream
 options stay reachable for fine-tuning.
 
-| Option namespace            | Provides                                                | Default  |
-| --------------------------- | ------------------------------------------------------- | -------- |
-| `itera.secrets`             | agenix declarative secrets (decrypted to `/run/agenix`) | on\*     |
-| `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB   | on       |
-| `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI  | on       |
-| `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails) | on       |
-| `itera.desktop.browser`     | LibreWolf (default web handler + `SUPER+b`)             | on       |
-| `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)    | on       |
-| `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote              | off      |
-| `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)              | off      |
-| `itera.hardware.facter`     | automatic hardware detection via nixos-facter           | on       |
-| `itera.nvidia`              | NVIDIA drivers (open module, container toolkit, PRIME)  | auto\*\* |
+| Option namespace            | Provides                                                 | Default  |
+| --------------------------- | -------------------------------------------------------- | -------- |
+| `itera.secrets`             | agenix declarative secrets (decrypted to `/run/agenix`)  | on\*     |
+| `itera.nixIndex`            | `command-not-found` + `comma` (`,`) via a prebuilt DB    | on       |
+| `itera.virtualisation`      | QEMU/KVM via libvirt (OVMF + swtpm) + virt-manager GUI   | on       |
+| `itera.desktop.fileManager` | Nemo file manager (+ gvfs mounting, tumbler thumbnails)  | on       |
+| `itera.desktop.browser`     | LibreWolf (default web handler + `SUPER+b`)              | on       |
+| `itera.desktop.theme`       | dark color scheme for GTK/Flatpak apps (matches DMS)     | on       |
+| `itera.secureBoot`          | Secure Boot & measured boot via lanzaboote               | off      |
+| `itera.desktop.flatpak`     | declarative Flatpak (nix-flatpak, Flathub)               | off      |
+| `itera.hardware.facter`     | automatic hardware detection via nixos-facter            | on       |
+| `itera.nvidia`              | NVIDIA drivers (open module, container toolkit, PRIME)   | auto\*\* |
+| `itera.securityKeys`        | FIDO2/U2F keys (YubiKey) for login/sudo + pcscd/udev     | on\*\*\* |
+| `itera.fingerprint`         | fprintd fingerprint auth (lock screen + sudo, not login) | on\*\*\* |
 
 \* on, but inert until you declare a secret.
 \*\* off by default, but auto-enabled when `itera.hardware.facter` detects an NVIDIA GPU.
+\*\*\* on, but inert until you enroll: `pamu2fcfg >> ~/.config/Yubico/u2f_keys` for a key,
+`fprintd-enroll` for a finger. Both are only _additional_ factors, so password login is
+unaffected on a machine without the hardware.
 
 ```nix
 {
@@ -400,6 +405,31 @@ bootctl status                         # verify Secure Boot is active
 ```
 
 Enabling it swaps systemd-boot for lanzaboote.
+
+**Security keys & fingerprint** are on by default but do nothing until you enroll —
+both add an _additional_ factor, so a machine with no key/reader keeps logging in by
+password exactly as before.
+
+- **`itera.securityKeys`** wires FIDO2/U2F (YubiKey and friends) into PAM as
+  _key OR password_ (`control = "sufficient"`), so a registered key can log you in —
+  at the greeter, a TTY, or `sudo` — and its absence just falls back to the password.
+  Enroll with the key inserted, then rebuild:
+
+  ```sh
+  mkdir -p ~/.config/Yubico
+  pamu2fcfg >> ~/.config/Yubico/u2f_keys   # tap the key when it blinks
+  ```
+
+  It also runs `pcscd` and installs the udev rules so the key works as a GPG/PIV/SSH
+  smartcard and for browser WebAuthn. For true two-factor (key AND password) set
+  `itera.securityKeys.control = "required"` — but enroll a **backup key** first.
+
+- **`itera.fingerprint`** enables `fprintd` for fingerprint auth _after_ you are
+  logged in — the DankMaterialShell lock screen and privilege prompts (`sudo`,
+  polkit) — but never the initial login itself. Enroll with `fprintd-enroll`. (The
+  lock screen can accept a fingerprint while the login cannot because DMS
+  authenticates the lock through its own PAM stack, separate from the greeter/TTY
+  login stacks where fingerprint is explicitly disabled.)
 
 **nixos-facter** is fully automatic. `itera rebuild` (and `update`/`boot`/
 `update-boot`) regenerate a hardware report at `/var/lib/itera/facter.json` on the

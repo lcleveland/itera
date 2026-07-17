@@ -1,6 +1,7 @@
 # Evaluation check for itera's ecosystem-integration batteries: agenix secrets,
 # nix-index/comma, QEMU/KVM virtualization, the Nemo file manager, Secure Boot
-# (lanzaboote), declarative Flatpak, and nixos-facter.
+# (lanzaboote), declarative Flatpak, nixos-facter, security keys (FIDO2/U2F), and
+# the fingerprint reader (fprintd).
 #
 # Like tests/eval.nix, these are hard to VM-boot (Secure Boot needs enrolled keys,
 # libvirt/flatpak pull services) so we evaluate two NixOS configurations — one at
@@ -62,6 +63,9 @@ let
   };
   # Same account with the batteries left on, to assert the profile IS persisted.
   batteriesOn = mkEval { itera.users.testuser = { }; };
+
+  # Fingerprint battery turned OFF, to assert its persisted state is gated.
+  fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
   # Browser with Firefox Sync opted out, to assert the extraPrefs override is
   # actually applied to the packaged LibreWolf (it changes the derivation).
@@ -164,6 +168,41 @@ let
     # --- Flatpak opt-in: enables service + persists installs ---
     "flatpak turns on when opted in" = optIn.services.flatpak.enable;
     "flatpak state is persisted when opted in" = builtins.elem "/var/lib/flatpak" (persistDirs optIn);
+
+    # --- Security keys (FIDO2/U2F, default on) ---
+    "pam u2f is enabled by default" = base.security.pam.u2f.enable;
+    # Default control is "sufficient" = key OR password (no lockout without a key).
+    "pam u2f control is key-OR-password by default" = base.security.pam.u2f.control == "sufficient";
+    "pcscd smartcard daemon is enabled by default" = base.services.pcscd.enable;
+    # Device udev rules for FIDO2 (libfido2) and YubiKey (yubikey-personalization).
+    "security-key udev packages are wired" =
+      lib.any (p: lib.hasInfix "libfido2" (p.name or "")) base.services.udev.packages
+      && lib.any (p: lib.hasInfix "yubikey-personalization" (p.name or "")) base.services.udev.packages;
+    "ykman is installed by default" = lib.any (
+      p: lib.hasInfix "yubikey-manager" (p.name or "")
+    ) base.environment.systemPackages;
+    # DMS lock screen accepts the key (key OR password).
+    "DMS lock screen enables u2f" = base.itera.programs.dankMaterialShell.settings.enableU2f == true;
+    "DMS lock screen u2f mode is 'or' by default" =
+      base.itera.programs.dankMaterialShell.settings.u2fMode == "or";
+    # The greeter's key-auth UI is wired (a greeter settings.json is supplied).
+    "greeter u2f config file is wired" = base.programs.dank-material-shell.greeter.configFiles != [ ];
+
+    # --- Fingerprint (default on): after-login only, never initial login ---
+    "fprintd is enabled by default" = base.services.fprintd.enable;
+    # Fingerprint is explicitly OFF on the initial-login surfaces...
+    "fingerprint is disabled at TTY login" = base.security.pam.services.login.fprintAuth == false;
+    "fingerprint is disabled at the greeter" = base.security.pam.services.greetd.fprintAuth == false;
+    # ...but ON for in-session privilege prompts (fprintd's default).
+    "fingerprint is enabled for sudo" = base.security.pam.services.sudo.fprintAuth == true;
+    "fingerprint is enabled for polkit" = base.security.pam.services.polkit-1.fprintAuth == true;
+    # DMS lock screen offers fingerprint unlock.
+    "DMS lock screen enables fingerprint" =
+      base.itera.programs.dankMaterialShell.settings.enableFprint == true;
+    # Enrolled prints are persisted across the tmpfs root, gated on the battery.
+    "fprint enrollments are persisted when on" = builtins.elem "/var/lib/fprint" (persistDirs base);
+    "fprint enrollments are not persisted when off" =
+      !builtins.elem "/var/lib/fprint" (persistDirs fingerprintOff);
   };
 
 in

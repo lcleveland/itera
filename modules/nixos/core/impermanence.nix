@@ -275,6 +275,10 @@ in
         # paired device (keyboard, headphones, …) must be re-paired after each boot.
         # Gated on the switch that actually creates the dir.
         ++ lib.optional config.hardware.bluetooth.enable "/var/lib/bluetooth"
+        # fprintd stores enrolled fingerprints under /var/lib/fprint; without this
+        # every finger must be re-enrolled after each boot. Gated on fprintd being
+        # on (what the fingerprint battery enables and what creates the dir).
+        ++ lib.optional config.services.fprintd.enable "/var/lib/fprint"
         # The DMS greeter's cache dir holds .local/state/memory.json — the last
         # successful username/session the greeter pre-selects. Persist it so the
         # greeter remembers the last user across the wiped tmpfs root. Gated on
