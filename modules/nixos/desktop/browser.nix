@@ -32,6 +32,23 @@ let
   inherit (lib.types) bool;
 
   cfg = config.itera.desktop.browser;
+
+  # LibreWolf ships with Firefox Sync (Mozilla accounts) disabled by default —
+  # its bundled `librewolf.cfg` sets `defaultPref("identity.fxaccounts.enabled",
+  # false)`. When `enableSync` is on we append an `extraPrefs` line that flips
+  # that default back to `true`. nixpkgs concatenates `extraPrefs` *after*
+  # `librewolf.cfg` in the generated `mozilla.cfg`, and the later `defaultPref`
+  # wins, so Sync becomes available in the UI without locking the pref (users can
+  # still turn it off per-profile).
+  browserPackage =
+    if cfg.package != null && cfg.enableSync then
+      cfg.package.override {
+        extraPrefs = ''
+          defaultPref("identity.fxaccounts.enabled", true);
+        '';
+      }
+    else
+      cfg.package;
 in
 {
   options.itera.desktop.browser = {
@@ -45,13 +62,23 @@ in
       '';
     };
 
+    enableSync = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Enable Firefox Sync (Mozilla accounts) in LibreWolf, which the upstream
+        build disables by default. On by default; set to `false` to keep Sync
+        turned off. Only takes effect when {option}`package` is non-null.
+      '';
+    };
+
     # `nullable = true` lets a consumer drop the package (e.g. to supply their own
     # LibreWolf build) while keeping the handler + compositor wiring below.
     package = mkPackageOption pkgs "librewolf" { nullable = true; };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    environment.systemPackages = mkIf (cfg.package != null) [ cfg.package ];
+    environment.systemPackages = mkIf (cfg.package != null) [ browserPackage ];
 
     # Force native Wayland rendering. Firefox-family browsers don't reliably
     # auto-detect Wayland, and the stack is Wayland-only (mango); without this
