@@ -61,6 +61,13 @@
             inherit pkgs lib;
             inherit (inputs) self nixpkgs;
           };
+
+          # Evaluation check for the opt-in service batteries (printing, gaming,
+          # local AI) and the keyboard-layout battery.
+          services-eval = import ../tests/services-eval.nix {
+            inherit pkgs lib;
+            inherit (inputs) self nixpkgs;
+          };
         };
     };
 }

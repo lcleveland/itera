@@ -66,6 +66,15 @@ let
   # monitor of the same key replaces the system entry wholesale; new keys add.
   monitors = (sys.monitors or { }) // (usr.monitors or { });
 
+  # gestures: same merge model as keybinds/monitors (system default set, per-user
+  # entry of the same name replaces, new names add).
+  gestures = (sys.gestures or { }) // (usr.gestures or { });
+
+  # Keyboard layout: driven by the system `itera.keyboard` battery
+  # (services.xserver.xkb). Emitting the `xkb_rules_*` lines here keeps the mango
+  # session's layout in lockstep with the console/greeter without a per-user knob.
+  xkb = osConfig.services.xserver.xkb or { };
+
   # itera's opinionated startup: refresh the D-Bus/systemd user environment (so
   # portals and user services see WAYLAND_DISPLAY etc.), start the removable-
   # storage automount agent (when the storage battery is on — udisks2 has no
@@ -78,7 +87,13 @@ let
   );
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
+  gesturesConfig = iteraLib.mango.renderGestures gestures;
   monitorsConfig = iteraLib.mango.renderMonitorRules monitors;
+  xkbConfig = iteraLib.mango.renderXkb {
+    layout = xkb.layout or "";
+    variant = xkb.variant or "";
+    options = xkb.options or "";
+  };
 
   # Tiling layout: the per-tag default (`tagrule` lines) plus the `circle_layout`
   # cycle list.
@@ -89,14 +104,16 @@ let
     ]
   );
 
-  # Order: autostart (exec-once) → monitors → layout → keybinds → freeform
-  # extraConfig. (mango matches monitor rules by name, so their position in the
-  # file is not significant — placed early for readability.)
+  # Order: autostart (exec-once) → monitors → xkb → layout → keybinds → gestures
+  # → freeform extraConfig. (mango matches monitor rules by name, so their
+  # position in the file is not significant — placed early for readability.)
   configText = lib.concatStringsSep "\n" (
     lib.optional autostart autostartConfig
     ++ lib.optional (monitorsConfig != "") monitorsConfig
+    ++ lib.optional (xkbConfig != "") xkbConfig
     ++ lib.optional (layoutConfig != "") layoutConfig
     ++ lib.optional (keybindsConfig != "") keybindsConfig
+    ++ lib.optional (gesturesConfig != "") gesturesConfig
     ++ lib.optional (extraConfig != "") extraConfig
   );
 in

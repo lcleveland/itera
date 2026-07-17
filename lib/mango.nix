@@ -104,6 +104,89 @@ let
   # bind). The names are organisational only — they never reach the file.
   renderKeybinds = keybinds: concatStringsSep "\n" (mapAttrsToList (_: mkBindLine) keybinds);
 
+  # A MangoWC touchpad gesture bind. Renders as
+  #
+  #   gesturebind=<MOD+MOD>,<direction>,<fingers>,<command>,<arguments>
+  #
+  # mirroring MangoWC's config syntax (an empty modifier list renders as the
+  # literal `none`, a null argument as the empty string). e.g. a 3-finger swipe
+  # left that focuses the window to the right:
+  #   gesturebind=none,left,3,focusdir,right
+  gestureType = lib.types.submodule (_: {
+    options = {
+      modifierKeys = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "SUPER" ];
+        description = "Modifier keys joined with `+` (e.g. `[ \"SUPER\" ]`). Empty renders as `none`.";
+      };
+
+      direction = lib.mkOption {
+        type = lib.types.enum [
+          "left"
+          "right"
+          "up"
+          "down"
+        ];
+        example = "left";
+        description = "Swipe direction.";
+      };
+
+      fingerCount = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 3;
+        example = 3;
+        description = "Number of fingers on the touchpad for this gesture.";
+      };
+
+      mangoCommand = lib.mkOption {
+        type = lib.types.str;
+        example = "focusdir";
+        description = "MangoWC command to run (e.g. `focusdir`, `switch_layout`).";
+      };
+
+      commandArguments = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "right";
+        description = "Optional command arguments. `null` renders as the empty string.";
+      };
+    };
+  });
+
+  # Render a single gesture into its `gesturebind=` line. Optional fields fall
+  # back with `or` so the helper also works on plain (non-submodule) attrs.
+  mkGestureLine =
+    g:
+    let
+      modifierKeys = g.modifierKeys or [ ];
+      commandArguments = g.commandArguments or null;
+      modifiers = if modifierKeys == [ ] then "none" else concatStringsSep "+" modifierKeys;
+      arguments = if commandArguments == null then "" else commandArguments;
+    in
+    "gesturebind=${modifiers},${g.direction},${toString (g.fingerCount or 3)},${g.mangoCommand},${arguments}";
+
+  # Render a name-keyed attrset of gestures into config.conf lines (one per
+  # gesture). The names are organisational only — they never reach the file.
+  renderGestures = gestures: concatStringsSep "\n" (mapAttrsToList (_: mkGestureLine) gestures);
+
+  # Render the XKB keyboard config into mango's `xkb_rules_*` lines. Driven by the
+  # system `itera.keyboard` battery (via `services.xserver.xkb`) so the mango
+  # session and the login greeter match the console layout. Empty fields are
+  # omitted; an all-empty input renders "" so no lines are emitted (mango keeps
+  # its default `us`).
+  renderXkb =
+    {
+      layout ? "",
+      variant ? "",
+      options ? "",
+    }:
+    concatStringsSep "\n" (
+      lib.optional (layout != "") "xkb_rules_layout=${layout}"
+      ++ lib.optional (variant != "") "xkb_rules_variant=${variant}"
+      ++ lib.optional (options != "") "xkb_rules_options=${options}"
+    );
+
   # Friendly rotation/flip names → MangoWC's numeric `rr` transform (see the
   # transform table in mango's docs/configuration/monitors).
   monitorTransforms = {
@@ -316,6 +399,10 @@ in
     keybindType
     mkBindLine
     renderKeybinds
+    gestureType
+    mkGestureLine
+    renderGestures
+    renderXkb
     supportedLayouts
     mkTagLayoutLines
     mkCircleLayoutLine
