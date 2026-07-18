@@ -41,6 +41,33 @@ itera_facter_refresh() {
   sudo chmod 0644 "$path"
 }
 
+# Read this host's configured update source. The update battery
+# (modules/nixos/core/update.nix) drops the effective settings at
+# /etc/itera/update.env: which flake to build (ITERA_UPDATE_FLAKE), which
+# nixosConfiguration attribute this host is (ITERA_UPDATE_CONFIGURATION), and
+# whether the flake is a remote ref (ITERA_UPDATE_REMOTE=1) or a local path (0).
+# Populates SRC_ARGS with the resulting `nh` arguments (flake installable +
+# `--hostname`). An absent file means no configured source, so the verbs behave
+# exactly like a plain `nh` call.
+SRC_ARGS=()
+itera_update_source() {
+  SRC_ARGS=()
+  ITERA_UPDATE_REMOTE=""
+  [ -r /etc/itera/update.env ] || return 0
+  # shellcheck disable=SC1091
+  . /etc/itera/update.env
+  [ -n "${ITERA_UPDATE_FLAKE:-}" ] && SRC_ARGS+=("$ITERA_UPDATE_FLAKE")
+  [ -n "${ITERA_UPDATE_CONFIGURATION:-}" ] && SRC_ARGS+=(--hostname "$ITERA_UPDATE_CONFIGURATION")
+  return 0
+}
+
+# The fetch flag for the `update`/`update-boot` verbs: refresh a remote flake ref
+# to its newest revision, or bump a local checkout's flake.lock. Call after
+# itera_update_source so ITERA_UPDATE_REMOTE is set.
+itera_update_fetch_flag() {
+  if [ "${ITERA_UPDATE_REMOTE:-0}" = "1" ]; then echo "--refresh"; else echo "--update"; fi
+}
+
 # testhost tooling is itera-repo dev-only. It is absent from the consumer build,
 # so guide the user to the flake instead of failing obscurely.
 require() {
@@ -62,9 +89,11 @@ Commands:
   facter report [output-path]  Generate a nixos-facter hardware report + a summary
                                mapping this machine to itera.* tuning options.
   rebuild [nh args]            Rebuild this system from your configured flake
-                               (nh os switch; uses itera.nix.nh.flake).
-  update [nh args]             Update your flake inputs, then rebuild
-                               (nh os switch --update).
+                               (nh os switch; uses itera.update.flake and
+                               itera.update.configuration).
+  update [nh args]             Fetch the newest config, then rebuild (nh os
+                               switch; --refresh for a remote itera.update.flake,
+                               --update for a local one).
   boot [nh args]               Rebuild from your flake, but apply on next reboot
                                instead of now (nh os boot).
   update-boot [nh args]        Update your flake inputs, then apply on next reboot
@@ -102,16 +131,38 @@ case "$cmd" in
     esac
     ;;
   rebuild)
-    if itera_facter_refresh; then exec nh os switch "$@" -- --impure; else exec nh os switch "$@"; fi
+    itera_update_source
+    if itera_facter_refresh; then
+      exec nh os switch "${SRC_ARGS[@]}" "$@" -- --impure
+    else
+      exec nh os switch "${SRC_ARGS[@]}" "$@"
+    fi
     ;;
   update)
-    if itera_facter_refresh; then exec nh os switch --update "$@" -- --impure; else exec nh os switch --update "$@"; fi
+    itera_update_source
+    fetch="$(itera_update_fetch_flag)"
+    if itera_facter_refresh; then
+      exec nh os switch "${SRC_ARGS[@]}" "$fetch" "$@" -- --impure
+    else
+      exec nh os switch "${SRC_ARGS[@]}" "$fetch" "$@"
+    fi
     ;;
   boot)
-    if itera_facter_refresh; then exec nh os boot "$@" -- --impure; else exec nh os boot "$@"; fi
+    itera_update_source
+    if itera_facter_refresh; then
+      exec nh os boot "${SRC_ARGS[@]}" "$@" -- --impure
+    else
+      exec nh os boot "${SRC_ARGS[@]}" "$@"
+    fi
     ;;
   update-boot)
-    if itera_facter_refresh; then exec nh os boot --update "$@" -- --impure; else exec nh os boot --update "$@"; fi
+    itera_update_source
+    fetch="$(itera_update_fetch_flag)"
+    if itera_facter_refresh; then
+      exec nh os boot "${SRC_ARGS[@]}" "$fetch" "$@" -- --impure
+    else
+      exec nh os boot "${SRC_ARGS[@]}" "$fetch" "$@"
+    fi
     ;;
   gc) exec nh clean all "$@" ;;
   testhost)

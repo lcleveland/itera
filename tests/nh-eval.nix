@@ -36,10 +36,6 @@ let
   # nh battery off entirely: no nh, GC falls back to the nix.gc timer.
   nhOff = mkConfig [ { itera.nix.nh.enable = false; } ];
 
-  # A consumer points nh at their flake so bare `nh os switch` resolves it
-  # instead of erroring on the nonexistent /etc/nixos/flake.nix.
-  withFlake = mkConfig [ { itera.nix.nh.flake = "/home/alice/config"; } ];
-
   checks = {
     # --- defaults: nh on, nh clean owns GC ---
     "nh is enabled by default" = base.programs.nh.enable;
@@ -50,10 +46,6 @@ let
     "store optimisation stays on under nh clean" = base.nix.optimise.automatic;
     "nh flake is unset by default (bare nh os switch left to nh's own default)" =
       base.programs.nh.flake == null;
-
-    # --- consumer sets itera.nix.nh.flake ---
-    "itera.nix.nh.flake sets programs.nh.flake so NH_FLAKE points at the config" =
-      withFlake.programs.nh.flake == "/home/alice/config";
 
     # --- nh clean off: GC falls back to the nix.gc timer ---
     "nh stays on when only clean is disabled" = cleanOff.programs.nh.enable;

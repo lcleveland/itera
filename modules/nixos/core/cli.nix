@@ -10,7 +10,7 @@
 #   itera gc [args]              prune old generations (nh clean all)
 #
 # rebuild/update/gc are thin `nh` wrappers that act on the consumer's OWN flake
-# (via {option}`itera.nix.nh.flake` / NH_FLAKE), not itera's — the itera-repo
+# (via {option}`itera.update.flake` / NH_FLAKE), not itera's — the itera-repo
 # `testhost` verbs are deliberately NOT in this build (see flake/cli.nix).
 #
 # Tab-completion for the command is shipped per-user by the companion home

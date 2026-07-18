@@ -52,11 +52,16 @@
               # change it.
               nix.stateVersion = "25.05";
 
-              # `nh` is itera's rebuild front-end (on by default). Point it at
-              # this flake so `sudo nh os switch` (no args) works after install —
+              # Where `itera rebuild`/`update` build this host from, and which
+              # configuration it is. Point `update.flake` at your config — a
+              # remote URL or a persisted local checkout — so `itera update`
+              # (and bare `nh os switch`) works with no args after install;
               # otherwise nh looks for /etc/nixos/flake.nix, which itera doesn't
-              # create. Use the path to your persisted config checkout:
-              #   nix.nh.flake = "/home/alice/Documents/itera-config";
+              # create. `update` uses --refresh for a remote flake, --update for
+              # a local path. `update.configuration` defaults to the hostname;
+              # set it if your flake's nixosConfigurations attribute differs.
+              #   update.flake = "github:me/dream"; # or "/home/alice/Documents/itera-config"
+              #   update.configuration = "dream";
 
               # Hardware layer — replaces a generated hardware-configuration.nix.
               # The initrd kernel-module default boots virtually any modern UEFI
