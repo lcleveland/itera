@@ -5,7 +5,9 @@
 # view via nix-output-monitor, a fast generation diff via dix, and a
 # confirmation prompt before switching. It also ships `nh clean`, a gcroot-aware
 # `nix-collect-garbage` replacement. Turning this on puts `nh` on the system
-# PATH; `itera-update` (dev/update-itera.sh) drives `nh os switch`.
+# PATH; `itera-update` (dev/update-itera.sh) drives `nh os switch`. Which flake
+# and configuration `nh` builds is configured by the update battery
+# (`itera.update.*`, modules/nixos/core/update.nix).
 #
 # GC division of labour with `gc.nix`: when `clean.enable` is on (the default),
 # `nh clean` owns scheduled garbage collection and `gc.nix` steps its
@@ -25,7 +27,7 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types) bool nullOr str;
+  inherit (lib.types) bool str;
 
   cfg = config.itera.nix.nh;
 in
@@ -39,24 +41,6 @@ in
         {option}`itera.enable` is set; set this to `false` to fall back to plain
         {command}`nixos-rebuild` (and, if {option}`itera.nix.gc.enable` is on,
         the standard {command}`nix-collect-garbage` timer).
-      '';
-    };
-
-    flake = mkOption {
-      type = nullOr str;
-      default = null;
-      example = "/home/alice/Documents/itera-config";
-      description = ''
-        Where {command}`nh` looks for this host's flake when no installable is
-        passed, via the `NH_FLAKE` default ({option}`programs.nh.flake`). Leave
-        `null` and {command}`nh os switch` (with no argument) falls back to
-        {file}`/etc/nixos/flake.nix`, which itera never creates — so bare
-        {command}`nh os switch` errors on a fresh install. Set this on a real
-        install, normally a path to your persisted config checkout (keep it under
-        a persisted path such as {file}`~/Documents` so it survives the ephemeral
-        root), so {command}`nh os switch` works with no arguments. The dev test
-        hosts leave this `null` because {command}`itera-update` passes the flake
-        explicitly.
       '';
     };
 
@@ -103,13 +87,10 @@ in
     programs.nh = {
       enable = mkDefault true;
 
-      # `programs.nh.flake` only sets the NH_FLAKE default. nh does NOT discover
-      # the running host's flake: with no installable and no NH_FLAKE it falls
-      # back to /etc/nixos/flake.nix, which itera never creates (the root is an
-      # ephemeral tmpfs), so bare `nh os switch` errors. We surface it as
-      # `itera.nix.nh.flake` (null by default) rather than guessing a path — set
-      # it on a real install; the test hosts pass the flake via `itera-update`.
-      flake = mkIf (cfg.flake != null) (mkDefault cfg.flake);
+      # The NH_FLAKE default (`programs.nh.flake`) — which flake a bare `nh os
+      # switch` resolves — is owned by the update battery (`itera.update.flake`,
+      # modules/nixos/core/update.nix), alongside the configuration name the
+      # `itera` command builds.
 
       clean = {
         enable = mkDefault cfg.clean.enable;
