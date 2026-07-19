@@ -30,6 +30,7 @@ _: {
           statix
           deadnix
           nix-output-monitor
+          gh # GitHub CLI: open/manage PRs from the dev shell
         ];
       };
 
