@@ -68,6 +68,11 @@ let
     };
   };
 
+  # gaming battery (itera.gaming, opt-in). Enabling it must re-enable 32-bit
+  # (i686) execution — hardening's default `ia32_emulation=0` otherwise breaks
+  # the 32-bit binaries Steam/Proton ship.
+  gamingOn = mkEval { itera.gaming.enable = true; };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -191,6 +196,15 @@ let
       !(nvidiaOn.environment.variables ? GBM_BACKEND);
     "nvidia sets the wlroots cursor workaround" =
       nvidiaOn.environment.variables.WLR_NO_HARDWARE_CURSORS == "1";
+
+    # gaming battery (itera.gaming, opt-in) — Steam + 32-bit support
+    "gaming enables steam" = gamingOn.programs.steam.enable;
+    "gaming enables 32-bit GL" = gamingOn.hardware.graphics.enable32Bit;
+    # Hardening disables 32-bit (i686) execution by default; gaming must undo it
+    # so Steam/Proton's i686 binaries can run.
+    "hardening disables ia32 emulation by default" =
+      builtins.elem "ia32_emulation=0" cfg.boot.kernelParams;
+    "gaming re-enables ia32 emulation" = !(builtins.elem "ia32_emulation=0" gamingOn.boot.kernelParams);
   };
 
 in
