@@ -89,6 +89,17 @@ in
       # into unique per-host ids; a host wanting the generic id back can flip it.
       settings.etc.generic-machine-id = mkDefault false;
 
+      # Keep 32-bit (i686) execution working system-wide. nix-mineral's
+      # `system.multilib` defaults to false, which sets `ia32_emulation=0` and
+      # disables the 32-bit syscall path on 6.7+ kernels — every i686 binary,
+      # including Nix's own i686 builders, then fails with "Exec format error".
+      # That makes it impossible to *build* any config pulling in 32-bit closures
+      # (e.g. itera.gaming's Steam) on a running itera host: a bootstrap deadlock,
+      # since the kernel can't run the i686 builders needed to produce the very
+      # system that would re-enable them. Keep multilib on by default so 32-bit
+      # always works; a host wanting the tighter default can flip it back off.
+      settings.system.multilib = mkDefault true;
+
       # Known benign boot-log noise from this layer — left as-is on purpose
       # (see docs/known-boot-log-noise.md for the full triage):
       #

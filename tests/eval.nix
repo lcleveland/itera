@@ -200,11 +200,13 @@ let
     # gaming battery (itera.gaming, opt-in) — Steam + 32-bit support
     "gaming enables steam" = gamingOn.programs.steam.enable;
     "gaming enables 32-bit GL" = gamingOn.hardware.graphics.enable32Bit;
-    # Hardening disables 32-bit (i686) execution by default; gaming must undo it
-    # so Steam/Proton's i686 binaries can run.
-    "hardening disables ia32 emulation by default" =
-      builtins.elem "ia32_emulation=0" cfg.boot.kernelParams;
-    "gaming re-enables ia32 emulation" = !(builtins.elem "ia32_emulation=0" gamingOn.boot.kernelParams);
+    # 32-bit (i686) execution stays on system-wide (not gated on gaming), so a
+    # config pulling in 32-bit closures can always be built — hardening keeps
+    # multilib on, i.e. never sets `ia32_emulation=0`. See hardening.nix.
+    "ia32 emulation stays enabled by default" =
+      !(builtins.elem "ia32_emulation=0" cfg.boot.kernelParams);
+    "ia32 emulation stays enabled with gaming" =
+      !(builtins.elem "ia32_emulation=0" gamingOn.boot.kernelParams);
   };
 
 in
