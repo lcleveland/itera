@@ -4,13 +4,14 @@
 # desktop-adjacent battery like the other `itera.desktop.*` ones, but not wanted
 # on every machine.
 #
-# 32-bit support comes from two places, neither of which this module has to own
-# the graphics stack for:
+# 32-bit support comes from two places, neither of which this module has to own:
 #   • 32-bit GL *libraries*: the upstream `programs.steam` module already turns on
 #     `hardware.graphics.enable` + `enable32Bit`, so we don't set them here (the
 #     nvidia battery also sets `enable32Bit`, redundantly).
-#   • 32-bit *execution*: itera's hardening battery sets `ia32_emulation=0`, which
-#     breaks every i686 binary Steam/Proton ship — so we re-enable multilib below.
+#   • 32-bit *execution*: kept on system-wide by the hardening battery (which owns
+#     the `ia32_emulation` kernel param — see modules/nixos/core/hardening.nix).
+#     It must stay on even without gaming, otherwise the running system can't build
+#     a config that pulls in 32-bit closures (Steam) — a bootstrap deadlock.
 {
   config,
   lib,
@@ -61,15 +62,5 @@ in
       gamescope.enable = cfg.gamescope.enable;
       gamemode.enable = mkDefault cfg.gamemode.enable;
     };
-
-    # Steam and Proton ship 32-bit (i686) executables, so the host kernel must be
-    # able to run them. itera's hardening battery (nix-mineral) sets
-    # `ia32_emulation=0` by default (its `system.multilib = false`), which disables
-    # the 32-bit syscall path and makes every i686 binary — including Nix's own
-    # i686 builders — fail with "Exec format error". Re-enable multilib whenever
-    # gaming is on: scoped to hosts that opt into Steam, so non-gaming hosts keep
-    # the tighter default. mkDefault so a consumer can still force it back off, and
-    # it wins over the aggressive hardening presets (verified against `maximum`).
-    nix-mineral.settings.system.multilib = mkDefault true;
   };
 }
