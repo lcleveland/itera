@@ -14,6 +14,16 @@
 # toolkit, and sets the Wayland env workarounds. Everything below `enable` is a
 # further opt-out knob.
 #
+# The `nvidia` entry in `services.xserver.videoDrivers` is contributed ADDITIVELY
+# (a plain list, not `mkDefault`), so it merges with — rather than being clobbered
+# by — a hardware profile or a hand-written `services.xserver.videoDrivers` in the
+# consumer's config. A `mkDefault` here would be silently dropped by any such
+# normal-priority definition, leaving the container toolkit on with no active
+# driver and tripping nixpkgs' driver assertion mid-`itera update`. The one
+# consequence: to REMOVE the nvidia driver while keeping the battery on you must
+# `lib.mkForce` `videoDrivers` — but enabling the battery means you want the
+# driver, so that is the intended posture.
+#
 # PRIME (laptop hybrid graphics) is a nested opt-in: set `prime.enable = true`
 # and supply the two PCI bus IDs (find them with `lspci`). Offload is the default
 # mode; sync is the alternative — the two are mutually exclusive (asserted).
@@ -164,21 +174,25 @@ in
     # assertion. That assertion (`services/hardware/nvidia-container-toolkit`) wants
     # `hardware.nvidia.datacenter.enable`, `"nvidia"` in
     # `services.xserver.videoDrivers`, or `suppressNvidiaDriverAssertion`. itera's
-    # own stack always sets the driver + videoDrivers together with the toolkit
-    # (below), so it never trips itself — but the toolkit can be turned on by paths
-    # itera doesn't control (a consumer's raw `hardware.nvidia-container-toolkit`,
-    # `virtualisation.docker/podman.enableNvidia`), or requested on a fresh machine
-    # before facter has detected the GPU and turned `itera.nvidia` on. In those
-    # states the build would abort with an opaque upstream error mid-`itera update`.
-    # So when the toolkit is on but no driver is active, suppress the assertion
-    # (overridable) and warn instead — the rebuild finishes; GPU containers just
-    # won't work until the driver is on. This block is intentionally NOT gated on
-    # `cfg.enable`: it exists precisely for the driver-off case.
+    # own stack sets the driver + videoDrivers together with the toolkit (below),
+    # so it normally never trips itself — but the toolkit can end up on with no
+    # active driver in states itera doesn't fully control:
+    #   - a consumer's raw `hardware.nvidia-container-toolkit` /
+    #     `virtualisation.docker/podman.enableNvidia`, or a fresh machine before
+    #     facter detected the GPU — here `itera.nvidia` is OFF; or
+    #   - `itera.nvidia` is ON, but a consumer / imported hardware profile
+    #     `mkForce`s `services.xserver.videoDrivers` and drops `"nvidia"`.
+    # In those states the build would abort with an opaque upstream error
+    # mid-`itera update`. So whenever the toolkit is on but no driver is active,
+    # suppress the assertion (overridable) and warn — the rebuild finishes; GPU
+    # containers just won't work until the driver is on. The gate MIRRORS the
+    # upstream assertion's failure condition and is intentionally NOT gated on
+    # `cfg.enable` (the additive `videoDrivers` above satisfies the assertion the
+    # real way in the common battery-on case, so this only fires in the edges).
     (mkIf
       (
         config.itera.enable
         && config.hardware.nvidia-container-toolkit.enable
-        && !cfg.enable
         && !config.hardware.nvidia.datacenter.enable
         && !(builtins.elem "nvidia" config.services.xserver.videoDrivers)
       )
@@ -190,10 +204,17 @@ in
             The NVIDIA container toolkit is enabled but no NVIDIA driver is active,
             so itera suppressed the upstream driver assertion to let this rebuild
             finish. GPU containers will NOT work until the driver is on:
-              - set itera.nvidia.enable = true (facter auto-enables it on an NVIDIA
-                GPU — run `itera facter report` / `itera update` so the report exists), or
-              - set itera.nvidia.containerToolkit = false /
-                virtualisation.docker.enableNvidia = false if you don't need GPU containers.
+              - if itera.nvidia is OFF: set itera.nvidia.enable = true (facter
+                auto-enables it on an NVIDIA GPU — run `itera facter report` /
+                `itera update` so the report exists), or set
+                itera.nvidia.containerToolkit = false /
+                virtualisation.docker.enableNvidia = false if you don't need GPU
+                containers;
+              - if itera.nvidia is ON: something in your configuration (an imported
+                hardware profile, or an explicit services.xserver.videoDrivers) is
+                overriding itera's "nvidia" entry — remove that definition or add
+                "nvidia" to it (itera contributes it additively, so a plain
+                videoDrivers list merges; only an mkForce drops it).
           ''
         ];
       }
@@ -282,7 +303,9 @@ in
         nvidia-container-toolkit.enable = mkIf cfg.containerToolkit (mkDefault true);
       };
 
-      services.xserver.videoDrivers = mkDefault [ "nvidia" ];
+      # Additive (plain list, NOT mkDefault) so it MERGES with any hardware-profile
+      # or consumer `videoDrivers` instead of being clobbered by it — see the header.
+      services.xserver.videoDrivers = [ "nvidia" ];
     })
   ];
 }

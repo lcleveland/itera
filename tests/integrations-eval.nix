@@ -87,6 +87,24 @@ let
   # evaluation still succeeds.
   toolkitNoDriver = mkEval { hardware.nvidia-container-toolkit.enable = true; };
 
+  # Regression (the reported bug): itera.nvidia is ON, but the consumer (or an
+  # imported hardware profile) defines services.xserver.videoDrivers at NORMAL
+  # priority. itera contributes "nvidia" ADDITIVELY (a plain list), so it must MERGE
+  # rather than be clobbered — keeping "nvidia" present and satisfying the upstream
+  # assertion the real way (no suppression needed).
+  nvidiaVideoDriversMerged = mkEval {
+    itera.nvidia.enable = true;
+    services.xserver.videoDrivers = [ "modesetting" ];
+  };
+
+  # The edge the broadened suppression net still covers: itera.nvidia ON but a
+  # consumer mkForce drops "nvidia" from videoDrivers. itera can't win the merge,
+  # so it suppresses the upstream assertion + warns instead of aborting.
+  nvidiaVideoDriversForced = mkEval {
+    itera.nvidia.enable = true;
+    services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
+  };
+
   # LibreWolf keepLogins off, to assert the extraPrefs override rebuilds the package.
   keepLoginsOff = mkEval { itera.desktop.browser.keepLogins = false; };
 
@@ -190,6 +208,26 @@ let
       builtins.elem "nvidia" nvidiaHost.services.xserver.videoDrivers;
     "facter-driven nvidia does not suppress the assertion" =
       nvidiaHost.hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion == false;
+
+    # Reported bug: itera.nvidia ON + a normal-priority consumer/profile videoDrivers
+    # def MERGES with itera's additive "nvidia" (rather than clobbering it), so the
+    # driver stays present, the assertion is satisfied the real way (no suppression),
+    # and evaluation succeeds with no failed assertion.
+    "battery-on merges nvidia with a consumer videoDrivers def" =
+      builtins.elem "nvidia" nvidiaVideoDriversMerged.services.xserver.videoDrivers
+      && builtins.elem "modesetting" nvidiaVideoDriversMerged.services.xserver.videoDrivers;
+    "battery-on with a consumer videoDrivers def needs no suppression" =
+      nvidiaVideoDriversMerged.hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion == false;
+    "battery-on with a consumer videoDrivers def still evaluates cleanly" =
+      builtins.filter (a: !a.assertion) nvidiaVideoDriversMerged.assertions == [ ];
+
+    # Safety net: itera.nvidia ON but a consumer mkForce drops "nvidia" — itera can't
+    # win the merge, so it suppresses the upstream assertion + warns instead of
+    # aborting, and evaluation still succeeds.
+    "battery-on with a forced videoDrivers override suppresses the assertion" =
+      nvidiaVideoDriversForced.hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion == true;
+    "battery-on with a forced videoDrivers override still evaluates with no failed assertion" =
+      builtins.filter (a: !a.assertion) nvidiaVideoDriversForced.assertions == [ ];
 
     # --- Secure Boot opt-in: swaps bootloader + persists keys ---
     "lanzaboote turns on when opted in" = optIn.boot.lanzaboote.enable;
