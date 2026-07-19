@@ -73,14 +73,48 @@ iteraLib.programs.mkCuratedProgram {
     };
   };
 
-  # Opinionated "batteries-included" default: telemetry off (matching itera's
-  # privacy-focused stack). Per-key mkDefault so explicit values override.
-  systemConfig = _: {
-    settings.telemetry = {
-      diagnostics = mkDefault false;
-      metrics = mkDefault false;
+  # Opinionated "batteries-included" defaults (per-key mkDefault so explicit values
+  # — system-wide or per-user — override):
+  #   * telemetry off, matching itera's privacy-focused stack; and
+  #   * when the editor battery's Nix language server is enabled, wire Zed to use
+  #     nixd for `.nix` files. The `nixd`/`nixfmt` binaries are installed on `PATH`
+  #     by the system half (`modules/nixos/desktop/editor.nix`); here we just select
+  #     nixd (disabling Zed's default nil) and, if requested, format-on-save via
+  #     nixfmt. `auto_install_extensions.nix` ensures Zed's Nix grammar + LSP
+  #     registration is present so the server actually attaches.
+  systemConfig =
+    config:
+    let
+      editor = config.itera.desktop.editor;
+      nixLsp = editor.enable && editor.nixLanguageServer.enable;
+    in
+    {
+      settings = {
+        telemetry = {
+          diagnostics = mkDefault false;
+          metrics = mkDefault false;
+        };
+      }
+      // lib.optionalAttrs nixLsp {
+        auto_install_extensions.nix = mkDefault true;
+        languages.Nix = {
+          language_servers = mkDefault [
+            "nixd"
+            "!nil"
+          ];
+        }
+        // lib.optionalAttrs editor.nixLanguageServer.formatOnSave {
+          formatter = mkDefault {
+            external = {
+              command = "nixfmt";
+              arguments = [ ];
+            };
+          };
+          format_on_save = mkDefault "on";
+        };
+        lsp.nixd = mkDefault { };
+      };
     };
-  };
 
   # Per-user-only escape hatch (no system-wide counterpart): let a user opt the
   # rendered settings.json out of clobbering so Zed's GUI can own it after first
