@@ -7,9 +7,10 @@
 # `nix develop` and never land on an installed host. This battery closes that gap
 # with a small, curated set of system-wide tooling.
 #
-# Deliberately lean: the default is just `git` (the one thing you cannot bootstrap
-# a config workflow without). `packages` is the extension point — append your own
-# editors/CLIs, or drop the battery entirely and install per-user via
+# Deliberately lean: the default is `git` (the one thing you cannot bootstrap a
+# config workflow without) plus the GitHub CLI `gh` (open/manage PRs against your
+# flake without leaving the shell). `packages` is the extension point — append
+# your own editors/CLIs, or drop the battery entirely and install per-user via
 # `itera.users.<name>.packages`.
 #
 # Opt-OUT (default ON with `itera.enable`), following the core-battery shape.
@@ -33,21 +34,25 @@ in
       default = true;
       description = ''
         Install a small curated set of developer tooling system-wide (by default
-        just {command}`git`), so a freshly installed host can work on a Nix
-        configuration. On by default whenever {option}`itera.enable` is set; set
-        to `false` to omit it.
+        {command}`git` and the GitHub CLI {command}`gh`), so a freshly installed
+        host can work on a Nix configuration. On by default whenever
+        {option}`itera.enable` is set; set to `false` to omit it.
       '';
     };
 
     packages = mkOption {
       type = listOf package;
-      default = [ pkgs.git ];
-      defaultText = lib.literalExpression "[ pkgs.git ]";
-      example = lib.literalExpression "[ pkgs.git pkgs.gnumake pkgs.jq ]";
+      default = [
+        pkgs.git
+        pkgs.gh
+      ];
+      defaultText = lib.literalExpression "[ pkgs.git pkgs.gh ]";
+      example = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.gnumake pkgs.jq ]";
       description = ''
         System-wide developer tooling installed when {option}`itera.dev.enable`
-        is set. Defaults to {command}`git`; append your own tools here, or install
-        per-user via {option}`itera.users.<name>.packages` instead.
+        is set. Defaults to {command}`git` and the GitHub CLI {command}`gh`; append
+        your own tools here, or install per-user via
+        {option}`itera.users.<name>.packages` instead.
       '';
     };
   };

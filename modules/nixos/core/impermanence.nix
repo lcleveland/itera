@@ -167,6 +167,10 @@ in
             directory = ".ssh";
             mode = "0700";
           } # owner-only; SSH rejects lax perms
+          # Claude Code's state dir: its OAuth credentials
+          # (~/.claude/.credentials.json) plus settings/projects. Without this the
+          # login is wiped every boot and you must re-authenticate.
+          ".claude"
           "Documents"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
@@ -174,7 +178,10 @@ in
 
       files = mkOption {
         type = entryType;
-        default = [ ];
+        # Claude Code keeps account/onboarding/project-trust state in the home-root
+        # ~/.claude.json (its credentials live in ~/.claude, persisted above). Keep
+        # it so the CLI doesn't re-run first-run setup after every boot.
+        default = [ ".claude.json" ];
         description = "Home-relative files persisted for each user when {option}`homes.enable` is set.";
       };
     };
