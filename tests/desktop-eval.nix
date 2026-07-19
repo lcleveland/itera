@@ -42,6 +42,12 @@ let
     }
   ];
 
+  # Same host with the editor's Nix language server opted out, to assert the
+  # negative: no nixd on PATH and no Nix settings written into Zed's config.
+  cfgNoNixLsp = mkConfig [
+    { itera.desktop.editor.nixLanguageServer.enable = false; }
+  ];
+
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
@@ -103,6 +109,23 @@ let
     # Home layer: the Zed user config renders. Probing the key forces the hjem
     # battery's gated config path (settings serialization) to evaluate.
     "zed user config is generated" = mangoUserFiles ? "zed/settings.json";
+
+    # Nix language server (default ON): nixd + nixfmt land on PATH and Zed's
+    # settings select nixd (disabling nil) with nixfmt format-on-save.
+    "nixd is installed" = hasPkg "nixd" cfg.environment.systemPackages;
+    "nixfmt is installed" = hasPkg "nixfmt" cfg.environment.systemPackages;
+    "zed selects nixd for Nix" =
+      cfg.itera.programs.zed.settings.languages.Nix.language_servers == [
+        "nixd"
+        "!nil"
+      ];
+    "zed formats Nix on save with nixfmt" =
+      cfg.itera.programs.zed.settings.languages.Nix.format_on_save == "on"
+      && cfg.itera.programs.zed.settings.languages.Nix.formatter.external.command == "nixfmt";
+
+    # Opting the Nix LSP out drops the binary and writes no Nix settings.
+    "nixd absent when disabled" = !hasPkg "nixd" cfgNoNixLsp.environment.systemPackages;
+    "no Nix settings when disabled" = !(cfgNoNixLsp.itera.programs.zed.settings ? languages);
   };
 
 in
