@@ -86,6 +86,7 @@ let
   fileNames = map (f: f.file or f) persistence.files;
   dirNames = map (d: d.directory or d) persistence.directories;
   userDirs = name: map (d: d.directory or d) persistence.users.${name}.directories;
+  userFiles = name: map (f: f.file or f) persistence.users.${name}.files;
 
   checks = {
     # disko + impermanence
@@ -112,6 +113,7 @@ let
     # dev tooling battery (itera.dev, on by default): git is installed system-wide
     # so a fresh host can work on a Nix config; gated off with the battery.
     "git is installed by default" = hasPkg cfg "git";
+    "gh is installed by default" = hasPkg cfg "gh";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
 
     # per-user home persistence (itera.impermanence.homes, on by default)
@@ -120,6 +122,10 @@ let
     "user home .local/state persisted by default" = builtins.elem ".local/state" (userDirs "testuser");
     "user home .cache persisted by default" = builtins.elem ".cache" (userDirs "testuser");
     "user home .ssh persisted by default" = builtins.elem ".ssh" (userDirs "testuser");
+    # Claude Code's credentials/settings live in ~/.claude and its account/onboarding
+    # state in ~/.claude.json — persist both so the login survives the tmpfs root.
+    "user home .claude persisted by default" = builtins.elem ".claude" (userDirs "testuser");
+    "user home .claude.json persisted by default" = builtins.elem ".claude.json" (userFiles "testuser");
     "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
     # Browser battery is on by default, so the LibreWolf profile (~/.librewolf) —
     # bookmarks/logins/history — survives the tmpfs root.
