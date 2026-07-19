@@ -48,7 +48,14 @@ in
           TemporaryTimeout = mkDefault 0;
           Privacy = mkDefault "network/on"; # moved here from Kicksecure's [Policy]
         };
-        Policy.AutoEnable = mkDefault false;
+        # Power the adapter on automatically (and reconnect known devices) at
+        # boot, matching `powerOnBoot` above and itera's opt-out intent — the
+        # battery enables BlueZ and DankMaterialShell ships a Bluetooth widget, so
+        # a controller that stays dark by default is a bug, not hardening. This is
+        # a deliberate divergence from Kicksecure's radio-off-by-default posture
+        # (which mkForced this to `false`); `mkDefault` leaves it overridable for a
+        # locked-down host that wants the adapter off until asked.
+        Policy.AutoEnable = mkDefault true;
       };
     };
 

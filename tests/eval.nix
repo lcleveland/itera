@@ -68,6 +68,11 @@ let
     };
   };
 
+  # dev tooling battery (itera.dev) is on by default; a second eval with it off to
+  # assert it's gated.
+  devOff = mkEval { itera.dev.enable = false; };
+  hasPkg = c: n: builtins.any (p: lib.getName p == n) c.environment.systemPackages;
+
   subvolumes = cfg.disko.devices.disk.main.content.partitions.root.content.subvolumes;
   persistence = cfg.environment.persistence."/persist";
 
@@ -93,6 +98,16 @@ let
     # Bluetooth is on by default (itera.enable), so BlueZ device pairings survive
     # the wiped root rather than needing a re-pair every boot.
     "bluetooth pairings are persisted" = builtins.elem "/var/lib/bluetooth" dirNames;
+    # Bluetooth powers the adapter on at boot by default — the Kicksecure
+    # AutoEnable=false default is overridden so the radio isn't dark despite
+    # powerOnBoot.
+    "bluetooth auto-enables the adapter by default" =
+      cfg.hardware.bluetooth.settings.Policy.AutoEnable == true;
+
+    # dev tooling battery (itera.dev, on by default): git is installed system-wide
+    # so a fresh host can work on a Nix config; gated off with the battery.
+    "git is installed by default" = hasPkg cfg "git";
+    "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
 
     # per-user home persistence (itera.impermanence.homes, on by default)
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");

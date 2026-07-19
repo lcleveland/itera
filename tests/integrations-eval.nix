@@ -81,6 +81,15 @@ let
   amdHost = mkEval (gpuReport 4098);
   nvidiaOptOut = mkEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
 
+  # nvidia-container-toolkit driver-assertion defusing: force the toolkit on while
+  # itera.nvidia stays off (no driver, no "nvidia" in videoDrivers), the state that
+  # made the upstream assertion abort a rebuild. itera should suppress it + warn so
+  # evaluation still succeeds.
+  toolkitNoDriver = mkEval { hardware.nvidia-container-toolkit.enable = true; };
+
+  # LibreWolf keepLogins off, to assert the extraPrefs override rebuilds the package.
+  keepLoginsOff = mkEval { itera.desktop.browser.keepLogins = false; };
+
   persistDirs = cfg: map (d: d.directory or d) cfg.environment.persistence."/persist".directories;
   userDirs =
     cfg: name:
@@ -124,6 +133,11 @@ let
     "firefox sync enabled by default" = base.itera.desktop.browser.enableSync;
     "enabling sync overrides the librewolf derivation" =
       (librewolfPkg base).drvPath != (librewolfPkg syncOff).drvPath;
+    # keepLogins is on by default (logins survive a restart despite LibreWolf's
+    # clear-on-shutdown), and toggling it rebuilds the package via extraPrefs.
+    "browser keepLogins on by default" = base.itera.desktop.browser.keepLogins;
+    "disabling keepLogins overrides the librewolf derivation" =
+      (librewolfPkg base).drvPath != (librewolfPkg keepLoginsOff).drvPath;
 
     # --- Bluetooth (default on): pairings persisted, gated on the battery ---
     "bluetooth pairings persisted when on" = builtins.elem "/var/lib/bluetooth" (persistDirs base);
@@ -159,6 +173,23 @@ let
     "a non-NVIDIA GPU leaves itera.nvidia off" = !amdHost.itera.nvidia.enable;
     "no report leaves itera.nvidia off" = !base.itera.nvidia.enable;
     "autoNvidia = false is honored with an NVIDIA GPU present" = !nvidiaOptOut.itera.nvidia.enable;
+
+    # --- nvidia-container-toolkit driver-assertion defusing ---
+    # Toolkit on without a driver: itera suppresses the upstream assertion, warns,
+    # and the config still evaluates (no failed assertion aborts `itera update`).
+    "toolkit without a driver suppresses the upstream assertion" =
+      toolkitNoDriver.hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion == true;
+    "toolkit without a driver warns" = lib.any (
+      w: lib.hasInfix "NVIDIA container toolkit is enabled" w
+    ) toolkitNoDriver.warnings;
+    "toolkit without a driver still evaluates with no failed assertion" =
+      builtins.filter (a: !a.assertion) toolkitNoDriver.assertions == [ ];
+    # The healthy facter-driven path is unaffected: driver in videoDrivers, no
+    # suppression (the upstream assertion is satisfied the real way).
+    "facter-driven nvidia keeps nvidia in videoDrivers" =
+      builtins.elem "nvidia" nvidiaHost.services.xserver.videoDrivers;
+    "facter-driven nvidia does not suppress the assertion" =
+      nvidiaHost.hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion == false;
 
     # --- Secure Boot opt-in: swaps bootloader + persists keys ---
     "lanzaboote turns on when opted in" = optIn.boot.lanzaboote.enable;

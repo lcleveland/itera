@@ -38,6 +38,13 @@ let
           # A system-wide DMS default override (should reach EVERY user).
           dankMaterialShell.settings.currentThemeName = "blue";
 
+          # System-wide Zed defaults (should reach EVERY user): a raw setting plus
+          # a curated agent field spliced into the `agent` settings key.
+          zed = {
+            settings.buffer_font_size = 14;
+            agent.default_profile = "ask";
+          };
+
           mango = {
             # System-wide mango gestures (should reach EVERY user).
             gestures.focusRight = {
@@ -77,6 +84,17 @@ let
             packages = [ pkgs.hello ];
             programs = {
               dankMaterialShell.settings.cornerRadius = 8;
+              # Per-user Zed: register Claude Code as an external ACP agent (lands
+              # under `agent_servers`) and opt the file out of clobbering so the
+              # GUI can own it.
+              zed = {
+                clobber = false;
+                settings.vim_mode = true;
+                agentServers.claude = {
+                  command = "claude-code-acp";
+                  args = [ ];
+                };
+              };
               mango = {
                 layout = "tile";
                 # Per-user gesture: new name adds alongside the system default.
@@ -120,6 +138,10 @@ let
 
   aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
   bobDms = builtins.fromJSON bobFiles."DankMaterialShell/settings.json".text;
+
+  # Zed renders via pkgs.formats.json (a store-path `source`, not inline `text`).
+  aliceZed = builtins.fromJSON (builtins.readFile aliceFiles."zed/settings.json".source);
+  bobZed = builtins.fromJSON (builtins.readFile bobFiles."zed/settings.json".source);
 
   aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
   bobMango = builtins.readFile bobFiles."mango/config.conf".source;
@@ -179,6 +201,19 @@ let
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
     "opinionated default present (bob)" = bobDms.use24HourClock == true;
     "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
+
+    # ── Zed settings: system defaults reach an un-overridden user (bob) ──
+    "zed telemetry-off default present (bob)" = bobZed.telemetry.diagnostics == false;
+    "zed raw system setting reaches user (bob)" = bobZed.buffer_font_size == 14;
+    "zed curated agent field reaches user (bob)" = bobZed.agent.default_profile == "ask";
+    "zed settings.json clobbers by default (bob)" = bobFiles."zed/settings.json".clobber == true;
+
+    # ── Zed settings: per-user overrides + agents + clobber opt-out (alice) ──
+    "zed per-user raw setting applied (alice)" = aliceZed.vim_mode == true;
+    "zed system agent field still inherited (alice)" = aliceZed.agent.default_profile == "ask";
+    "zed agentServers land under agent_servers (alice)" =
+      aliceZed.agent_servers.claude.command == "claude-code-acp";
+    "zed per-user clobber opt-out honored (alice)" = aliceFiles."zed/settings.json".clobber == false;
 
     # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
     "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
