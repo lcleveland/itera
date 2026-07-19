@@ -33,20 +33,34 @@ let
 
   cfg = config.itera.desktop.browser;
 
-  # LibreWolf ships with Firefox Sync (Mozilla accounts) disabled by default —
-  # its bundled `librewolf.cfg` sets `defaultPref("identity.fxaccounts.enabled",
-  # false)`. When `enableSync` is on we append an `extraPrefs` line that flips
-  # that default back to `true`. nixpkgs concatenates `extraPrefs` *after*
-  # `librewolf.cfg` in the generated `mozilla.cfg`, and the later `defaultPref`
-  # wins, so Sync becomes available in the UI without locking the pref (users can
-  # still turn it off per-profile).
+  # LibreWolf's hardened build injects two defaults that itera flips back for a
+  # daily-driver desktop, each behind its own opt-out. nixpkgs concatenates
+  # `extraPrefs` *after* the bundled `librewolf.cfg` in the generated
+  # `mozilla.cfg`, and the later `defaultPref` wins — so these override without
+  # locking the prefs (a user can still change them per-profile).
+  #
+  #   - enableSync: `librewolf.cfg` sets `identity.fxaccounts.enabled = false`;
+  #     flip it back to `true` so Firefox Sync (Mozilla accounts) is available.
+  #   - keepLogins: `librewolf.cfg` clears cookies/site-data on shutdown
+  #     (`privacy.sanitize.sanitizeOnShutdown` + `privacy.clearOnShutdown*.cookies`)
+  #     and makes cookies session-only (`network.cookie.lifetimePolicy = 2`), so
+  #     logins are wiped on every close *even though* the ~/.librewolf profile is
+  #     persisted under impermanence. Flip those off so sessions survive a restart.
+  #     Both the legacy (`clearOnShutdown`) and current (`clearOnShutdown_v2`) pref
+  #     names are set, since which one LibreWolf reads varies by Firefox base.
+  extraPrefs =
+    (lib.optionalString cfg.enableSync ''
+      defaultPref("identity.fxaccounts.enabled", true);
+    '')
+    + (lib.optionalString cfg.keepLogins ''
+      defaultPref("privacy.sanitize.sanitizeOnShutdown", false);
+      defaultPref("privacy.clearOnShutdown.cookies", false);
+      defaultPref("privacy.clearOnShutdown_v2.cookiesAndStorage", false);
+      defaultPref("network.cookie.lifetimePolicy", 0);
+    '');
   browserPackage =
-    if cfg.package != null && cfg.enableSync then
-      cfg.package.override {
-        extraPrefs = ''
-          defaultPref("identity.fxaccounts.enabled", true);
-        '';
-      }
+    if cfg.package != null && extraPrefs != "" then
+      cfg.package.override { inherit extraPrefs; }
     else
       cfg.package;
 in
@@ -69,6 +83,20 @@ in
         Enable Firefox Sync (Mozilla accounts) in LibreWolf, which the upstream
         build disables by default. On by default; set to `false` to keep Sync
         turned off. Only takes effect when {option}`package` is non-null.
+      '';
+    };
+
+    keepLogins = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Keep cookies and site data (i.e. logins) across restarts. LibreWolf's
+        hardened build clears them on shutdown and treats cookies as session-only,
+        so logins are lost on every close even though the {file}`~/.librewolf`
+        profile is persisted. On by default; set to `false` to restore LibreWolf's
+        wipe-on-close behavior. A deliberate, per-profile-overridable relaxation of
+        LibreWolf's privacy defaults. Only takes effect when {option}`package` is
+        non-null.
       '';
     };
 

@@ -8,6 +8,9 @@
 #
 # Config format: Zed's config is JSON, rendered with nixpkgs' `pkgs.formats.json`
 # generator. Merge model: `systemDefaults // perUserSettings`, shallow per key.
+# The dedicated `agent` / `agentServers` options are merged the same way and
+# spliced into settings.json under the `agent` / `agent_servers` keys. A per-user
+# `clobber = false` (default true) lets Zed's GUI own the file after first write.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`): sinks like
 # `xdg.config.files` are unprefixed and `osConfig` / `pkgs` / `name` are module args.
@@ -30,15 +33,28 @@ let
   sys = osConfig.itera.programs.zed or { };
   usr = osConfig.itera.users.${name}.programs.zed or { };
 
-  finalSettings = (sys.settings or { }) // (usr.settings or { });
+  # Merge the raw settings and the dedicated agent options (system // per-user,
+  # shallow per key), then splice the agent options into their settings.json keys
+  # (`agent` / `agent_servers`). `optionalAttrs` keeps empty options from writing
+  # an empty `{}` into the file.
+  baseSettings = (sys.settings or { }) // (usr.settings or { });
+  agent = (sys.agent or { }) // (usr.agent or { });
+  agentServers = (sys.agentServers or { }) // (usr.agentServers or { });
+  finalSettings =
+    baseSettings
+    // (lib.optionalAttrs (agent != { }) { inherit agent; })
+    // (lib.optionalAttrs (agentServers != { }) { agent_servers = agentServers; });
+
+  # Concrete bool (never null): a per-user opt-out lets Zed's GUI own the file
+  # after first write (see the registration's `clobber` doc). Mirrors the DMS
+  # battery.
+  clobber = usr.clobber or true;
 in
 {
   config = mkIf enable {
     xdg.config.files."zed/settings.json" = {
       source = json.generate "zed-settings.json" finalSettings;
-      # Explicit clobber — replace any pre-existing settings.json rather than letting
-      # hjem refuse to overwrite (same rationale as the mango battery).
-      clobber = true;
+      inherit clobber;
     };
   };
 }

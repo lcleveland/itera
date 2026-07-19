@@ -28,7 +28,7 @@
 }:
 let
   inherit (lib.options) mkOption literalExpression;
-  inherit (lib.modules) mkIf mkDefault;
+  inherit (lib.modules) mkIf mkMerge mkDefault;
   inherit (lib.types) bool nullOr str;
 
   cfg = config.itera.nvidia;
@@ -159,89 +159,130 @@ in
     };
   };
 
-  config = mkIf (config.itera.enable && cfg.enable) {
-    assertions = [
+  config = mkMerge [
+    # Keep a rebuild from HARD-FAILING on nixpkgs' nvidia-container-toolkit driver
+    # assertion. That assertion (`services/hardware/nvidia-container-toolkit`) wants
+    # `hardware.nvidia.datacenter.enable`, `"nvidia"` in
+    # `services.xserver.videoDrivers`, or `suppressNvidiaDriverAssertion`. itera's
+    # own stack always sets the driver + videoDrivers together with the toolkit
+    # (below), so it never trips itself — but the toolkit can be turned on by paths
+    # itera doesn't control (a consumer's raw `hardware.nvidia-container-toolkit`,
+    # `virtualisation.docker/podman.enableNvidia`), or requested on a fresh machine
+    # before facter has detected the GPU and turned `itera.nvidia` on. In those
+    # states the build would abort with an opaque upstream error mid-`itera update`.
+    # So when the toolkit is on but no driver is active, suppress the assertion
+    # (overridable) and warn instead — the rebuild finishes; GPU containers just
+    # won't work until the driver is on. This block is intentionally NOT gated on
+    # `cfg.enable`: it exists precisely for the driver-off case.
+    (mkIf
+      (
+        config.itera.enable
+        && config.hardware.nvidia-container-toolkit.enable
+        && !cfg.enable
+        && !config.hardware.nvidia.datacenter.enable
+        && !(builtins.elem "nvidia" config.services.xserver.videoDrivers)
+      )
       {
-        assertion = config.nixpkgs.config.allowUnfree or false;
-        message = ''
-          itera.nvidia.enable requires unfree packages, but
-          nixpkgs.config.allowUnfree is false. Set itera.nix.allowUnfree = true
-          (its default) — the NVIDIA drivers are otherwise unavailable.
-        '';
-      }
-      {
-        assertion = !cfg.prime.enable || (cfg.prime.intelBusId != null && cfg.prime.nvidiaBusId != null);
-        message = ''
-          itera.nvidia.prime.enable is set; supply both
-          itera.nvidia.prime.intelBusId and itera.nvidia.prime.nvidiaBusId
-          (find them with `lspci`).
-        '';
-      }
-      {
-        assertion = !(primeOffload && primeSync);
-        message = ''
-          itera.nvidia.prime: offload and sync are mutually exclusive — enable
-          only one of itera.nvidia.prime.offload.enable /
-          itera.nvidia.prime.sync.enable.
-        '';
-      }
-      {
-        assertion =
-          cfg.prime.intelBusId == null || lib.match "PCI:[0-9]+:[0-9]+:[0-9]+" cfg.prime.intelBusId != null;
-        message = ''itera.nvidia.prime.intelBusId must be in "PCI:X:Y:Z" form (e.g. "PCI:0:2:0").'';
-      }
-      {
-        assertion =
-          cfg.prime.nvidiaBusId == null || lib.match "PCI:[0-9]+:[0-9]+:[0-9]+" cfg.prime.nvidiaBusId != null;
-        message = ''itera.nvidia.prime.nvidiaBusId must be in "PCI:X:Y:Z" form (e.g. "PCI:1:0:0").'';
-      }
-    ];
+        hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = mkDefault true;
 
-    # GBM_BACKEND / __GLX_VENDOR_LIBRARY_NAME must NOT be set globally under PRIME
-    # offload — they would force every client (including iGPU ones) through NVIDIA.
-    # These use `environment.variables` (system-wide `/etc/set-environment`), not
-    # `sessionVariables` like the other desktop modules, so the compositor/driver
-    # see them from the very first process in the graphics stack rather than only
-    # after PAM sets up the user session.
-    environment.variables =
-      (lib.optionalAttrs (!primeOffload) {
-        GBM_BACKEND = "nvidia-drm";
-        __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-        __GL_VRR_ALLOWED = "0";
-      })
-      // (lib.optionalAttrs cfg.wayland.wlrNoHardwareCursors {
-        WLR_NO_HARDWARE_CURSORS = "1";
-      });
-
-    hardware = {
-      graphics = {
-        enable = mkDefault true;
-        enable32Bit = mkDefault cfg.enable32Bit;
-        extraPackages = mkDefault [
-          pkgs.egl-wayland
-          pkgs.nvidia-vaapi-driver
+        warnings = [
+          ''
+            The NVIDIA container toolkit is enabled but no NVIDIA driver is active,
+            so itera suppressed the upstream driver assertion to let this rebuild
+            finish. GPU containers will NOT work until the driver is on:
+              - set itera.nvidia.enable = true (facter auto-enables it on an NVIDIA
+                GPU — run `itera facter report` / `itera update` so the report exists), or
+              - set itera.nvidia.containerToolkit = false /
+                virtualisation.docker.enableNvidia = false if you don't need GPU containers.
+          ''
         ];
-      };
+      }
+    )
 
-      nvidia = {
-        modesetting.enable = mkDefault true;
-        powerManagement.enable = mkDefault cfg.powerManagement;
-        nvidiaSettings = mkDefault cfg.settings;
-        open = mkDefault cfg.open;
+    (mkIf (config.itera.enable && cfg.enable) {
+      assertions = [
+        {
+          assertion = config.nixpkgs.config.allowUnfree or false;
+          message = ''
+            itera.nvidia.enable requires unfree packages, but
+            nixpkgs.config.allowUnfree is false. Set itera.nix.allowUnfree = true
+            (its default) — the NVIDIA drivers are otherwise unavailable.
+          '';
+        }
+        {
+          assertion = !cfg.prime.enable || (cfg.prime.intelBusId != null && cfg.prime.nvidiaBusId != null);
+          message = ''
+            itera.nvidia.prime.enable is set; supply both
+            itera.nvidia.prime.intelBusId and itera.nvidia.prime.nvidiaBusId
+            (find them with `lspci`).
+          '';
+        }
+        {
+          assertion = !(primeOffload && primeSync);
+          message = ''
+            itera.nvidia.prime: offload and sync are mutually exclusive — enable
+            only one of itera.nvidia.prime.offload.enable /
+            itera.nvidia.prime.sync.enable.
+          '';
+        }
+        {
+          assertion =
+            cfg.prime.intelBusId == null || lib.match "PCI:[0-9]+:[0-9]+:[0-9]+" cfg.prime.intelBusId != null;
+          message = ''itera.nvidia.prime.intelBusId must be in "PCI:X:Y:Z" form (e.g. "PCI:0:2:0").'';
+        }
+        {
+          assertion =
+            cfg.prime.nvidiaBusId == null || lib.match "PCI:[0-9]+:[0-9]+:[0-9]+" cfg.prime.nvidiaBusId != null;
+          message = ''itera.nvidia.prime.nvidiaBusId must be in "PCI:X:Y:Z" form (e.g. "PCI:1:0:0").'';
+        }
+      ];
 
-        prime = mkIf cfg.prime.enable {
-          inherit (cfg.prime) intelBusId nvidiaBusId;
-          offload = {
-            enable = cfg.prime.offload.enable;
-            enableOffloadCmd = cfg.prime.offload.enable;
-          };
-          sync.enable = cfg.prime.sync.enable;
+      # GBM_BACKEND / __GLX_VENDOR_LIBRARY_NAME must NOT be set globally under PRIME
+      # offload — they would force every client (including iGPU ones) through NVIDIA.
+      # These use `environment.variables` (system-wide `/etc/set-environment`), not
+      # `sessionVariables` like the other desktop modules, so the compositor/driver
+      # see them from the very first process in the graphics stack rather than only
+      # after PAM sets up the user session.
+      environment.variables =
+        (lib.optionalAttrs (!primeOffload) {
+          GBM_BACKEND = "nvidia-drm";
+          __GLX_VENDOR_LIBRARY_NAME = "nvidia";
+          __GL_VRR_ALLOWED = "0";
+        })
+        // (lib.optionalAttrs cfg.wayland.wlrNoHardwareCursors {
+          WLR_NO_HARDWARE_CURSORS = "1";
+        });
+
+      hardware = {
+        graphics = {
+          enable = mkDefault true;
+          enable32Bit = mkDefault cfg.enable32Bit;
+          extraPackages = mkDefault [
+            pkgs.egl-wayland
+            pkgs.nvidia-vaapi-driver
+          ];
         };
+
+        nvidia = {
+          modesetting.enable = mkDefault true;
+          powerManagement.enable = mkDefault cfg.powerManagement;
+          nvidiaSettings = mkDefault cfg.settings;
+          open = mkDefault cfg.open;
+
+          prime = mkIf cfg.prime.enable {
+            inherit (cfg.prime) intelBusId nvidiaBusId;
+            offload = {
+              enable = cfg.prime.offload.enable;
+              enableOffloadCmd = cfg.prime.offload.enable;
+            };
+            sync.enable = cfg.prime.sync.enable;
+          };
+        };
+
+        nvidia-container-toolkit.enable = mkIf cfg.containerToolkit (mkDefault true);
       };
 
-      nvidia-container-toolkit.enable = mkIf cfg.containerToolkit (mkDefault true);
-    };
-
-    services.xserver.videoDrivers = mkDefault [ "nvidia" ];
-  };
+      services.xserver.videoDrivers = mkDefault [ "nvidia" ];
+    })
+  ];
 }

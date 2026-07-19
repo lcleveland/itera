@@ -1,0 +1,58 @@
+# itera's developer-tooling battery.
+#
+# A freshly installed itera system ships nothing to work on a Nix configuration
+# with — notably no `git`, so you can't clone, edit, and commit your own flake
+# (or itera itself) out of the box. Every other package itera installs is scoped
+# to the battery that needs it; the dev-shell tools (nil, nixfmt, …) live only in
+# `nix develop` and never land on an installed host. This battery closes that gap
+# with a small, curated set of system-wide tooling.
+#
+# Deliberately lean: the default is just `git` (the one thing you cannot bootstrap
+# a config workflow without). `packages` is the extension point — append your own
+# editors/CLIs, or drop the battery entirely and install per-user via
+# `itera.users.<name>.packages`.
+#
+# Opt-OUT (default ON with `itera.enable`), following the core-battery shape.
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  inherit (lib.options) mkOption;
+  inherit (lib.modules) mkIf;
+  inherit (lib.types) bool listOf package;
+
+  cfg = config.itera.dev;
+in
+{
+  options.itera.dev = {
+    enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Install a small curated set of developer tooling system-wide (by default
+        just {command}`git`), so a freshly installed host can work on a Nix
+        configuration. On by default whenever {option}`itera.enable` is set; set
+        to `false` to omit it.
+      '';
+    };
+
+    packages = mkOption {
+      type = listOf package;
+      default = [ pkgs.git ];
+      defaultText = lib.literalExpression "[ pkgs.git ]";
+      example = lib.literalExpression "[ pkgs.git pkgs.gnumake pkgs.jq ]";
+      description = ''
+        System-wide developer tooling installed when {option}`itera.dev.enable`
+        is set. Defaults to {command}`git`; append your own tools here, or install
+        per-user via {option}`itera.users.<name>.packages` instead.
+      '';
+    };
+  };
+
+  config = mkIf (config.itera.enable && cfg.enable) {
+    environment.systemPackages = cfg.packages;
+  };
+}
