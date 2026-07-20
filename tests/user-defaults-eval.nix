@@ -201,6 +201,8 @@ let
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
     "opinionated default present (bob)" = bobDms.use24HourClock == true;
     "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
+    "weather uses fahrenheit by default (bob)" = bobDms.useFahrenheit == true;
+    "weather uses auto location by default (bob)" = bobDms.useAutoLocation == true;
 
     # ── Zed settings: system defaults reach an un-overridden user (bob) ──
     "zed telemetry-off default present (bob)" = bobZed.telemetry.diagnostics == false;

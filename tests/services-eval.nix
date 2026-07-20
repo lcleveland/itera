@@ -48,6 +48,9 @@ let
     }
   ];
 
+  # ── AI: Claude Code CLI (opt-in, independent of ollama) ───────────────────
+  claude = mkConfig [ { itera.ai.claude.enable = true; } ];
+
   # ── keyboard ──────────────────────────────────────────────────────────────
   keyboard = mkConfig [ { itera.keyboard.variant = "colemak_dh"; } ];
 
@@ -82,6 +85,9 @@ let
     "ai warns on CUDA without nvidia" = lib.any (
       w: lib.hasInfix "fall back to CPU" w
     ) aiCudaNoGpu.warnings;
+    # Claude Code CLI is opt-in: absent by default, on the system PATH once enabled.
+    "claude cli off by default" = !(hasName "claude-code" (mkConfig [ ]).environment.systemPackages);
+    "claude cli installed when opted in" = hasName "claude-code" claude.environment.systemPackages;
 
     # ── keyboard ───────────────────────────────────────────────────────────
     "keyboard defaults to us" = (mkConfig [ ]).services.xserver.xkb.layout == "us";

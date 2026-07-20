@@ -76,6 +76,12 @@ iteraLib.programs.mkCuratedProgram {
       # light). With portal sync off, DMS uses its stored isLightMode, which
       # defaults to false (dark).
       syncModeWithPortal = mkDefault false;
+      # Weather widget defaults: Fahrenheit and auto-detected location. DMS's own
+      # defaults are Celsius (useFahrenheit=false) and a manual location
+      # (useAutoLocation=false); auto-location resolves via geoclue, which the
+      # desktop battery already enables.
+      useFahrenheit = mkDefault true;
+      useAutoLocation = mkDefault true;
     };
   };
 }
