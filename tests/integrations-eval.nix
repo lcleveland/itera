@@ -292,7 +292,7 @@ let
     "DMS lock screen u2f mode is 'or' by default" =
       base.itera.programs.dankMaterialShell.settings.u2fMode == "or";
     # The greeter's key-auth UI is wired (a greeter settings.json is supplied).
-    "greeter u2f config file is wired" = base.programs.dank-material-shell.greeter.configFiles != [ ];
+    "greeter u2f config file is wired" = base.programs.dms-greeter.configFiles != [ ];
 
     # --- Fingerprint (default on): after-login only, never initial login ---
     "fprintd is enabled by default" = base.services.fprintd.enable;

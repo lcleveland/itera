@@ -48,14 +48,26 @@
       # add scenefx ourselves.
     };
 
-    # DankMaterialShell: a Quickshell-based Wayland desktop shell + greeter.
-    # itera bundles its NixOS modules (see modules/nixos). Powers
+    # DankMaterialShell: a Quickshell-based Wayland desktop shell. itera bundles
+    # its NixOS module (see modules/nixos). Powers the shell half of
     # `itera.desktop.dankMaterialShell`. Pinned to the `stable` branch upstream
-    # recommends for the NixOS modules.
+    # recommends for the NixOS module. The greeter used to live here too but was
+    # extracted upstream into its own repo — see the `dank-greeter` input below.
     dms = {
       url = "github:AvengeMedia/DankMaterialShell/stable";
       inputs.nixpkgs.follows = "nixpkgs";
       # dms's `flake-compat` input has no itera counterpart; it stays unfollowed.
+    };
+
+    # DMS greeter: extracted from DankMaterialShell into its own repo upstream.
+    # itera bundles its NixOS module (see modules/nixos). Powers the greeter half
+    # of `itera.desktop.dankMaterialShell` via `programs.dms-greeter`. Tracks
+    # `master` — dank-greeter has no `stable` branch (unlike dms).
+    dank-greeter = {
+      url = "github:AvengeMedia/dank-greeter";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # dank-greeter's `dank-qml-common` is a source-only (flake = false) input
+      # with no itera counterpart; it stays unfollowed.
     };
 
     treefmt-nix = {

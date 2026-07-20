@@ -117,8 +117,9 @@ in
     # Tell the DMS lock screen to offer fingerprint unlock. DMS's settings are a
     # flat camelCase passthrough; `enableFprint`/`maxFprintTries` are real schema
     # keys. Gated on the desktop battery so we don't publish DMS settings when DMS
-    # is off. The greeter's `greeterEnableFprint` is left at its `false` default —
-    # belt-and-suspenders with the `greetd.fprintAuth = false` above.
+    # is off. Login-surface fingerprint stays off purely via the
+    # `greetd.fprintAuth = false` above (the greeter is now the standalone
+    # dank-greeter, which authenticates through the `greetd` PAM stack).
     (mkIf dmsCfg.enable {
       itera.programs.dankMaterialShell.settings = {
         enableFprint = mkDefault true;

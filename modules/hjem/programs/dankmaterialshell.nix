@@ -16,7 +16,8 @@
 # into the read-only Nix store, so the declarative value always wins — DMS GUI
 # changes reset on the next rebuild. A per-user `clobber = false` lets DMS own the
 # file after first write. The greeter is out of scope — it runs as the `greeter`
-# system user, configured via `programs.dank-material-shell.greeter.*`.
+# system user, configured via `programs.dms-greeter.*` (the standalone
+# dank-greeter module).
 #
 # Runs inside the hjem user submodule: `xdg.config.files` is unprefixed and
 # `osConfig` / `name` are module args. Declares NO options (the schema lives in the

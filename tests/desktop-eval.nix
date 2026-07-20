@@ -65,8 +65,8 @@ let
     "mango registers a session package" = cfg.services.displayManager.sessionPackages != [ ];
 
     # DMS greeter drives greetd, rendered under mango.
-    "DMS greeter is enabled" = cfg.programs.dank-material-shell.greeter.enable;
-    "greeter runs under mango" = cfg.programs.dank-material-shell.greeter.compositor.name == "mango";
+    "DMS greeter is enabled" = cfg.programs.dms-greeter.enable;
+    "greeter runs under mango" = cfg.programs.dms-greeter.compositor.name == "mango";
     "greetd is enabled" = cfg.services.greetd.enable;
     "greetd launches the dms-greeter" = lib.hasInfix "dms-greeter" greetdCommand;
 

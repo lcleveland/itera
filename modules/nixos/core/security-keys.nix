@@ -159,7 +159,7 @@ in
 
     # Enable the greeter's key-auth UI so the key works at the graphical login.
     (mkIf (dmsCfg.enable && dmsCfg.greeter.enable) {
-      programs.dank-material-shell.greeter.configFiles = [
+      programs.dms-greeter.configFiles = [
         "${greeterSettings}/settings.json"
       ];
     })
