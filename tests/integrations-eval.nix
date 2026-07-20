@@ -79,6 +79,19 @@ let
   # Same account with the batteries left on, to assert the profile IS persisted.
   batteriesOn = mkEval { itera.users.testuser = { }; };
 
+  # Gaming battery (opt-in, OFF by default) turns Steam on, to assert ~/.steam is
+  # persisted for the account. Steam pulls in hardware.graphics.enable32Bit, which
+  # nixpkgs asserts is x86_64-only, so pin the platform like the nvidia evals do so
+  # this check runs identically on the aarch64 CI runner.
+  gamingOn = mkConfig [
+    diskoOn
+    { nixpkgs.hostPlatform = lib.mkForce "x86_64-linux"; }
+    {
+      itera.users.testuser = { };
+      itera.gaming.enable = true;
+    }
+  ];
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
@@ -171,6 +184,15 @@ let
     "browser keepLogins on by default" = base.itera.desktop.browser.keepLogins;
     "disabling keepLogins overrides the librewolf derivation" =
       (librewolfPkg base).drvPath != (librewolfPkg keepLoginsOff).drvPath;
+
+    # --- Steam / gaming (opt-in): ~/.steam persisted, gated on Steam being on ---
+    # The library, Proton prefixes and cloud saves live under ~/.local/share/Steam
+    # (persisted via the curated `.local/share`); ~/.steam is a top-level dotdir
+    # (registry.vdf: auto-login user, language) that must be added/removed with
+    # Steam itself, so it is persisted only while the battery is on.
+    "steam dir persisted when gaming on" = builtins.elem ".steam" (userDirs gamingOn "testuser");
+    "steam dir not persisted when gaming off" =
+      !builtins.elem ".steam" (userDirs batteriesOn "testuser");
 
     # --- Bluetooth (default on): pairings persisted, gated on the battery ---
     "bluetooth pairings persisted when on" = builtins.elem "/var/lib/bluetooth" (persistDirs base);
