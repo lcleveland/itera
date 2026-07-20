@@ -59,5 +59,16 @@ in
 
   config = mkIf (config.itera.enable && cfg.enable) {
     environment.systemPackages = cfg.packages;
+
+    # When the GitHub CLI ships in this battery, wire it up as git's credential
+    # helper over HTTPS so a `gh auth login` transparently authenticates git too
+    # (clone/push/pull) — no separate PAT or credential store to manage.
+    programs.git = mkIf (lib.elem pkgs.gh cfg.packages) {
+      enable = true;
+      config.credential = {
+        "https://github.com".helper = "!${lib.getExe pkgs.gh} auth git-credential";
+        "https://gist.github.com".helper = "!${lib.getExe pkgs.gh} auth git-credential";
+      };
+    };
   };
 }

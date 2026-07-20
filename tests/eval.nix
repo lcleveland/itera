@@ -115,6 +115,11 @@ let
     "git is installed by default" = hasPkg cfg "git";
     "gh is installed by default" = hasPkg cfg "gh";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
+    # gh is wired up as git's HTTPS credential helper whenever it ships in the
+    # battery, so `gh auth login` transparently authenticates git too.
+    "gh is git's credential helper by default" =
+      lib.hasInfix ''[credential "https://github.com"]'' cfg.environment.etc.gitconfig.text
+      && lib.hasInfix "gh auth git-credential" cfg.environment.etc.gitconfig.text;
 
     # password persistence (itera.impermanence.passwords, on by default): copy
     # /etc/shadow to/from /persist so `passwd` changes survive the tmpfs root —
