@@ -14,6 +14,13 @@
 # Claude Code (`claude.enable`) installs Anthropic's agentic CLI system-wide.
 # Under itera's default-on impermanence its per-user state (`~/.claude`,
 # `~/.claude.json`) is already persisted, so the login survives the wiped root.
+#
+# Claude ACP (`claude.acp.enable`) installs the `claude-agent-acp` adapter, which
+# plugs Claude Code into an Agent Client Protocol client — namely Zed's agent
+# panel. It defaults to following `claude.enable` (enabling the CLI brings the
+# adapter too), and can be toggled independently. When the editor battery
+# (`itera.desktop.editor`) is on it is auto-registered under Zed's `agent_servers`
+# (see `modules/programs/zed.nix`). The adapter bundles its own `claude-code`.
 {
   config,
   lib,
@@ -23,7 +30,7 @@
 let
   inherit (lib.options) mkOption mkEnableOption;
   inherit (lib.modules) mkIf mkMerge mkDefault;
-  inherit (lib.types) enum;
+  inherit (lib.types) bool enum;
 
   cfg = config.itera.ai;
 
@@ -69,6 +76,21 @@ in
 
     claude = {
       enable = mkEnableOption "the Claude Code CLI (`claude`), installed system-wide";
+
+      acp.enable = mkOption {
+        type = bool;
+        default = cfg.claude.enable;
+        defaultText = lib.literalExpression "config.itera.ai.claude.enable";
+        description = ''
+          Whether to install the Claude Code ACP adapter (`claude-agent-acp`),
+          which plugs Claude Code into Zed's agent panel over the Agent Client
+          Protocol. Defaults to following {option}`itera.ai.claude.enable`. When
+          the editor battery (`itera.desktop.editor`) is on it is auto-registered
+          under Zed's `agent_servers` (see `modules/programs/zed.nix`). The adapter
+          bundles its own `claude-code`, so it works even without
+          {option}`itera.ai.claude.enable`.
+        '';
+      };
     };
   };
 
@@ -92,6 +114,10 @@ in
 
     (mkIf cfg.claude.enable {
       environment.systemPackages = [ pkgs.claude-code ];
+    })
+
+    (mkIf cfg.claude.acp.enable {
+      environment.systemPackages = [ pkgs.claude-agent-acp ];
     })
   ]);
 }

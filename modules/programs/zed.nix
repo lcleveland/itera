@@ -58,7 +58,7 @@ iteraLib.programs.mkCuratedProgram {
       attrs = true;
       example = {
         claude = {
-          command = "claude-code-acp";
+          command = "claude-agent-acp";
           args = [ ];
           env = { };
         };
@@ -87,6 +87,10 @@ iteraLib.programs.mkCuratedProgram {
     let
       editor = config.itera.desktop.editor;
       nixLsp = editor.enable && editor.nixLanguageServer.enable;
+      # When the Claude ACP battery is on and Zed is installed, register the
+      # adapter as an external agent so it shows up in Zed's agent panel with no
+      # further config. `mkDefault` lets an explicit system/per-user value win.
+      claudeAcp = editor.enable && config.itera.ai.claude.acp.enable;
     in
     {
       settings = {
@@ -113,6 +117,13 @@ iteraLib.programs.mkCuratedProgram {
           format_on_save = mkDefault "on";
         };
         lsp.nixd = mkDefault { };
+      };
+    }
+    // lib.optionalAttrs claudeAcp {
+      agentServers.claude = mkDefault {
+        command = "claude-agent-acp";
+        args = [ ];
+        env = { };
       };
     };
 
