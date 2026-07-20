@@ -114,6 +114,13 @@ let
     "git is installed by default" = hasPkg cfg "git";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
 
+    # account-database persistence (itera.impermanence.accounts, on by default):
+    # /etc/{passwd,group,shadow,gshadow} are bound from /persist BEFORE the users
+    # activation script, so `passwd` changes survive the wiped tmpfs root.
+    "account databases persisted by default" = cfg.system.activationScripts ? iteraPersistAccounts;
+    "users activation runs after the account bind mounts" =
+      builtins.elem "iteraPersistAccounts" cfg.system.activationScripts.users.deps;
+
     # per-user home persistence (itera.impermanence.homes, on by default)
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
     "user home .local/share persisted by default" = builtins.elem ".local/share" (userDirs "testuser");

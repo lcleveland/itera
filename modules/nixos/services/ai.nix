@@ -1,14 +1,19 @@
-# itera's local-AI battery.
+# itera's AI battery.
 #
 # Runs local LLM inference (ollama) and, optionally, the open-webui chat UI in
-# front of it. Opt-IN (off by default): pulls in large model-runtime packages and
-# is only wanted on a workstation with the hardware for it.
+# front of it, plus the Claude Code CLI. All of it is opt-IN (off by default):
+# the local-inference paths pull in large model-runtime packages wanted only on a
+# workstation with the hardware for it, and the CLI is a per-preference tool.
 #
 # GPU acceleration: `ollama.acceleration` selects the ollama build/package. `auto`
 # picks the CUDA build when the nvidia battery is on and the plain (CPU) build
 # otherwise. This composes with `itera.nvidia.containerToolkit` for containerised
 # GPU workloads. A warning fires if the CUDA build is requested without the nvidia
 # battery, since it then just falls back to CPU at runtime with no GPU offload.
+#
+# Claude Code (`claude.enable`) installs Anthropic's agentic CLI system-wide.
+# Under itera's default-on impermanence its per-user state (`~/.claude`,
+# `~/.claude.json`) is already persisted, so the login survives the wiped root.
 {
   config,
   lib,
@@ -61,6 +66,10 @@ in
     openWebui = {
       enable = mkEnableOption "the open-webui chat UI (front-end for ollama)";
     };
+
+    claude = {
+      enable = mkEnableOption "the Claude Code CLI (`claude`), installed system-wide";
+    };
   };
 
   config = mkIf config.itera.enable (mkMerge [
@@ -79,6 +88,10 @@ in
 
     (mkIf cfg.openWebui.enable {
       services.open-webui.enable = mkDefault true;
+    })
+
+    (mkIf cfg.claude.enable {
+      environment.systemPackages = [ pkgs.claude-code ];
     })
   ]);
 }
