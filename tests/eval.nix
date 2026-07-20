@@ -78,6 +78,10 @@ let
   devOff = mkEval { itera.dev.enable = false; };
   hasPkg = c: n: builtins.any (p: lib.getName p == n) c.environment.systemPackages;
 
+  # Reading .source forces the derivation the full system build produces, so this
+  # catches an /etc/gitconfig definition collision that a plain option read hides.
+  renderedGitconfig = builtins.readFile cfg.environment.etc.gitconfig.source;
+
   subvolumes = cfg.disko.devices.disk.main.content.partitions.root.content.subvolumes;
   persistence = cfg.environment.persistence."/persist";
 
@@ -117,9 +121,17 @@ let
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
     # gh is wired up as git's HTTPS credential helper whenever it ships in the
     # battery, so `gh auth login` transparently authenticates git too.
+    # gh is wired up as git's HTTPS credential helper whenever it ships in the
+    # battery. Read the rendered /etc/gitconfig (forcing the .source the full
+    # system build resolves — a plain option read would miss the collision) and
+    # assert it both carries the helper and preserves nix-mineral's git hardening,
+    # since the dev battery takes /etc/gitconfig over from nix-mineral to add it.
     "gh is git's credential helper by default" =
-      lib.hasInfix ''[credential "https://github.com"]'' cfg.environment.etc.gitconfig.text
-      && lib.hasInfix "gh auth git-credential" cfg.environment.etc.gitconfig.text;
+      lib.hasInfix ''[credential "https://github.com"]'' renderedGitconfig
+      && lib.hasInfix "gh auth git-credential" renderedGitconfig;
+    "git hardening survives the credential-helper takeover" =
+      lib.hasInfix "fsckobjects = true" renderedGitconfig
+      && lib.hasInfix "symlinks = false" renderedGitconfig;
 
     # password persistence (itera.impermanence.passwords, on by default): copy
     # /etc/shadow to/from /persist so `passwd` changes survive the tmpfs root —
