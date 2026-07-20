@@ -41,11 +41,15 @@
     assert "dms-greeter" in greetd_config, greetd_config
 
     # …and that greeter renders DankMaterialShell under the mango compositor.
-    script_match = re.search(r'command\s*=\s*"([^"]+/bin/dms-greeter)"', greetd_config)
+    # greetd's command is the dank-greeter session wrapper, which puts quickshell
+    # and the compositor on PATH and invokes the dms-greeter binary with
+    # `--command mango` (the Quickshell UI is baked into the binary, so there's no
+    # /share/quickshell/dms store path to grep for anymore).
+    script_match = re.search(r'command\s*=\s*"([^"]+/bin/dms-greeter-session)"', greetd_config)
     assert script_match is not None, greetd_config
 
     script = machine.succeed(f"cat {script_match.group(1)}")
     assert "mango" in script, script
-    assert "/share/quickshell/dms" in script, script
+    assert "quickshell" in script, script
   '';
 }

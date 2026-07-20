@@ -154,7 +154,7 @@ let
 
   # The DMS greeter (on by default) runs its own mango instance; itera feeds it
   # the SYSTEM-WIDE monitors via `compositor.customConfig`.
-  greeterMonitors = cfg.programs.dank-material-shell.greeter.compositor.customConfig;
+  greeterMonitors = cfg.programs.dms-greeter.compositor.customConfig;
 
   # Unit-check the keybind renderer directly via the flake's lib output.
   renderedBind = self.lib.mango.renderKeybinds {

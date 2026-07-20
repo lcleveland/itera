@@ -1,13 +1,14 @@
 # itera's DankMaterialShell (DMS) battery.
 #
-# A thin, opinionated wrapper over DMS's two NixOS modules (bundled by
-# `modules/nixos/default.nix`): the shell (`programs.dank-material-shell`) and the
-# greeter (`programs.dank-material-shell.greeter`). DMS is a Quickshell-based
-# Wayland desktop shell; this battery stands up a complete, login-to-desktop
-# experience on top of the mango compositor.
+# A thin, opinionated wrapper over two bundled NixOS modules (see
+# `modules/nixos/default.nix`): DMS's shell (`programs.dank-material-shell`) and
+# the standalone dank-greeter greeter (`programs.dms-greeter`) that DMS's greeter
+# was extracted into upstream. DMS is a Quickshell-based Wayland desktop shell;
+# this battery stands up a complete, login-to-desktop experience on top of the
+# mango compositor.
 #
 # It pulls in the mango battery (`itera.desktop.mango`) — the shell is useless
-# without a compositor — and, unless you opt out, turns on DMS's own greetd
+# without a compositor — and, unless you opt out, turns on the dank-greeter greetd
 # greeter rendered under mango. Login lands in the `mango` session, whose
 # user-side autostart (`itera.programs.mango`, the hjem battery) launches `dms`.
 #
@@ -20,8 +21,8 @@
 # through the native `programs.dank-material-shell.*` options, since the upstream
 # module is bundled.
 #
-# Greeter wiring note: the DMS greeter enables greetd, which (via the nixpkgs
-# greetd module) already creates the `greeter` system user and defaults
+# Greeter wiring note: the dank-greeter module enables greetd, which (via the
+# nixpkgs greetd module) already creates the `greeter` system user and defaults
 # `services.greetd.settings.default_session.user` to `"greeter"` — so we do not
 # declare that user here.
 #
@@ -60,10 +61,11 @@ in
       type = bool;
       default = true;
       description = ''
-        Use DankMaterialShell's own greetd greeter (rendered under mango) as the
-        login manager. On by default whenever the desktop is enabled; set this to
-        `false` to install the shell without a display manager (you then arrange
-        login yourself).
+        Use the dank-greeter greetd greeter (rendered under mango) as the login
+        manager — the DankMaterialShell-styled greeter, split into its own upstream
+        project. On by default whenever the desktop is enabled; set this to `false`
+        to install the shell without a display manager (you then arrange login
+        yourself).
       '';
     };
   };
@@ -95,7 +97,7 @@ in
     }
 
     (mkIf cfg.greeter.enable {
-      programs.dank-material-shell.greeter = {
+      programs.dms-greeter = {
         enable = mkDefault true;
         # `compositor.name` has no upstream default; render the greeter under mango.
         compositor.name = mkDefault "mango";

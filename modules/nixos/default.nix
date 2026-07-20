@@ -31,9 +31,10 @@ in
       inputs.nix-mineral.nixosModules.nix-mineral
       # mango: Wayland compositor (powers `itera.desktop.mango`).
       inputs.mango.nixosModules.mango
-      # DankMaterialShell: desktop shell + greeter (powers `itera.desktop.dankMaterialShell`).
+      # DankMaterialShell: desktop shell, plus the dank-greeter greeter it was
+      # split into upstream (together power `itera.desktop.dankMaterialShell`).
       inputs.dms.nixosModules.dank-material-shell
-      inputs.dms.nixosModules.greeter
+      inputs.dank-greeter.nixosModules.default
       # lanzaboote: Secure Boot & measured boot (powers `itera.secureBoot`).
       inputs.lanzaboote.nixosModules.lanzaboote
       # agenix: declarative age secrets (powers `itera.secrets`).
