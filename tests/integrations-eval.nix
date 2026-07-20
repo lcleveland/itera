@@ -43,6 +43,21 @@ let
       extra
     ];
 
+  # itera.nvidia is x86_64-only: enabling it sets hardware.graphics.enable32Bit,
+  # which nixpkgs asserts is "only supported on an x86_64 system". mkConfig builds
+  # each config with the discovering system (tests/lib.nix), so on the aarch64 CI
+  # runner the nvidia configs would trip that platform assertion. Pin the nvidia /
+  # GPU-detection configs to x86_64 (mkForce overrides mkConfig's system) so these
+  # checks exercise the real, x86_64-only nvidia behavior identically on both
+  # runners rather than failing on aarch64.
+  mkGpuEval =
+    extra:
+    mkConfig [
+      diskoOn
+      { nixpkgs.hostPlatform = lib.mkForce "x86_64-linux"; }
+      extra
+    ];
+
   # Defaults: opt-out batteries on, opt-in batteries off.
   base = mkEval { };
 
@@ -77,9 +92,9 @@ let
   # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
   # AMD 4098 (0x1002). The battery auto-enables itera.nvidia only for NVIDIA.
   gpuReport = vendorId: { facter.report.hardware.graphics_card = [ { vendor.value = vendorId; } ]; };
-  nvidiaHost = mkEval (gpuReport 4318);
-  amdHost = mkEval (gpuReport 4098);
-  nvidiaOptOut = mkEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
+  nvidiaHost = mkGpuEval (gpuReport 4318);
+  amdHost = mkGpuEval (gpuReport 4098);
+  nvidiaOptOut = mkGpuEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
 
   # nvidia-container-toolkit driver-assertion defusing: force the toolkit on while
   # itera.nvidia stays off (no driver, no "nvidia" in videoDrivers), the state that
@@ -92,7 +107,7 @@ let
   # priority. itera contributes "nvidia" ADDITIVELY (a plain list), so it must MERGE
   # rather than be clobbered — keeping "nvidia" present and satisfying the upstream
   # assertion the real way (no suppression needed).
-  nvidiaVideoDriversMerged = mkEval {
+  nvidiaVideoDriversMerged = mkGpuEval {
     itera.nvidia.enable = true;
     services.xserver.videoDrivers = [ "modesetting" ];
   };
@@ -100,7 +115,7 @@ let
   # The edge the broadened suppression net still covers: itera.nvidia ON but a
   # consumer mkForce drops "nvidia" from videoDrivers. itera can't win the merge,
   # so it suppresses the upstream assertion + warns instead of aborting.
-  nvidiaVideoDriversForced = mkEval {
+  nvidiaVideoDriversForced = mkGpuEval {
     itera.nvidia.enable = true;
     services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   };
