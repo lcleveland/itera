@@ -116,6 +116,14 @@ let
     "gh is installed by default" = hasPkg cfg "gh";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
 
+    # password persistence (itera.impermanence.passwords, on by default): copy
+    # /etc/shadow to/from /persist so `passwd` changes survive the tmpfs root —
+    # by copy, never a bind mount (which breaks NixOS's atomic-rename writes).
+    "shadow restore runs before the users activation script" =
+      builtins.elem "iteraPersistShadow" cfg.system.activationScripts.users.deps;
+    "shadow persistence activation script present" = cfg.system.activationScripts ? iteraPersistShadow;
+    "shadow persistence shutdown service present" = cfg.systemd.services ? "itera-persist-shadow";
+
     # per-user home persistence (itera.impermanence.homes, on by default)
     "user home .config persisted by default" = builtins.elem ".config" (userDirs "testuser");
     "user home .local/share persisted by default" = builtins.elem ".local/share" (userDirs "testuser");

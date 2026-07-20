@@ -30,6 +30,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -40,6 +41,7 @@ let
     mkForce
     mkMerge
     ;
+  inherit (lib) stringAfter;
   inherit (lib.types)
     enum
     str
@@ -142,6 +144,25 @@ in
         Persist itera's curated set of paths (system logs, machine-id, SSH host
         keys, NetworkManager connections, and clock state). Set to `false` to
         persist only what you declare explicitly.
+      '';
+    };
+
+    passwords.enable = mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Persist mutable user passwords (`/etc/shadow`) across the wiped tmpfs
+        root, so {command}`passwd` changes survive reboots. Without this,
+        `/etc/shadow` regenerates from the declarative config every boot and
+        password changes are silently lost.
+
+        Implemented as a copy (never a bind mount / symlink): an activation
+        script restores the persisted `/etc/shadow` before NixOS's `users` script
+        runs, and a shutdown service copies it back — so NixOS's own atomic-rename
+        writes to the file keep working. This requires mutable users
+        (`users.mutableUsers = true`, the default); with `mutableUsers = false`
+        the password is already declarative, so leave this off and use a
+        `hashedPasswordFile` pointing into {option}`persistRoot`.
       '';
     };
 
@@ -326,15 +347,69 @@ in
     # backing file directly (not through the bind/overmount) avoids the unmount that
     # broke commit. Idempotent — only fires while the persisted value is not yet a
     # 32-hex id, i.e. once on first boot, then never again.
-    system.activationScripts.iteraPersistMachineId =
-      mkIf (config.nix-mineral.enable && machineIdPersisted)
+    system.activationScripts = {
+      # (See the long comment above the machine-id battery description.) Persist
+      # the first-boot machine-id back to /persist without commit's unmount.
+      iteraPersistMachineId = mkIf (config.nix-mineral.enable && machineIdPersisted) ''
+        persisted="${cfg.persistRoot}/etc/machine-id"
+        current="$(cat /etc/machine-id 2>/dev/null || true)"
+        stored="$(cat "$persisted" 2>/dev/null || true)"
+        if [ "''${#current}" -eq 32 ] && [ "''${#stored}" -ne 32 ]; then
+          printf '%s\n' "$current" > "$persisted"
+        fi
+      '';
+
+      # Persist mutable passwords (/etc/shadow) by COPY, never a bind mount or
+      # symlink. NixOS's `users` script writes /etc/shadow with an atomic rename
+      # (write-temp + rename over the target); a rename onto a bind-mount point or
+      # a symlink fails / gets replaced, which either aborts activation (EBUSY —
+      # the mass "Unknown user/group" boot failure) or silently reverts the change
+      # on reboot. Copies avoid both: the users script always writes a plain
+      # tmpfs file.
+      #
+      # Runs BEFORE the `users` script (see users.deps below):
+      #   1. Save the live /etc/shadow first — on a `nixos-rebuild switch` it holds
+      #      any interactive `passwd` change not yet flushed to /persist, so this
+      #      captures it before step 2 could overwrite it.
+      #   2. Restore the persisted /etc/shadow so the (mutable) users script keeps
+      #      those hashes instead of resetting them to initialPassword.
+      # Both guarded on a non-empty (-s) source so an empty file can never clobber
+      # good data. First ever boot: neither exists yet, both steps skip, and the
+      # users script seeds /etc/shadow from initialPassword/hashedPassword — which
+      # the shutdown service below then persists.
+      iteraPersistShadow = mkIf cfg.passwords.enable (
+        stringAfter [ "etc" ] ''
+          persisted="${cfg.persistRoot}/etc/shadow"
+          mkdir -p "$(dirname "$persisted")"
+          [ -s /etc/shadow ] && cp -f /etc/shadow "$persisted"
+          [ -s "$persisted" ] && cp -f "$persisted" /etc/shadow
+          [ -e "$persisted" ] && chmod 0600 "$persisted"
         ''
-          persisted="${cfg.persistRoot}/etc/machine-id"
-          current="$(cat /etc/machine-id 2>/dev/null || true)"
-          stored="$(cat "$persisted" 2>/dev/null || true)"
-          if [ "''${#current}" -eq 32 ] && [ "''${#stored}" -ne 32 ]; then
-            printf '%s\n' "$current" > "$persisted"
-          fi
+      );
+
+      # The users activation script (update-users-groups) must run AFTER the
+      # restore so it merges the persisted hashes.
+      users.deps = mkIf cfg.passwords.enable [ "iteraPersistShadow" ];
+    };
+
+    # Capture interactive `passwd` changes: copy /etc/shadow to /persist on
+    # shutdown. Paired with the restore-before-`users` activation step above, this
+    # is what makes a `passwd` change survive a reboot with no rebuild in between.
+    # Only unclean shutdowns (power loss) between the change and shutdown are lost.
+    systemd.services.itera-persist-shadow = mkIf cfg.passwords.enable {
+      description = "Persist /etc/shadow across the ephemeral root";
+      wantedBy = [ "multi-user.target" ];
+      path = [ pkgs.coreutils ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${pkgs.coreutils}/bin/true";
+        ExecStop = pkgs.writeShellScript "itera-persist-shadow" ''
+          mkdir -p "${cfg.persistRoot}/etc"
+          [ -s /etc/shadow ] && cp -f /etc/shadow "${cfg.persistRoot}/etc/shadow"
+          [ -e "${cfg.persistRoot}/etc/shadow" ] && chmod 0600 "${cfg.persistRoot}/etc/shadow"
         '';
+      };
+    };
   };
 }
