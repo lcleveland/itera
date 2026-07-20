@@ -34,6 +34,11 @@ let
         # System-wide keyboard layout (should reach every mango session + greeter).
         keyboard.variant = "colemak_dh";
 
+        # Claude ACP battery on: with the editor battery on by default, this
+        # auto-registers `claude-agent-acp` under Zed's `agent_servers` for every
+        # user who does not override it (see bob's assertions below).
+        ai.claude.acp.enable = true;
+
         programs = {
           # A system-wide DMS default override (should reach EVERY user).
           dankMaterialShell.settings.currentThemeName = "blue";
@@ -84,14 +89,15 @@ let
             packages = [ pkgs.hello ];
             programs = {
               dankMaterialShell.settings.cornerRadius = 8;
-              # Per-user Zed: register Claude Code as an external ACP agent (lands
-              # under `agent_servers`) and opt the file out of clobbering so the
-              # GUI can own it.
+              # Per-user Zed: override the auto-registered `claude` ACP agent with a
+              # custom wrapper command (must win over the system default under
+              # `agent_servers`) and opt the file out of clobbering so the GUI can
+              # own it.
               zed = {
                 clobber = false;
                 settings.vim_mode = true;
                 agentServers.claude = {
-                  command = "claude-code-acp";
+                  command = "my-acp-wrapper";
                   args = [ ];
                 };
               };
@@ -213,9 +219,15 @@ let
     # ── Zed settings: per-user overrides + agents + clobber opt-out (alice) ──
     "zed per-user raw setting applied (alice)" = aliceZed.vim_mode == true;
     "zed system agent field still inherited (alice)" = aliceZed.agent.default_profile == "ask";
-    "zed agentServers land under agent_servers (alice)" =
-      aliceZed.agent_servers.claude.command == "claude-code-acp";
+    "zed per-user agentServers override wins under agent_servers (alice)" =
+      aliceZed.agent_servers.claude.command == "my-acp-wrapper";
     "zed per-user clobber opt-out honored (alice)" = aliceFiles."zed/settings.json".clobber == false;
+
+    # ── Claude ACP auto-registration: system default reaches an un-overridden user
+    "zed acp agent auto-registered system-wide" =
+      cfg.itera.programs.zed.agentServers.claude.command == "claude-agent-acp";
+    "zed acp agent reaches un-overridden user (bob)" =
+      bobZed.agent_servers.claude.command == "claude-agent-acp";
 
     # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
     "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;

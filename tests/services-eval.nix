@@ -51,6 +51,9 @@ let
   # ── AI: Claude Code CLI (opt-in, independent of ollama) ───────────────────
   claude = mkConfig [ { itera.ai.claude.enable = true; } ];
 
+  # ── AI: Claude ACP adapter (opt-in, independent of the CLI) ───────────────
+  claudeAcp = mkConfig [ { itera.ai.claude.acp.enable = true; } ];
+
   # ── keyboard ──────────────────────────────────────────────────────────────
   keyboard = mkConfig [ { itera.keyboard.variant = "colemak_dh"; } ];
 
@@ -88,6 +91,14 @@ let
     # Claude Code CLI is opt-in: absent by default, on the system PATH once enabled.
     "claude cli off by default" = !(hasName "claude-code" (mkConfig [ ]).environment.systemPackages);
     "claude cli installed when opted in" = hasName "claude-code" claude.environment.systemPackages;
+    # Claude ACP adapter: off by default, follows the CLI toggle, and can be
+    # enabled on its own.
+    "claude acp adapter off by default" =
+      !(hasName "claude-agent-acp" (mkConfig [ ]).environment.systemPackages);
+    "claude acp adapter follows the CLI toggle" =
+      hasName "claude-agent-acp" claude.environment.systemPackages;
+    "claude acp adapter installable on its own" =
+      hasName "claude-agent-acp" claudeAcp.environment.systemPackages;
 
     # ── keyboard ───────────────────────────────────────────────────────────
     "keyboard defaults to us" = (mkConfig [ ]).services.xserver.xkb.layout == "us";
