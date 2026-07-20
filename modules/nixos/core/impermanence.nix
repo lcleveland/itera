@@ -145,21 +145,6 @@ in
       '';
     };
 
-    accounts.enable = mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = ''
-        Persist the mutable account databases ({file}`/etc/passwd`,
-        {file}`/etc/group`, {file}`/etc/shadow`, {file}`/etc/gshadow`) across the
-        wiped tmpfs root, so {command}`passwd` password changes (and any other
-        mutable-user edits) survive reboots. Without this, {file}`/etc/shadow`
-        regenerates from the declarative config on every boot and password
-        changes are silently lost. Set to `false` to keep account state fully
-        declarative (e.g. with `users.mutableUsers = false` and a
-        `hashedPasswordFile`).
-      '';
-    };
-
     homes = {
       enable = mkOption {
         type = lib.types.bool;
@@ -250,14 +235,6 @@ in
         assertion = cfg.method == "tmpfs";
         message = "itera.impermanence.method \"${cfg.method}\" is not implemented — only \"tmpfs\" is supported.";
       }
-      {
-        # accounts persistence hooks the traditional perl `users` activation
-        # script; systemd-sysusers / userborn write /etc/shadow from a service
-        # instead, so the activation-order dependency below would not apply.
-        assertion =
-          !cfg.accounts.enable || (!config.systemd.sysusers.enable && !config.services.userborn.enable);
-        message = "itera.impermanence.accounts.enable relies on the traditional perl users activation and is incompatible with systemd.sysusers/services.userborn — disable one of them.";
-      }
     ];
 
     fileSystems = {
@@ -338,66 +315,26 @@ in
       config.nix-mineral.enable && machineIdPersisted
     ) (mkDefault false);
 
-    system.activationScripts = {
-      # Masking commit means systemd never writes the first-boot machine-id back to
-      # /persist — a fresh disko install ships /persist/etc/machine-id as the literal
-      # "uninitialized", so systemd-machine-id-setup generates a NEW random id on
-      # every boot. That churns everything seeded by the machine-id, notably
-      # NetworkManager's stable cloned-MAC — and therefore the DHCP client-id and the
-      # leased IP, so the host grabs a new address on every reboot. Persist it here
-      # without commit's unmount: once systemd has put a valid transient id in place,
-      # copy it into the persist root so the NEXT boot reads a stable id. Writing the
-      # backing file directly (not through the bind/overmount) avoids the unmount that
-      # broke commit. Idempotent — only fires while the persisted value is not yet a
-      # 32-hex id, i.e. once on first boot, then never again.
-      iteraPersistMachineId = mkIf (config.nix-mineral.enable && machineIdPersisted) ''
-        persisted="${cfg.persistRoot}/etc/machine-id"
-        current="$(cat /etc/machine-id 2>/dev/null || true)"
-        stored="$(cat "$persisted" 2>/dev/null || true)"
-        if [ "''${#current}" -eq 32 ] && [ "''${#stored}" -ne 32 ]; then
-          printf '%s\n' "$current" > "$persisted"
-        fi
-      '';
-
-      # Persist the mutable account databases so `passwd` (and any other mutable
-      # account edits) survive the wiped root. /etc/shadow — where passwd writes
-      # the new hash — otherwise regenerates from the declarative config on every
-      # boot, so a changed password silently reverts.
-      #
-      # impermanence's own `files` mechanism can't do this: its persist-files
-      # activation runs AFTER NixOS's `users` script has already created a
-      # non-empty /etc/shadow, and impermanence's mount-file guard then refuses to
-      # bind over a file that already exists. So bind these four DBs from the
-      # persist root ourselves, BEFORE the `users` script runs (see the users.deps
-      # below), and let that script read/write the persisted copies directly.
-      #
-      # First boot / first switch: seed the persisted copy from the live file if
-      # one exists (preserving current passwords when this is first enabled),
-      # otherwise start empty and let the `users` script populate it from the
-      # declarative config (initialPassword/hashedPassword). Idempotent — the bind
-      # mount is skipped once already mounted. `mountpoint`/`mount` come from the
-      # activation PATH (util-linux).
-      iteraPersistAccounts = mkIf cfg.accounts.enable (
-        lib.stringAfter [ "etc" ] ''
-          mkdir -p ${cfg.persistRoot}/etc
-          for f in passwd group shadow gshadow; do
-            src="${cfg.persistRoot}/etc/$f"
-            if [ ! -s "$src" ] && [ -s "/etc/$f" ] && ! mountpoint -q "/etc/$f"; then
-              cat "/etc/$f" > "$src"
-            fi
-            [ -e "$src" ] || : > "$src"
-            touch "/etc/$f"
-            mountpoint -q "/etc/$f" || mount --bind "$src" "/etc/$f"
-          done
-          chmod 0644 ${cfg.persistRoot}/etc/passwd ${cfg.persistRoot}/etc/group
-          chmod 0600 ${cfg.persistRoot}/etc/shadow ${cfg.persistRoot}/etc/gshadow
+    # Masking commit means systemd never writes the first-boot machine-id back to
+    # /persist — a fresh disko install ships /persist/etc/machine-id as the literal
+    # "uninitialized", so systemd-machine-id-setup generates a NEW random id on
+    # every boot. That churns everything seeded by the machine-id, notably
+    # NetworkManager's stable cloned-MAC — and therefore the DHCP client-id and the
+    # leased IP, so the host grabs a new address on every reboot. Persist it here
+    # without commit's unmount: once systemd has put a valid transient id in place,
+    # copy it into the persist root so the NEXT boot reads a stable id. Writing the
+    # backing file directly (not through the bind/overmount) avoids the unmount that
+    # broke commit. Idempotent — only fires while the persisted value is not yet a
+    # 32-hex id, i.e. once on first boot, then never again.
+    system.activationScripts.iteraPersistMachineId =
+      mkIf (config.nix-mineral.enable && machineIdPersisted)
         ''
-      );
-
-      # The users activation script (update-users-groups) must run AFTER the bind
-      # mounts are in place, so its reads/writes of /etc/{passwd,group,shadow,
-      # gshadow} land in the persisted copies rather than the tmpfs originals.
-      users.deps = mkIf cfg.accounts.enable [ "iteraPersistAccounts" ];
-    };
+          persisted="${cfg.persistRoot}/etc/machine-id"
+          current="$(cat /etc/machine-id 2>/dev/null || true)"
+          stored="$(cat "$persisted" 2>/dev/null || true)"
+          if [ "''${#current}" -eq 32 ] && [ "''${#stored}" -ne 32 ]; then
+            printf '%s\n' "$current" > "$persisted"
+          fi
+        '';
   };
 }
