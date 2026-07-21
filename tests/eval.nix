@@ -47,6 +47,13 @@ let
   # home persistence (itera.impermanence.homes).
   cfg = mkEval { itera.users.testuser = { }; };
 
+  # Same, with the opt-out that clears ~/Downloads on every boot (default off), to
+  # assert the boot-time clear service is wired up when enabled.
+  clearDownloadsOn = mkEval {
+    itera.users.testuser = { };
+    itera.impermanence.homes.clearDownloadsOnBoot = true;
+  };
+
   # Two extra evals to exercise the hibernation resume wiring (itera.disko.resume):
   # a swap partition sized for hibernation, and the same with resume opted out.
   swapOn = mkEval { itera.disko.swapSize = "16G"; };
@@ -176,6 +183,18 @@ let
     "user home .claude persisted by default" = builtins.elem ".claude" (userDirs "testuser");
     "user home .claude.json persisted by default" = builtins.elem ".claude.json" (userFiles "testuser");
     "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
+    # ~/Downloads persisted so large downloads land on disk, not the size-capped tmpfs root.
+    "user home Downloads persisted by default" = builtins.elem "Downloads" (userDirs "testuser");
+    # clearDownloadsOnBoot (opt-out, default off): a boot-time service empties
+    # ~/Downloads only when enabled — Downloads stays persisted either way.
+    "clear-downloads service absent by default" = !(cfg.systemd.services ? "itera-clear-downloads");
+    "clear-downloads service present when clearDownloadsOnBoot on" =
+      clearDownloadsOn.systemd.services ? "itera-clear-downloads"
+      && builtins.elem "Downloads" (
+        map (
+          d: d.directory or d
+        ) clearDownloadsOn.environment.persistence."/persist".users.testuser.directories
+      );
     # Browser battery is on by default, so the LibreWolf profile (~/.librewolf) —
     # bookmarks/logins/history — survives the tmpfs root.
     "user home .librewolf persisted when browser on" = builtins.elem ".librewolf" (userDirs "testuser");
