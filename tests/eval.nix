@@ -73,6 +73,12 @@ let
   # the 32-bit binaries Steam/Proton ship.
   gamingOn = mkEval { itera.gaming.enable = true; };
 
+  # caching resolver (itera.networking.resolved, on by default); a second eval
+  # with it off to assert systemd-resolved is gated, and one with AAAA
+  # suppression opted out (on by default) to assert the no-aaaa gate.
+  resolvedOff = mkEval { itera.networking.resolved.enable = false; };
+  suppressAAAAOff = mkEval { itera.networking.resolved.suppressAAAA = false; };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -113,6 +119,24 @@ let
     # powerOnBoot.
     "bluetooth auto-enables the adapter by default" =
       cfg.hardware.bluetooth.settings.Policy.AutoEnable == true;
+
+    # caching resolver (itera.networking.resolved, on by default): systemd-resolved
+    # runs as a caching stub, NetworkManager feeds it the network's DNS, and it's
+    # gated when disabled. DNSSEC must stay off (nix-mineral would force it strict,
+    # breaking split-horizon/roaming) — see networking.nix.
+    "caching resolver enables systemd-resolved by default" = cfg.services.resolved.enable;
+    "networkmanager hands dns to systemd-resolved" =
+      cfg.networking.networkmanager.dns == "systemd-resolved";
+    "resolved dnssec is not forced strict" =
+      cfg.services.resolved.settings.Resolve.DNSSEC == false
+      && cfg.nix-mineral.settings.misc.dnssec == false;
+    "caching resolver is gated off when disabled" = !resolvedOff.services.resolved.enable;
+    # AAAA suppression is on by default (opt-out): sets glibc's no-aaaa option
+    # on the nsncd daemon, and is gated when disabled. See networking.nix.
+    "AAAA suppression sets no-aaaa on nscd by default" =
+      cfg.systemd.services.nscd.environment.RES_OPTIONS == "no-aaaa";
+    "AAAA suppression is gated off when disabled" =
+      !(suppressAAAAOff.systemd.services.nscd.environment ? RES_OPTIONS);
 
     # dev tooling battery (itera.dev, on by default): git is installed system-wide
     # so a fresh host can work on a Nix config; gated off with the battery.
