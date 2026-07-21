@@ -114,6 +114,13 @@ let
     "bluetooth auto-enables the adapter by default" =
       cfg.hardware.bluetooth.settings.Policy.AutoEnable == true;
 
+    # TCP SACK stays enabled: nix-mineral disables it (a stale SACK-Panic
+    # hardening carry-over) which stalls large downloads on modern kernels, so
+    # hardening.nix flips it back on. Assert the disabling sysctls are absent,
+    # leaving SACK/DSACK at the kernel default (on). See hardening.nix.
+    "tcp sack is not disabled by hardening" =
+      !(cfg.boot.kernel.sysctl ? "net.ipv4.tcp_sack") && !(cfg.boot.kernel.sysctl ? "net.ipv4.tcp_dsack");
+
     # dev tooling battery (itera.dev, on by default): git is installed system-wide
     # so a fresh host can work on a Nix config; gated off with the battery.
     "git is installed by default" = hasPkg cfg "git";

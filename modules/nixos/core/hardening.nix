@@ -81,24 +81,38 @@ in
       enable = mkDefault true;
       preset = mkDefault cfg.preset;
 
-      # Kicksecure's generic-machine-id gives EVERY host the same static
-      # machine-id (b08dfa60…) via a read-only environment.etc entry. That
-      # defeats itera's requirement of a unique, persisted per-host machine-id
-      # and collides with impermanence's writable /persist bind mount (forcing
-      # systemd into the transient-overmount + failing commit path). Opt itera
-      # into unique per-host ids; a host wanting the generic id back can flip it.
-      settings.etc.generic-machine-id = mkDefault false;
+      settings = {
+        # Kicksecure's generic-machine-id gives EVERY host the same static
+        # machine-id (b08dfa60…) via a read-only environment.etc entry. That
+        # defeats itera's requirement of a unique, persisted per-host machine-id
+        # and collides with impermanence's writable /persist bind mount (forcing
+        # systemd into the transient-overmount + failing commit path). Opt itera
+        # into unique per-host ids; a host wanting the generic id back can flip it.
+        etc.generic-machine-id = mkDefault false;
 
-      # Keep 32-bit (i686) execution working system-wide. nix-mineral's
-      # `system.multilib` defaults to false, which sets `ia32_emulation=0` and
-      # disables the 32-bit syscall path on 6.7+ kernels — every i686 binary,
-      # including Nix's own i686 builders, then fails with "Exec format error".
-      # That makes it impossible to *build* any config pulling in 32-bit closures
-      # (e.g. itera.gaming's Steam) on a running itera host: a bootstrap deadlock,
-      # since the kernel can't run the i686 builders needed to produce the very
-      # system that would re-enable them. Keep multilib on by default so 32-bit
-      # always works; a host wanting the tighter default can flip it back off.
-      settings.system.multilib = mkDefault true;
+        # Keep 32-bit (i686) execution working system-wide. nix-mineral's
+        # `system.multilib` defaults to false, which sets `ia32_emulation=0` and
+        # disables the 32-bit syscall path on 6.7+ kernels — every i686 binary,
+        # including Nix's own i686 builders, then fails with "Exec format error".
+        # That makes it impossible to *build* any config pulling in 32-bit closures
+        # (e.g. itera.gaming's Steam) on a running itera host: a bootstrap deadlock,
+        # since the kernel can't run the i686 builders needed to produce the very
+        # system that would re-enable them. Keep multilib on by default so 32-bit
+        # always works; a host wanting the tighter default can flip it back off.
+        system.multilib = mkDefault true;
+
+        # Re-enable TCP SACK (Selective Acknowledgment). nix-mineral disables SACK
+        # (along with DSACK/FACK) by default — a hardening carry-over from the 2019
+        # "SACK Panic" CVEs (CVE-2019-11477 et al.), which modern kernels have long
+        # since fixed, so the setting now buys essentially no security. Its cost,
+        # however, is severe: with SACK off, a single lost segment forces
+        # Go-Back-N-style retransmission of everything after it, so a large,
+        # sustained, high-throughput transfer (a big Steam/game download is the
+        # textbook case) collapses in throughput and can stall the link outright —
+        # with nothing logged. Keep SACK on by default; a host that truly wants it
+        # off can flip this back to false.
+        network.tcp-sack = mkDefault true;
+      };
 
       # Known benign boot-log noise from this layer — left as-is on purpose
       # (see docs/known-boot-log-noise.md for the full triage):
