@@ -71,15 +71,16 @@ in
 
       suppressAAAA = mkOption {
         type = bool;
-        default = false;
+        default = true;
         description = ''
           Suppress IPv6 (AAAA) DNS lookups via glibc's `no-aaaa` resolver
-          option. On a host with no IPv6 connectivity every name is otherwise
-          resolved twice — A *and* AAAA — and the AAAA half is thrown away, so
-          this halves DNS query volume (further headroom under upstream rate
-          limits). Applied to the nsncd caching daemon that all NSS lookups pass
-          through. Only enable on hosts that genuinely have no IPv6 route: it
-          makes IPv6-only destinations unreachable by name.
+          option. Without an IPv6 route every name is otherwise resolved twice —
+          A *and* AAAA — and the AAAA half is thrown away, so this halves DNS
+          query volume (further headroom under upstream rate limits) and drops
+          the per-connection delay of waiting on a useless AAAA. Applied to the
+          nsncd caching daemon that all NSS lookups pass through. On by default;
+          set to false on a host that genuinely has IPv6 connectivity, since it
+          otherwise makes IPv6 destinations unreachable by name.
         '';
       };
     };
