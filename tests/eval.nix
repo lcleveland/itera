@@ -73,6 +73,11 @@ let
   # the 32-bit binaries Steam/Proton ship.
   gamingOn = mkEval { itera.gaming.enable = true; };
 
+  # r8169 stall workaround (itera.networking.r8169Workaround, opt-in / off by
+  # default). Evaluate a plain-defaults config to assert it stays inert, and an
+  # enabled one to assert the ASPM kernel param + EEE-disable service are wired.
+  r8169On = mkEval { itera.networking.r8169Workaround.enable = true; };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -238,6 +243,17 @@ let
       !(builtins.elem "ia32_emulation=0" cfg.boot.kernelParams);
     "ia32 emulation stays enabled with gaming" =
       !(builtins.elem "ia32_emulation=0" gamingOn.boot.kernelParams);
+
+    # r8169 stall workaround (itera.networking.r8169Workaround, opt-in) — off by
+    # default, and when enabled it disables PCIe ASPM and turns off EEE.
+    "r8169 workaround is inert by default" =
+      !(builtins.elem "pcie_aspm=off" cfg.boot.kernelParams)
+      && !(cfg.systemd.services ? "itera-r8169-disable-eee");
+    "r8169 workaround disables ASPM when enabled" =
+      builtins.elem "pcie_aspm=off" r8169On.boot.kernelParams;
+    "r8169 workaround wires the EEE-disable service when enabled" =
+      r8169On.systemd.services ? "itera-r8169-disable-eee"
+      && lib.hasInfix "--set-eee" r8169On.systemd.services."itera-r8169-disable-eee".script;
   };
 
 in
