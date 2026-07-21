@@ -326,6 +326,16 @@ in
         # the upstream greeter option, which is exactly what creates the dir (via
         # its own tmpfiles rule) and sets its greeter:greeter ownership.
         ++ lib.optional config.programs.dms-greeter.enable "/var/lib/dms-greeter"
+        # ollama's model store and open-webui's DB/settings/users live under each
+        # service's systemd StateDirectory. Both run as DynamicUser services, so the
+        # real data sits at /var/lib/private/<name> (systemd recreates the
+        # /var/lib/<name> symlink to it on each boot); persist the private backing
+        # dirs so downloaded models and the web UI's accounts/settings/chats survive
+        # the wiped root instead of filling tmpfs and vanishing every boot. Gated on
+        # the upstream service switch — what actually creates the dir — so it covers
+        # both the itera.ai battery and a bare services.<name>.enable.
+        ++ lib.optional config.services.ollama.enable "/var/lib/private/ollama"
+        ++ lib.optional config.services.open-webui.enable "/var/lib/private/open-webui"
         ++ cfg.directories;
       files = persistedFiles;
       # Curated per-user home persistence (when homes.enable) merged with any
