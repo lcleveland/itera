@@ -18,7 +18,7 @@
 }:
 let
   inherit (lib.options) mkOption;
-  inherit (lib.modules) mkIf mkDefault;
+  inherit (lib.modules) mkIf mkDefault mkAfter;
   inherit (lib.types)
     bool
     int
@@ -44,6 +44,19 @@ in
           default = 10;
           description = ''
             Maximum number of generations to keep as systemd-boot entries on the ESP.
+          '';
+        };
+
+        timeout = mkOption {
+          type = nullOr int;
+          default = 1;
+          example = 0;
+          description = ''
+            Seconds the systemd-boot menu waits before booting the default entry.
+            `0` boots immediately (hold a key during POST to force the menu);
+            `null` restores upstream's behaviour of waiting indefinitely. The
+            default (`1`) keeps the menu briefly reachable without adding the ~5s
+            the unconfigured menu otherwise costs on every boot.
           '';
         };
       };
@@ -97,6 +110,27 @@ in
         latest mainline kernel ({command}`pkgs.linuxPackages_latest`).
       '';
     };
+
+    trustBootloaderEntropy = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Credit the bootloader-supplied random seed to initialise the kernel CRNG
+        (`random.trust_bootloader=on`), overriding the hardening layer
+        (nix-mineral), which turns every fast entropy source off.
+
+        With all fast sources disabled — CPU RDRAND (`random.trust_cpu=off`),
+        the bootloader seed, and the TPM hwrng — the CRNG cannot seed until
+        enough interrupt jitter accumulates, which on this hardware takes ~70s.
+        `getrandom()` in the initrd blocks the entire time, stalling switch-root
+        and adding over a minute to boot. Crediting the systemd-boot random seed
+        (`/loader/random-seed` on the ESP + the `LoaderRandomSeed` EFI variable,
+        both maintained automatically) restores instant CRNG init without
+        trusting the CPU vendor's RNG — nix-mineral's specific objection to
+        `trust_cpu`. Set to false to keep the seed uncredited and accept the slow
+        boot (maximum-paranoia hosts only).
+      '';
+    };
   };
 
   config = mkIf config.itera.enable {
@@ -114,7 +148,13 @@ in
           configurationLimit = mkDefault cfg.loader.systemd-boot.configurationLimit;
         };
         efi.canTouchEfiVariables = mkDefault cfg.loader.efi.canTouchEfiVariables;
+        timeout = mkDefault cfg.loader.systemd-boot.timeout;
       };
+
+      # Override nix-mineral's `random.trust_bootloader=off`. kernel bool params
+      # take their last occurrence, so appending with mkAfter wins. See the
+      # option description for the boot-time entropy stall this fixes.
+      kernelParams = mkIf cfg.trustBootloaderEntropy (mkAfter [ "random.trust_bootloader=on" ]);
 
       initrd.systemd.enable = mkDefault cfg.initrd.systemd.enable;
 
