@@ -53,19 +53,35 @@ in
       '';
     };
 
-    resolved.enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Run systemd-resolved as a local caching DNS stub (127.0.0.53).
-        NetworkManager hands it whatever DNS servers each network provides
-        (DHCP, VPN, …) and resolved caches the answers, so repeat lookups
-        during heavy activity — a large game download opening many connections
-        is the textbook case — don't re-query upstream. This keeps the machine
-        comfortably under per-client DNS rate limits (e.g. Pi-hole's default
-        1000 queries / 60s) on *any* network, not just at home. Set to false to
-        resolve directly against the network's DNS with no local cache.
-      '';
+    resolved = {
+      enable = mkOption {
+        type = bool;
+        default = true;
+        description = ''
+          Run systemd-resolved as a local caching DNS stub (127.0.0.53).
+          NetworkManager hands it whatever DNS servers each network provides
+          (DHCP, VPN, …) and resolved caches the answers, so repeat lookups
+          during heavy activity — a large game download opening many connections
+          is the textbook case — don't re-query upstream. This keeps the machine
+          comfortably under per-client DNS rate limits (e.g. Pi-hole's default
+          1000 queries / 60s) on *any* network, not just at home. Set to false
+          to resolve directly against the network's DNS with no local cache.
+        '';
+      };
+
+      suppressAAAA = mkOption {
+        type = bool;
+        default = false;
+        description = ''
+          Suppress IPv6 (AAAA) DNS lookups via glibc's `no-aaaa` resolver
+          option. On a host with no IPv6 connectivity every name is otherwise
+          resolved twice — A *and* AAAA — and the AAAA half is thrown away, so
+          this halves DNS query volume (further headroom under upstream rate
+          limits). Applied to the nsncd caching daemon that all NSS lookups pass
+          through. Only enable on hosts that genuinely have no IPv6 route: it
+          makes IPv6-only destinations unreachable by name.
+        '';
+      };
     };
   };
 
@@ -125,6 +141,16 @@ in
         MulticastDNS = mkDefault "false";
         LLMNR = mkDefault "false";
       };
+    })
+
+    (mkIf cfg.resolved.suppressAAAA {
+      # With no IPv6 route, glibc still looks up every name twice (A + AAAA) and
+      # discards the AAAA half — doubling query volume for nothing. Set glibc's
+      # `no-aaaa` option on nsncd, the caching daemon every NSS lookup funnels
+      # through, so AAAA queries are never emitted. RES_OPTIONS set on the
+      # *client* would be ignored (nsncd does the actual resolving), so it goes
+      # on the daemon.
+      systemd.services.nscd.environment.RES_OPTIONS = "no-aaaa";
     })
   ]);
 }
