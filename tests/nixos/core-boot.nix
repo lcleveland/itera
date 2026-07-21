@@ -66,6 +66,14 @@
     machine.send_chars("test\n")
     machine.wait_until_tty_matches("1", "Password: ")
     machine.send_chars("test\n")
+
+    # Wait for the interactive shell prompt (`[test@machine:~]$`) before typing.
+    # Without this, on a slow login `send_chars` races the still-starting shell
+    # and the command below is dropped (or typed back at the login prompt),
+    # leaving the file uncreated and the test to time out. This is the flaky
+    # failure seen intermittently across PR and merge CI runs.
+    machine.wait_until_tty_matches("1", "test@machine")
+
     machine.send_chars("whoami > /tmp/whoami.txt\n")
     machine.wait_for_file("/tmp/whoami.txt")
     assert "test" in machine.succeed("cat /tmp/whoami.txt")
