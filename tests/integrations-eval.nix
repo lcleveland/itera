@@ -67,8 +67,8 @@ let
     itera.desktop.flatpak.enable = true;
   };
 
-  # Default-on batteries turned OFF, to assert their persisted state is gated:
-  # Bluetooth (system dir) and the LibreWolf profile (per-user home dir).
+  # Default-on batteries turned OFF, to assert their gated state: Bluetooth's
+  # persisted system dir and the Vivaldi browser package.
   batteriesOff = mkEval {
     itera = {
       users.testuser = { };
@@ -76,7 +76,7 @@ let
       desktop.browser.enable = false;
     };
   };
-  # Same account with the batteries left on, to assert the profile IS persisted.
+  # Same account with the batteries left on, to assert they ARE present.
   batteriesOn = mkEval { itera.users.testuser = { }; };
 
   # Gaming battery (opt-in, OFF by default) turns Steam on, to assert ~/.steam is
@@ -104,11 +104,8 @@ let
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
-  # Browser with Firefox Sync opted out, to assert the extraPrefs override is
-  # actually applied to the packaged LibreWolf (it changes the derivation).
-  syncOff = mkEval { itera.desktop.browser.enableSync = false; };
-  librewolfPkg =
-    cfg: lib.findFirst (p: lib.hasInfix "librewolf" (p.name or "")) null cfg.environment.systemPackages;
+  vivaldiPkg =
+    cfg: lib.findFirst (p: lib.hasInfix "vivaldi" (p.name or "")) null cfg.environment.systemPackages;
 
   # facter auto-NVIDIA: feed a synthetic report directly (pure — no impure file
   # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
@@ -142,9 +139,6 @@ let
     services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
   };
 
-  # LibreWolf keepLogins off, to assert the extraPrefs override rebuilds the package.
-  keepLoginsOff = mkEval { itera.desktop.browser.keepLogins = false; };
-
   persistDirs = cfg: map (d: d.directory or d) cfg.environment.persistence."/persist".directories;
   userDirs =
     cfg: name:
@@ -171,28 +165,15 @@ let
     "nemo is the default directory handler" =
       base.xdg.mime.defaultApplications."inode/directory" == "nemo.desktop";
 
-    # --- LibreWolf browser (default on) ---
-    "librewolf is the default https handler" =
-      base.xdg.mime.defaultApplications."x-scheme-handler/https" == "librewolf.desktop";
-    "browser keybind command is wired" = base.itera.desktop.mango.commands.browser == "librewolf";
-    # The ~/.librewolf profile is persisted while the battery is on, and gated off
-    # with it (it lives outside the curated home dirs, so it must be added/removed
-    # with the browser rather than persisted unconditionally).
-    "librewolf profile persisted when browser on" = builtins.elem ".librewolf" (
-      userDirs batteriesOn "testuser"
-    );
-    "librewolf profile not persisted when browser off" =
-      !builtins.elem ".librewolf" (userDirs batteriesOff "testuser");
-    # Firefox Sync is enabled by default and its extraPrefs override actually
-    # rebuilds LibreWolf (turning it off yields a different derivation).
-    "firefox sync enabled by default" = base.itera.desktop.browser.enableSync;
-    "enabling sync overrides the librewolf derivation" =
-      (librewolfPkg base).drvPath != (librewolfPkg syncOff).drvPath;
-    # keepLogins is on by default (logins survive a restart despite LibreWolf's
-    # clear-on-shutdown), and toggling it rebuilds the package via extraPrefs.
-    "browser keepLogins on by default" = base.itera.desktop.browser.keepLogins;
-    "disabling keepLogins overrides the librewolf derivation" =
-      (librewolfPkg base).drvPath != (librewolfPkg keepLoginsOff).drvPath;
+    # --- Vivaldi browser (default on) ---
+    "vivaldi is the default https handler" =
+      base.xdg.mime.defaultApplications."x-scheme-handler/https" == "vivaldi-stable.desktop";
+    "browser keybind command is wired" = base.itera.desktop.mango.commands.browser == "vivaldi";
+    # The Vivaldi package is installed while the battery is on and dropped with it.
+    "vivaldi installed when browser on" = vivaldiPkg batteriesOn != null;
+    "vivaldi not installed when browser off" = vivaldiPkg batteriesOff == null;
+    # Vivaldi's profile lives at ~/.config/vivaldi, covered by the curated `.config`
+    # home dir (persisted unconditionally), so no browser-gated persistence entry.
 
     # --- Steam / gaming (opt-in): ~/.steam persisted, gated on Steam being on ---
     # The library, Proton prefixes and cloud saves live under ~/.local/share/Steam
