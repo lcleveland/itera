@@ -40,11 +40,20 @@ let
   # Widevine (DRM streaming like Netflix/Spotify), both off in the nixpkgs
   # default. This is the desktop's daily-driver browser, so it needs them to be
   # usable. Skipped when the consumer drops the package (`package = null`).
+  #
+  # `--ozone-platform-hint=auto` makes Vivaldi render natively on Wayland: Ozone
+  # picks Wayland when the session provides it (WAYLAND_DISPLAY /
+  # XDG_SESSION_TYPE=wayland, always true under mango) and falls back to X11
+  # otherwise. This must go through the package's `commandLineArgs` — unlike
+  # nixpkgs' chromium/electron wrappers, the vivaldi wrapper does NOT read the
+  # `NIXOS_OZONE_WL` env var, it only bakes in `commandLineArgs`. Without it
+  # Vivaldi runs under XWayland on this Wayland-only stack.
   browserPackage =
     if cfg.package != null then
       cfg.package.override {
         proprietaryCodecs = true;
         enableWidevine = true;
+        commandLineArgs = "--ozone-platform-hint=auto";
       }
     else
       cfg.package;
@@ -67,13 +76,10 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
+    # Vivaldi is put on native Wayland via the `--ozone-platform-hint=auto` flag
+    # baked into `browserPackage` above (the vivaldi wrapper ignores the
+    # `NIXOS_OZONE_WL` env var, so the flag is the only thing that takes effect).
     environment.systemPackages = mkIf (cfg.package != null) [ browserPackage ];
-
-    # Force native Wayland rendering via Ozone. Chromium-family browsers default
-    # to XWayland otherwise, and the stack is Wayland-only (mango). nixpkgs'
-    # Chromium/Electron wrappers read `NIXOS_OZONE_WL` and pass the Ozone Wayland
-    # hint through.
-    environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
     # Make Vivaldi the session's default handler for web schemes + HTML.
     xdg.mime.defaultApplications = {
