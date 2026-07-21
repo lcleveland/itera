@@ -92,6 +92,15 @@ let
     }
   ];
 
+  # Local-AI battery (opt-in, OFF by default) turns ollama + open-webui on, to
+  # assert their state dirs are persisted. These checks only read the persisted
+  # directory strings (never force the ollama/open-webui packages), so no
+  # hostPlatform pin is needed — they eval identically on the aarch64 CI runner.
+  aiOn = mkEval {
+    itera.ai.ollama.enable = true;
+    itera.ai.openWebui.enable = true;
+  };
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
@@ -193,6 +202,19 @@ let
     "steam dir persisted when gaming on" = builtins.elem ".steam" (userDirs gamingOn "testuser");
     "steam dir not persisted when gaming off" =
       !builtins.elem ".steam" (userDirs batteriesOn "testuser");
+
+    # --- Local AI (opt-in): ollama/open-webui state persisted, gated on the services ---
+    # Both run as DynamicUser services, so their real StateDirectory data lives at
+    # /var/lib/private/<name>; persist those so pulled models and the web UI's
+    # accounts/settings/chats survive the wiped root. AI is off in `base`, the gated-off
+    # case.
+    "ollama state persisted when on" = builtins.elem "/var/lib/private/ollama" (persistDirs aiOn);
+    "ollama state not persisted when off" = !builtins.elem "/var/lib/private/ollama" (persistDirs base);
+    "open-webui state persisted when on" = builtins.elem "/var/lib/private/open-webui" (
+      persistDirs aiOn
+    );
+    "open-webui state not persisted when off" =
+      !builtins.elem "/var/lib/private/open-webui" (persistDirs base);
 
     # --- Bluetooth (default on): pairings persisted, gated on the battery ---
     "bluetooth pairings persisted when on" = builtins.elem "/var/lib/bluetooth" (persistDirs base);
