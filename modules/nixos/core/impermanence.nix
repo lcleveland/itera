@@ -13,14 +13,17 @@
 # that subvolume simply goes unused. The two features never reference each other.
 #
 # Home directories: a curated subset of every normal user's $HOME (`.config`,
-# `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, plus `.librewolf`
-# when the browser battery is on and `.steam` when Steam is on) is persisted by
-# default so desktop/login state
+# `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, `Downloads`, plus
+# `.librewolf` when the browser battery is on and `.steam` when Steam is on) is
+# persisted by default so desktop/login state
 # survives the wiped root with no per-user wiring. This reads the account set from
 # `config.users.users` (filtered to normal users) — the same cross-battery
 # introspection the module already does for secureBoot/flatpak/virtualisation —
 # and merges those curated paths with any explicit `itera.impermanence.users.<name>`
-# entries. Opt out via `homes.enable`.
+# entries. Opt out via `homes.enable`. `Downloads` is persisted so large downloads
+# land on disk instead of the size-capped tmpfs root; set
+# `homes.clearDownloadsOnBoot` to keep that disk backing but empty the folder on
+# every boot.
 #
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
@@ -111,6 +114,10 @@ let
     directories = homeDirectories;
     inherit (cfg.homes) files;
   }) homeUsers;
+
+  # Absolute ~/Downloads path for every normal user, used by the boot-time clear
+  # service (itera.impermanence.homes.clearDownloadsOnBoot).
+  downloadsDirs = map (u: "${u.home}/Downloads") (lib.attrValues homeUsers);
 in
 {
   options.itera.impermanence = {
@@ -206,6 +213,9 @@ in
           # login is wiped every boot and you must re-authenticate.
           ".claude"
           "Documents"
+          # Persisted so large downloads land on disk-backed /persist rather than
+          # the size-capped tmpfs root, and survive the wiped root across reboots.
+          "Downloads"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
       };
@@ -217,6 +227,20 @@ in
         # it so the CLI doesn't re-run first-run setup after every boot.
         default = [ ".claude.json" ];
         description = "Home-relative files persisted for each user when {option}`homes.enable` is set.";
+      };
+
+      clearDownloadsOnBoot = mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Empty every normal user's `~/Downloads` on each boot while keeping the
+          folder itself on the disk-backed {option}`persistRoot`. This is the
+          opt-out to persisting downloads across reboots: large downloads still
+          work (the folder is not on the size-capped tmpfs root), but its contents
+          are wiped at boot so nothing accumulates. Only meaningful while
+          `Downloads` is persisted (the default via {option}`homes.directories`);
+          otherwise the folder is on the tmpfs root and already empty each boot.
+        '';
       };
     };
 
@@ -415,23 +439,49 @@ in
       users.deps = mkIf cfg.passwords.enable [ "iteraPersistShadow" ];
     };
 
-    # Capture interactive `passwd` changes: copy /etc/shadow to /persist on
-    # shutdown. Paired with the restore-before-`users` activation step above, this
-    # is what makes a `passwd` change survive a reboot with no rebuild in between.
-    # Only unclean shutdowns (power loss) between the change and shutdown are lost.
-    systemd.services.itera-persist-shadow = mkIf cfg.passwords.enable {
-      description = "Persist /etc/shadow across the ephemeral root";
-      wantedBy = [ "multi-user.target" ];
-      path = [ pkgs.coreutils ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${pkgs.coreutils}/bin/true";
-        ExecStop = pkgs.writeShellScript "itera-persist-shadow" ''
-          mkdir -p "${cfg.persistRoot}/etc"
-          [ -s /etc/shadow ] && cp -f /etc/shadow "${cfg.persistRoot}/etc/shadow"
-          [ -e "${cfg.persistRoot}/etc/shadow" ] && chmod 0600 "${cfg.persistRoot}/etc/shadow"
-        '';
+    systemd.services = {
+      # Capture interactive `passwd` changes: copy /etc/shadow to /persist on
+      # shutdown. Paired with the restore-before-`users` activation step above,
+      # this is what makes a `passwd` change survive a reboot with no rebuild in
+      # between. Only unclean shutdowns (power loss) between the change and
+      # shutdown are lost.
+      itera-persist-shadow = mkIf cfg.passwords.enable {
+        description = "Persist /etc/shadow across the ephemeral root";
+        wantedBy = [ "multi-user.target" ];
+        path = [ pkgs.coreutils ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = "${pkgs.coreutils}/bin/true";
+          ExecStop = pkgs.writeShellScript "itera-persist-shadow" ''
+            mkdir -p "${cfg.persistRoot}/etc"
+            [ -s /etc/shadow ] && cp -f /etc/shadow "${cfg.persistRoot}/etc/shadow"
+            [ -e "${cfg.persistRoot}/etc/shadow" ] && chmod 0600 "${cfg.persistRoot}/etc/shadow"
+          '';
+        };
+      };
+
+      # Opt-out to persisting downloads across reboots: keep ~/Downloads on the
+      # disk-backed /persist (so it isn't size-capped by the tmpfs root) but empty
+      # its contents on every boot. `RequiresMountsFor` the Downloads paths so
+      # systemd orders this AFTER impermanence's bind mounts are in place —
+      # otherwise it could empty an as-yet-unmounted tmpfs dir and leave the
+      # persisted contents untouched. Runs before multi-user.target so the folder
+      # is clean before any login/desktop session starts. `-mindepth 1` empties
+      # the contents while leaving the directory (and its ownership) intact.
+      itera-clear-downloads = mkIf cfg.homes.clearDownloadsOnBoot {
+        description = "Empty persisted ~/Downloads on each boot";
+        wantedBy = [ "multi-user.target" ];
+        unitConfig.RequiresMountsFor = downloadsDirs;
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = pkgs.writeShellScript "itera-clear-downloads" ''
+            for dir in ${lib.escapeShellArgs downloadsDirs}; do
+              [ -d "$dir" ] && ${pkgs.findutils}/bin/find "$dir" -mindepth 1 -delete
+            done
+          '';
+        };
       };
     };
   };
