@@ -195,9 +195,12 @@ let
           d: d.directory or d
         ) clearDownloadsOn.environment.persistence."/persist".users.testuser.directories
       );
-    # Browser battery is on by default, so the LibreWolf profile (~/.librewolf) —
-    # bookmarks/logins/history — survives the tmpfs root.
-    "user home .librewolf persisted when browser on" = builtins.elem ".librewolf" (userDirs "testuser");
+    # Vivaldi's profile lives at ~/.config/vivaldi, covered by the curated
+    # `.config` home dir, so bookmarks/logins/history survive the tmpfs root
+    # without a browser-specific persistence entry.
+    "user home .config persisted (covers vivaldi profile)" = builtins.elem ".config" (
+      userDirs "testuser"
+    );
 
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;

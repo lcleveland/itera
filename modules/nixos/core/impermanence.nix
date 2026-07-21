@@ -14,8 +14,7 @@
 #
 # Home directories: a curated subset of every normal user's $HOME (`.config`,
 # `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, `Downloads`, plus
-# `.librewolf` when the browser battery is on and `.steam` when Steam is on) is
-# persisted by default so desktop/login state
+# `.steam` when Steam is on) is persisted by default so desktop/login state
 # survives the wiped root with no per-user wiring. This reads the account set from
 # `config.users.users` (filtered to normal users) — the same cross-battery
 # introspection the module already does for secureBoot/flatpak/virtualisation —
@@ -92,11 +91,6 @@ let
   # accounts and plain users.users normal users are covered. Merged (not replacing)
   # with any explicit `cfg.users.<name>` in the config body below.
   homeUsers = lib.filterAttrs (_: u: u.isNormalUser) config.users.users;
-  # Append the LibreWolf profile dir when the browser battery is on — it lives at
-  # ~/.librewolf, none of the curated home dirs, so bookmarks/logins/history would
-  # be lost each boot otherwise. Gated so nothing is persisted when the browser is
-  # dropped, mirroring the conditional system-dir additions below.
-  #
   # Append Steam's bootstrap dir (~/.steam) when Steam is enabled. The library,
   # Proton prefixes (steamapps/compatdata), cloud saves (userdata) and the
   # login/credential cache (config/config.vdf) all live under ~/.local/share/Steam,
@@ -106,10 +100,7 @@ let
   # forgets the auto-login account and language every boot. Gated on
   # `programs.steam.enable`, the switch that actually creates the dir, so it covers
   # both the `itera.gaming` battery and a bare `programs.steam.enable`.
-  homeDirectories =
-    cfg.homes.directories
-    ++ lib.optional config.itera.desktop.browser.enable ".librewolf"
-    ++ lib.optional config.programs.steam.enable ".steam";
+  homeDirectories = cfg.homes.directories ++ lib.optional config.programs.steam.enable ".steam";
   autoUsers = lib.mapAttrs (_: _: {
     directories = homeDirectories;
     inherit (cfg.homes) files;
