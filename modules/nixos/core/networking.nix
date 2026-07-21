@@ -101,6 +101,16 @@ in
       };
     }
 
+    (mkIf cfg.networkmanager.enable {
+      # NetworkManager does its own per-connection DHCP, but nixpkgs still
+      # defaults `networking.useDHCP = true`, which spawns a *second*, standalone
+      # dhcpcd running in parallel on every interface. Besides being redundant,
+      # that dhcpcd honours `waitip` and blocks boot for ~18s waiting for a lease
+      # on any carrier-less port (e.g. an unplugged second NIC). Turn the global
+      # DHCP fallback off so NetworkManager is the sole DHCP client.
+      networking.useDHCP = mkDefault false;
+    })
+
     (mkIf cfg.stableMac.enable {
       # Stop nix-mineral's per-connection MAC randomization (which hands us a
       # new DHCP lease/IP every reboot) and pin a stable, deterministic-but-
