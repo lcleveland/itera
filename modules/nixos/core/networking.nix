@@ -1,4 +1,4 @@
-# itera's networking battery: hostname and NetworkManager.
+# itera's networking battery: hostname, NetworkManager, and a caching resolver.
 #
 # Names the machine and brings up NetworkManager as the default connection
 # manager (works out of the box for both wired and Wi-Fi). Gated on the master
@@ -8,6 +8,11 @@
 # per-connection MAC randomization that the hardening layer (nix-mineral) turns
 # on by default — that randomization hands the machine a fresh DHCP lease/IP on
 # every reboot. See `stableMac.enable` below.
+#
+# Finally, runs systemd-resolved as a local caching DNS stub so repeat lookups
+# don't re-query upstream — which keeps the machine under per-client DNS rate
+# limits (e.g. Pi-hole's default 1000 queries/60s) on any network. See
+# `resolved.enable` below.
 {
   config,
   lib,
@@ -47,6 +52,21 @@ in
         restore nix-mineral's per-connection MAC randomization.
       '';
     };
+
+    resolved.enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Run systemd-resolved as a local caching DNS stub (127.0.0.53).
+        NetworkManager hands it whatever DNS servers each network provides
+        (DHCP, VPN, …) and resolved caches the answers, so repeat lookups
+        during heavy activity — a large game download opening many connections
+        is the textbook case — don't re-query upstream. This keeps the machine
+        comfortably under per-client DNS rate limits (e.g. Pi-hole's default
+        1000 queries / 60s) on *any* network, not just at home. Set to false to
+        resolve directly against the network's DNS with no local cache.
+      '';
+    };
   };
 
   config = mkIf config.itera.enable (mkMerge [
@@ -77,6 +97,33 @@ in
           macAddress = mkDefault "stable";
           scanRandMacAddress = mkDefault true;
         };
+      };
+    })
+
+    (mkIf cfg.resolved.enable {
+      services.resolved.enable = mkDefault true;
+
+      # Hand each network's DNS servers to resolved (which then owns
+      # /etc/resolv.conf as the 127.0.0.53 stub) instead of NetworkManager
+      # writing resolv.conf directly — that's what puts the cache in the path.
+      networking.networkmanager.dns = mkDefault "systemd-resolved";
+
+      # nix-mineral defaults resolved's DNSSEC to "true" (strict). It's inert
+      # while resolved is off, but turning resolved on would activate it — and
+      # strict DNSSEC breaks the very cases this cache exists to serve: split-
+      # horizon/internal zones (a Pi-hole serving `*.mylocal` returns unsigned
+      # answers) and captive-portal / hotel Wi-Fi that mangles DNSSEC. Opt out
+      # so validation falls back to nixpkgs' default (off). Caching, not
+      # validation, is the goal here.
+      nix-mineral.settings.misc.dnssec = mkDefault false;
+
+      # Avahi (enabled by the desktop battery) is already the mDNS/LLMNR
+      # responder and sits ahead of resolved in nsswitch, so leave link-local
+      # name resolution to it rather than having resolved fight Avahi for
+      # UDP 5353.
+      services.resolved.settings.Resolve = {
+        MulticastDNS = mkDefault "false";
+        LLMNR = mkDefault "false";
       };
     })
   ]);
