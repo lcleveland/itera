@@ -88,6 +88,16 @@
               #     `systemctl hibernate` works out of the box (disko wires
               #     boot.resumeDevice). Set `disko.resume = false` for swap without
               #     hibernation.
+              #   disko.encryption.enable = true; # LUKS full-disk encryption of the
+              #     btrfs root (/, /nix, /persist) AND swap — so data at rest and the
+              #     hibernation image are encrypted (the ESP stays unencrypted). Opt-in.
+              #     disko prompts for a new passphrase while it formats the disk, and
+              #     you type it at every boot; itera's systemd initrd unlocks root +
+              #     swap with a SINGLE prompt. Enabling it also turns on
+              #     itera.hardware.initrd.usbSupport so a USB keyboard works at the
+              #     passphrase prompt — set that back to false on a laptop with a
+              #     built-in keyboard. For an unattended install, set
+              #     `disko.encryption.passwordFile = "/tmp/luks.key";` (format-time only).
               #   impermanence.directories = [ "/var/lib/tailscale" ];
 
               # Advanced: to manage partitioning yourself (e.g. a pre-partitioned
