@@ -70,6 +70,18 @@ let
     itera.disko.swapSize = "16G";
   };
 
+  # TPM2 auto-unlock layered on encryption (itera.disko.encryption.tpm2, opt-in). A
+  # swap partition too, so this exercises the crypttab wiring on BOTH containers.
+  tpm2On = mkEval {
+    itera.disko = {
+      encryption = {
+        enable = true;
+        tpm2.enable = true;
+      };
+      swapSize = "16G";
+    };
+  };
+
   # NVIDIA is opt-in (default off). Evaluate a plain-defaults config to assert it
   # stays inert, and an enabled + PRIME-offload config to assert the wiring.
   nvidiaOn = mkEval {
@@ -298,6 +310,27 @@ let
     # (not the raw partition) and hibernation still resumes.
     "encrypted swap resume device is the luks mapper" =
       encryptionOn.boot.resumeDevice == "/dev/mapper/cryptswap";
+
+    # TPM2 auto-unlock (itera.disko.encryption.tpm2, opt-in, default off)
+    "tpm2 auto-unlock is off by default" = cfg.itera.disko.encryption.tpm2.enable == false;
+    "tpm2 pcrs default to 7 (Secure Boot state)" = cfg.itera.disko.encryption.tpm2.pcrs == "7";
+    # Off: no tpm2-device crypttab option on the (encryption-only) containers.
+    "no tpm2 crypttab option when tpm2 unlock is off" =
+      !(builtins.elem "tpm2-device=auto" encryptionOn.boot.initrd.luks.devices.cryptroot.crypttabExtraOpts);
+    # On: both containers get tpm2-device=auto so the systemd initrd unseals them.
+    "tpm2 unlock wires tpm2-device=auto onto the root container" =
+      builtins.elem "tpm2-device=auto" tpm2On.boot.initrd.luks.devices.cryptroot.crypttabExtraOpts;
+    "tpm2 unlock wires tpm2-device=auto onto the swap container" =
+      builtins.elem "tpm2-device=auto" tpm2On.boot.initrd.luks.devices.cryptswap.crypttabExtraOpts;
+    # The TPM kernel modules must be in the initrd for the device node in stage 1.
+    "tpm2 unlock pulls the tpm_tis module into the initrd" =
+      builtins.elem "tpm_tis" tpm2On.boot.initrd.availableKernelModules;
+    # Decoupling: TPM2 unlock types no passphrase on the happy path, so it must NOT
+    # force USB-in-initrd on (whereas encryption-only still does, checked above).
+    "tpm2 unlock does not force usb support in the initrd" =
+      tpm2On.itera.hardware.initrd.usbSupport == false;
+    # The enrollment helper is shipped when TPM2 unlock is on.
+    "tpm2 unlock ships the itera-tpm2-enroll helper" = hasPkg tpm2On "itera-tpm2-enroll";
 
     # NVIDIA battery (itera.nvidia, opt-in)
     "nvidia is off by default" = cfg.itera.nvidia.enable == false;

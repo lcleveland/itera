@@ -46,6 +46,9 @@
         runtimeInputs = [
           pkgs.coreutils
           pkgs.util-linux
+          # systemd-cryptenroll + udevadm, for the post-install TPM2 enrollment the
+          # installer runs when the target config sets encryption.tpm2.enable.
+          pkgs.systemd
           inputs.disko.packages.${system}.disko-install
         ];
         text = builtins.readFile ../dev/install-itera-testhost.sh;

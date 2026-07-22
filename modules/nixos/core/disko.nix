@@ -33,6 +33,17 @@
 # keyboard). No key material lives on disk — the passphrase is in the LUKS header
 # plus your memory — so nothing extra needs persisting under impermanence.
 #
+# TPM2 auto-unlock: layer `encryption.tpm2.enable` on top to unseal the containers
+# from the machine's TPM2 with no passphrase on a trusted boot. A TPM2 keyslot is
+# enrolled into each LUKS header (sealed to `encryption.tpm2.pcrs`, default PCR 7 =
+# Secure Boot state) and the initrd gets `tpm2-device=auto`; the passphrase stays as
+# a recovery fallback if the sealed PCR state changes. Enrollment binds to the live
+# TPM, so it runs on the target machine: itera's installer does it automatically at
+# install (needs `encryption.passwordFile`), else run `itera-tpm2-enroll` once. Its
+# real security depends on `itera.secureBoot` — without it, TPM unlock stops a pulled
+# disk being read but not a thief booting the machine. Enabling TPM2 unlock stops
+# force-enabling `usbSupport` (nothing is typed on the happy path).
+#
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable` with `mkDefault` opinionated values. Because
 # partitioning is destructive and has no sensible default target, `device` MUST
@@ -41,6 +52,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -50,6 +62,46 @@ let
 
   cfg = config.itera.disko;
   ec = cfg.encryption;
+  tpm = ec.tpm2;
+
+  # The LUKS containers wrapLuks creates, paired with whether each is present.
+  # `cryptroot` always exists when encryption is on; `cryptswap` only when a swap
+  # partition is declared. Enrollment and crypttab wiring iterate this list.
+  luksContainers = {
+    cryptroot = true;
+    cryptswap = cfg.swapSize != "";
+  };
+
+  # Underlying raw partitions (by disko partlabel) behind those mappers — the
+  # devices systemd-cryptenroll writes TPM2 tokens into. It operates on the LUKS
+  # header, so the raw partition (not the /dev/mapper device) is the target.
+  cryptPartition = name: "/dev/disk/by-partlabel/disk-main-${lib.removePrefix "crypt" name}";
+
+  # A helper that (re-)enrolls every present LUKS container's TPM2 keyslot against
+  # the configured PCRs. `--wipe-slot=tpm2` first makes it idempotent and lets it
+  # rebind after a PCR change. Prompts once per device for an existing passphrase
+  # unless `--unlock-key-file=…` is passed. Shipped for non-itera installers and for
+  # re-enrolling after firmware/Secure-Boot changes; the itera installer runs the
+  # same enrollment automatically at install time so the first boot needs no prompt.
+  enrollScript = pkgs.writeShellApplication {
+    name = "itera-tpm2-enroll";
+    runtimeInputs = [ pkgs.systemd ];
+    text = ''
+      # Rebind the TPM2 keyslot on every itera LUKS container. Pass through any
+      # extra args (e.g. --unlock-key-file=/path) to every invocation.
+      for dev in ${
+        lib.concatStringsSep " " (
+          lib.mapAttrsToList (name: _: cryptPartition name) (
+            lib.filterAttrs (_: present: present) luksContainers
+          )
+        )
+      }; do
+        echo "Enrolling TPM2 (PCRs ${tpm.pcrs}) into $dev" >&2
+        systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto \
+          --tpm2-pcrs=${lib.escapeShellArg tpm.pcrs} "$@" "$dev"
+      done
+    '';
+  };
 
   mountOptions = [
     "compress=zstd"
@@ -181,6 +233,58 @@ in
           hosts to keep the encrypted device fully opaque at the cost of TRIM.
         '';
       };
+
+      tpm2 = {
+        enable = mkOption {
+          type = bool;
+          default = false;
+          description = ''
+            Auto-unlock the LUKS containers from the machine's TPM2 instead of
+            typing the passphrase at every boot. A TPM2 keyslot is enrolled into
+            each container's LUKS header (sealed to the {option}`itera.disko.encryption.tpm2.pcrs`
+            PCR state) and itera's systemd initrd adds `tpm2-device=auto` to the
+            crypttab, so a trusted boot unseals the volume key with no prompt.
+
+            The passphrase keyslot is **kept** as a recovery fallback: if the sealed
+            PCR state changes (firmware update, Secure Boot toggled, keys re-enrolled)
+            the TPM refuses to release the key and boot falls back to prompting for
+            the passphrase — after which you re-run {command}`itera-tpm2-enroll` to
+            rebind.
+
+            Enrollment binds to the live TPM + PCRs, so it must run on the target
+            machine. itera's installer does it automatically at install time (needs
+            {option}`itera.disko.encryption.passwordFile` set so it can unlock
+            non-interactively); otherwise run {command}`sudo itera-tpm2-enroll` once
+            after install. No key material is written to disk — the sealed secret
+            lives in the TPM and the LUKS header.
+
+            SECURITY: the strength of TPM auto-unlock depends on the PCRs binding to a
+            trusted boot chain. With the default PCR 7 and {option}`itera.secureBoot`
+            enabled, the disk only unseals under a verified Secure Boot state. WITHOUT
+            Secure Boot, TPM unlock still stops the disk being read after it is removed
+            from the machine, but does NOT stop a thief who simply powers the machine
+            on — for that, enable {option}`itera.secureBoot` too. This also stops
+            force-enabling {option}`itera.hardware.initrd.usbSupport` (no passphrase is
+            typed on the happy path); a desktop whose only keyboard is USB should set
+            it back to `true` so the recovery-passphrase fallback is typable.
+          '';
+        };
+
+        pcrs = mkOption {
+          type = str;
+          default = "7";
+          example = "0+2+7";
+          description = ''
+            TPM2 PCRs the keyslot is sealed against, in {command}`systemd-cryptenroll`
+            `--tpm2-pcrs=` syntax (`+`-separated). The default `"7"` binds to the
+            Secure Boot state alone: it survives kernel/initrd updates (unlike PCR
+            4/8/9/11) so it rarely needs re-enrollment, while refusing to unseal if
+            Secure Boot is disabled or its keys change. Add firmware PCR 0 (`"0+7"`)
+            for a stricter policy at the cost of re-enrolling after every firmware
+            update. Changing this requires re-running {command}`itera-tpm2-enroll`.
+          '';
+        };
+      };
     };
   };
 
@@ -196,8 +300,30 @@ in
     # USB HID modules present for a USB keyboard to work. `mkDefault` so it's on
     # whenever encryption is on, while a laptop whose built-in keyboard already
     # works in the initrd can set it back to false to avoid the USB-in-stage-1
-    # stall the hardware battery warns about.
-    itera.hardware.initrd.usbSupport = mkIf ec.enable (mkDefault true);
+    # stall the hardware battery warns about. TPM2 auto-unlock types no passphrase
+    # on the happy path, so it drops this force-on — the rare recovery-passphrase
+    # fallback can still be typed on a built-in keyboard, and a USB-keyboard-only
+    # desktop can opt `usbSupport` back on explicitly.
+    itera.hardware.initrd.usbSupport = mkIf (ec.enable && !tpm.enable) (mkDefault true);
+
+    # TPM2 auto-unlock. disko already emits a `boot.initrd.luks.devices.<name>` entry
+    # per container; we augment each present one with `tpm2-device=auto` so the
+    # systemd initrd unseals the volume key from the TPM (falling back to the
+    # passphrase prompt when the sealed PCR state no longer matches). The TPM kernel
+    # modules must be in the initrd for the device node to exist in stage 1
+    # (`boot.initrd.systemd.tpm2.enable` — default true under systemd initrd — pulls
+    # in the tpm2-tss userspace). The enroll helper is shipped for manual/rebind use.
+    boot.initrd.luks.devices = mkIf (ec.enable && tpm.enable) (
+      lib.mapAttrs (_: _: { crypttabExtraOpts = [ "tpm2-device=auto" ]; }) (
+        lib.filterAttrs (_: present: present) luksContainers
+      )
+    );
+    boot.initrd.availableKernelModules = mkIf (ec.enable && tpm.enable) [
+      "tpm"
+      "tpm_tis"
+      "tpm_crb"
+    ];
+    environment.systemPackages = mkIf (ec.enable && tpm.enable) [ enrollScript ];
 
     disko.devices.disk.main = {
       inherit (cfg) device;

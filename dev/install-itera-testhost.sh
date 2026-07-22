@@ -118,4 +118,47 @@ fi
 
 echo
 echo "Installing ${FLAKE}#${CONFIG} onto ${device} ..."
-exec disko-install --flake "${FLAKE}#${CONFIG}" --disk "${DISK_NAME}" "$device" "$@"
+disko-install --flake "${FLAKE}#${CONFIG}" --disk "${DISK_NAME}" "$device" "$@"
+
+# TPM2 auto-unlock enrollment — only when the target config opts in
+# (itera.disko.encryption.tpm2.enable). disko-install has just formatted the LUKS
+# containers with the install passphrase; enrolling the TPM2 keyslot now — on the
+# target hardware, against the live PCRs (PCR 7 = Secure Boot state, unchanged
+# between ISO and installed system) — means the FIRST boot already unlocks with no
+# prompt and no separate first-boot step. The knobs are read straight from the
+# evaluated config so this stays in lockstep with `itera.disko.encryption`.
+cfg_attr() {
+  # `nix eval --raw` errors on a null (nullOr str passwordFile); `|| true` maps that
+  # to an empty string, which the callers treat as "unset".
+  nix eval --raw "${FLAKE}#nixosConfigurations.${CONFIG}.config.itera.disko.$1" 2>/dev/null || true
+}
+
+if [ "$(nix eval "${FLAKE}#nixosConfigurations.${CONFIG}.config.itera.disko.encryption.tpm2.enable" 2>/dev/null || echo false)" = "true" ]; then
+  pcrs="$(cfg_attr encryption.tpm2.pcrs)"
+  pwfile="$(cfg_attr encryption.passwordFile)"
+
+  # Enroll every present container: root always, swap only when a swap partition is
+  # declared. disko labels the raw partitions disk-<disk>-<part>; cryptenroll writes
+  # the TPM2 token into the LUKS header on those, not the /dev/mapper devices.
+  targets=("/dev/disk/by-partlabel/disk-${DISK_NAME}-root")
+  [ -n "$(cfg_attr swapSize)" ] && targets+=("/dev/disk/by-partlabel/disk-${DISK_NAME}-swap")
+  command -v udevadm >/dev/null && udevadm settle || true
+
+  if [ -n "$pwfile" ] && [ -r "$pwfile" ]; then
+    echo
+    echo "Enrolling TPM2 (PCRs ${pcrs}) so this host unlocks without a passphrase ..."
+    for t in "${targets[@]}"; do
+      if [ -e "$t" ]; then
+        systemd-cryptenroll --unlock-key-file="$pwfile" --wipe-slot=tpm2 \
+          --tpm2-device=auto --tpm2-pcrs="$pcrs" "$t"
+      else
+        echo "warning: $t not found; skipping TPM2 enrollment for it." >&2
+      fi
+    done
+  else
+    echo
+    echo "NOTE: TPM2 auto-unlock is enabled but no readable encryption.passwordFile" >&2
+    echo "      was found, so enrollment can't run non-interactively here. After the" >&2
+    echo "      first boot, run once:  sudo itera-tpm2-enroll" >&2
+  fi
+fi

@@ -91,7 +91,8 @@ The full configuration reference lives in the
   and `itera.nix.cache`.
 - [Disks & impermanence](https://github.com/lcleveland/itera/wiki/Disks-and-Impermanence)
   — the `itera.disko` layout (and its required device), opt-in LUKS full-disk
-  encryption (`itera.disko.encryption`), and the ephemeral tmpfs root.
+  encryption (`itera.disko.encryption`) with optional passwordless TPM2 auto-unlock
+  (`itera.disko.encryption.tpm2`), and the ephemeral tmpfs root.
 - [Hardening](https://github.com/lcleveland/itera/wiki/Hardening)
   — nix-mineral presets and overrides.
 - [Desktop](https://github.com/lcleveland/itera/wiki/Desktop)
