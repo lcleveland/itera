@@ -62,6 +62,14 @@ let
     itera.disko.resume = false;
   };
 
+  # Full-disk encryption (itera.disko.encryption, opt-in, default off). Enable it
+  # alongside a swap partition so this eval exercises BOTH LUKS containers (root +
+  # swap) and the resume-through-LUKS wiring.
+  encryptionOn = mkEval {
+    itera.disko.encryption.enable = true;
+    itera.disko.swapSize = "16G";
+  };
+
   # NVIDIA is opt-in (default off). Evaluate a plain-defaults config to assert it
   # stays inert, and an enabled + PRIME-offload config to assert the wiring.
   nvidiaOn = mkEval {
@@ -97,6 +105,12 @@ let
 
   subvolumes = cfg.disko.devices.disk.main.content.partitions.root.content.subvolumes;
   persistence = cfg.environment.persistence."/persist";
+
+  # Partition set for a given evaluated config, and the encrypted root/swap
+  # containers (used by the full-disk-encryption checks below).
+  partitions = c: c.disko.devices.disk.main.content.partitions;
+  encRoot = (partitions encryptionOn).root.content;
+  encSwap = (partitions encryptionOn).swap.content;
 
   # impermanence coerces string entries into attrsets ({ file = ...; } /
   # { directory = ...; }); tolerate either shape.
@@ -254,6 +268,36 @@ let
       builtins.elem "resume=${swapOn.boot.resumeDevice}" swapOn.boot.kernelParams;
     "itera.disko.resume = false creates swap without a resume device" =
       swapNoResume.swapDevices != [ ] && swapNoResume.boot.resumeDevice == "";
+
+    # full-disk encryption (itera.disko.encryption, opt-in, default off)
+    "encryption is off by default" = cfg.itera.disko.encryption.enable == false;
+    "root is plain btrfs when encryption is off" = (partitions cfg).root.content.type == "btrfs";
+    "no initrd luks devices when encryption is off" = cfg.boot.initrd.luks.devices == { };
+    # Enabled: the btrfs root is wrapped in a LUKS container named cryptroot, with
+    # the btrfs (and its /persist subvolume) living inside the decrypted mapper.
+    "encryption wraps root in a luks container" =
+      encRoot.type == "luks" && encRoot.name == "cryptroot" && encRoot.content.type == "btrfs";
+    "encrypted root still carries the /persist subvolume" = encRoot.content.subvolumes ? "/persist";
+    # The swap partition is likewise wrapped (cryptswap), so the hibernation image
+    # written to it is encrypted.
+    "encryption wraps swap in a luks container" =
+      encSwap.type == "luks" && encSwap.name == "cryptswap" && encSwap.content.type == "swap";
+    # disko auto-emits a boot.initrd.luks.devices entry per container (initrdUnlock)
+    # so both unlock at boot, and allowDiscards passes through to that entry.
+    "encryption registers a cryptroot initrd luks device" =
+      encryptionOn.boot.initrd.luks.devices ? "cryptroot";
+    "encryption registers a cryptswap initrd luks device" =
+      encryptionOn.boot.initrd.luks.devices ? "cryptswap";
+    "encryption passes allowDiscards through to the initrd luks device" =
+      encryptionOn.boot.initrd.luks.devices.cryptroot.allowDiscards == true;
+    # Encryption auto-enables USB-in-initrd so a USB keyboard can type the passphrase.
+    "encryption auto-enables usb support in the initrd" =
+      encryptionOn.itera.hardware.initrd.usbSupport == true;
+    # Resume through LUKS: the swap type inside the container resolves its device to
+    # the mapper, so boot.resumeDevice points at the decrypted /dev/mapper/cryptswap
+    # (not the raw partition) and hibernation still resumes.
+    "encrypted swap resume device is the luks mapper" =
+      encryptionOn.boot.resumeDevice == "/dev/mapper/cryptswap";
 
     # NVIDIA battery (itera.nvidia, opt-in)
     "nvidia is off by default" = cfg.itera.nvidia.enable == false;
