@@ -90,7 +90,8 @@ The full configuration reference lives in the
   — the opt-out core-boot batteries (`itera.boot`/`hardware`/`nix`/`locale`/…)
   and `itera.nix.cache`.
 - [Disks & impermanence](https://github.com/lcleveland/itera/wiki/Disks-and-Impermanence)
-  — the `itera.disko` layout (and its required device) and the ephemeral tmpfs root.
+  — the `itera.disko` layout (and its required device), opt-in LUKS full-disk
+  encryption (`itera.disko.encryption`), and the ephemeral tmpfs root.
 - [Hardening](https://github.com/lcleveland/itera/wiki/Hardening)
   — nix-mineral presets and overrides.
 - [Desktop](https://github.com/lcleveland/itera/wiki/Desktop)
