@@ -56,11 +56,17 @@ in
     # `systemd.services.itera-power-profile-persist.enable = false`.
     systemd.services.itera-power-profile-persist = mkIf config.services.power-profiles-daemon.enable {
       description = "Persist the power-profiles-daemon active profile across reboots";
-      wantedBy = [ "multi-user.target" ];
-      # `after` the daemon so its D-Bus name is up when we restore on boot;
-      # and since systemd stops units in reverse start order, this unit's
-      # ExecStop runs while the daemon is still alive on shutdown. `requires`
-      # keeps the ordering meaningful (no restore without the daemon).
+      # Companion of the daemon, NOT of multi-user.target. The upstream PPD unit
+      # is itself ordered `After=multi-user.target display-manager.target`, so
+      # hooking this into multi-user.target while ordering it after PPD forms an
+      # ordering cycle — systemd resolves that by DELETING this unit's start job,
+      # and it never runs (neither ExecStart on boot nor ExecStop on shutdown).
+      # Instead let PPD pull this in (`wantedBy` its service) and order after it:
+      # `after` means its D-Bus name is up when we restore on boot, and — since
+      # systemd stops units in reverse start order — that this unit's ExecStop
+      # runs while the daemon is still alive on shutdown. `requires` keeps the
+      # restore meaningless-without-the-daemon invariant.
+      wantedBy = [ "power-profiles-daemon.service" ];
       after = [ "power-profiles-daemon.service" ];
       requires = [ "power-profiles-daemon.service" ];
       path = [ pkgs.coreutils ];
