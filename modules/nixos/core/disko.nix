@@ -41,8 +41,9 @@
 # TPM, so it runs on the target machine: itera's installer does it automatically at
 # install (needs `encryption.passwordFile`), else run `itera-tpm2-enroll` once. Its
 # real security depends on `itera.secureBoot` — without it, TPM unlock stops a pulled
-# disk being read but not a thief booting the machine. Enabling TPM2 unlock stops
-# force-enabling `usbSupport` (nothing is typed on the happy path).
+# disk being read but not a thief booting the machine. `usbSupport` stays force-on
+# even under TPM2 so the recovery-passphrase fallback remains typable on a USB
+# keyboard (the happy path types nothing, but a PCR change drops you to the prompt).
 #
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable` with `mkDefault` opinionated values. Because
@@ -263,10 +264,14 @@ in
             enabled, the disk only unseals under a verified Secure Boot state. WITHOUT
             Secure Boot, TPM unlock still stops the disk being read after it is removed
             from the machine, but does NOT stop a thief who simply powers the machine
-            on — for that, enable {option}`itera.secureBoot` too. This also stops
-            force-enabling {option}`itera.hardware.initrd.usbSupport` (no passphrase is
-            typed on the happy path); a desktop whose only keyboard is USB should set
-            it back to `true` so the recovery-passphrase fallback is typable.
+            on — for that, enable {option}`itera.secureBoot` too.
+
+            {option}`itera.hardware.initrd.usbSupport` stays force-enabled (via
+            `mkDefault`) even with TPM2 on: the happy path types no passphrase, but
+            the recovery-passphrase fallback (fired when the sealed PCR state
+            changes) still needs a keyboard in early boot, and on machines whose
+            built-in keyboard is USB-internal dropping it would lock you out of that
+            prompt. A host that never needs USB in stage 1 can still set it `false`.
           '';
         };
 
@@ -296,15 +301,18 @@ in
       }
     ];
 
-    # With encryption on, the LUKS passphrase is typed in the initrd — which needs
-    # USB HID modules present for a USB keyboard to work. `mkDefault` so it's on
-    # whenever encryption is on, while a laptop whose built-in keyboard already
+    # With encryption on, a LUKS passphrase may be typed in the initrd — which
+    # needs USB HID modules present for a USB keyboard to work. `mkDefault` so it's
+    # on whenever encryption is on, while a machine whose built-in keyboard already
     # works in the initrd can set it back to false to avoid the USB-in-stage-1
-    # stall the hardware battery warns about. TPM2 auto-unlock types no passphrase
-    # on the happy path, so it drops this force-on — the rare recovery-passphrase
-    # fallback can still be typed on a built-in keyboard, and a USB-keyboard-only
-    # desktop can opt `usbSupport` back on explicitly.
-    itera.hardware.initrd.usbSupport = mkIf (ec.enable && !tpm.enable) (mkDefault true);
+    # stall the hardware battery warns about. This stays on even under TPM2
+    # auto-unlock: the happy path types nothing, but the recovery-passphrase
+    # fallback (fired whenever the sealed PCR state changes — a firmware update,
+    # Secure Boot toggle, or key re-enrollment) still needs a typable keyboard, and
+    # on laptops whose built-in keyboard is USB-internal (e.g. Framework) dropping
+    # this would leave that prompt with no keyboard — a lockout footgun. A host that
+    # genuinely never needs USB in stage 1 can still set it back to false.
+    itera.hardware.initrd.usbSupport = mkIf ec.enable (mkDefault true);
 
     # TPM2 auto-unlock. disko already emits a `boot.initrd.luks.devices.<name>` entry
     # per container; we augment each present one with `tpm2-device=auto` so the

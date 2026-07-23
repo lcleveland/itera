@@ -22,6 +22,22 @@
   outputs =
     { nixpkgs, itera, ... }:
     {
+      # One installer for every host in this flake, meant to be run from a NixOS
+      # live ISO. It picks a host + disk, confirms the wipe, and hands off to
+      # disko-install — and, for hosts that opt into itera.disko.encryption, drives
+      # the LUKS passphrase and enrolls TPM2 auto-unlock in the same pass, so an
+      # encrypted host is hands-free from first boot. No hand-written install script:
+      #
+      #   sudo nix run github:me/myconfig#installer            # menus for host + disk
+      #   sudo nix run github:me/myconfig#installer -- myhost /dev/nvme0n1
+      #
+      # Run a local clone with:  sudo ITERA_INSTALL_FLAKE=. nix run .#installer
+      packages.x86_64-linux.installer =
+        itera.lib.mkInstaller (import nixpkgs { system = "x86_64-linux"; })
+          {
+            flake = "github:me/myconfig"; # CHANGE ME — where `nix run <flake>#installer` fetches from
+          };
+
       nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
@@ -91,13 +107,20 @@
               #   disko.encryption.enable = true; # LUKS full-disk encryption of the
               #     btrfs root (/, /nix, /persist) AND swap — so data at rest and the
               #     hibernation image are encrypted (the ESP stays unencrypted). Opt-in.
-              #     disko prompts for a new passphrase while it formats the disk, and
-              #     you type it at every boot; itera's systemd initrd unlocks root +
-              #     swap with a SINGLE prompt. Enabling it also turns on
-              #     itera.hardware.initrd.usbSupport so a USB keyboard works at the
-              #     passphrase prompt — set that back to false on a laptop with a
-              #     built-in keyboard. For an unattended install, set
-              #     `disko.encryption.passwordFile = "/tmp/luks.key";` (format-time only).
+              #     You type the passphrase at every boot; itera's systemd initrd
+              #     unlocks root + swap with a SINGLE prompt, and turns on
+              #     itera.hardware.initrd.usbSupport so a USB keyboard works at that
+              #     prompt (set it back to false only if your keyboard already works
+              #     in stage 1). The `installer` package below drives the passphrase
+              #     for you at install time; a manual disko-install prompts instead.
+              #   disko.encryption.tpm2.enable = true; # passwordless auto-unlock from
+              #     the TPM2 (no passphrase on a trusted boot; the passphrase stays as
+              #     a recovery fallback). Pair with `secureBoot.enable = true` for it
+              #     to also stop a powered-on thief. To enroll the TPM2 keyslot during
+              #     install (so the FIRST boot is already hands-free), give the
+              #     installer a scratch key path it fills and shreds:
+              #       disko.encryption.passwordFile = "/tmp/itera-luks.key"; # install-time only
+              #     Without it you just run `sudo itera-tpm2-enroll` once after first boot.
               #   impermanence.directories = [ "/var/lib/tailscale" ];
 
               # Advanced: to manage partitioning yourself (e.g. a pre-partitioned
