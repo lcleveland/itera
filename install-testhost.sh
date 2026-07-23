@@ -16,10 +16,10 @@
 #   curl -fsSL .../install-testhost.sh | sudo env ITERA_INSTALL_FLAKE=github:you/itera bash
 #
 # All it does is enable the experimental features and `nix run` the real
-# installer (dev/install-itera-testhost.sh, packaged as
-# `#install-itera-testhost`), which then lists disks, confirms, and hands off to
-# disko-install. Reads for the menu come from /dev/tty, so the pipe doesn't eat
-# them.
+# installer (itera's general-purpose installer from `itera.lib.mkInstaller`, baked
+# to the itera-testhost host and packaged as `#install-itera-testhost`), which then
+# lists disks, confirms, and hands off to disko-install. Reads for the menu come
+# from /dev/tty, so the pipe doesn't eat them.
 set -euo pipefail
 
 FLAKE="${ITERA_INSTALL_FLAKE:-github:lcleveland/itera}"

@@ -325,10 +325,11 @@ let
     # The TPM kernel modules must be in the initrd for the device node in stage 1.
     "tpm2 unlock pulls the tpm_tis module into the initrd" =
       builtins.elem "tpm_tis" tpm2On.boot.initrd.availableKernelModules;
-    # Decoupling: TPM2 unlock types no passphrase on the happy path, so it must NOT
-    # force USB-in-initrd on (whereas encryption-only still does, checked above).
-    "tpm2 unlock does not force usb support in the initrd" =
-      tpm2On.itera.hardware.initrd.usbSupport == false;
+    # USB-in-initrd stays force-on even with TPM2: the happy path types nothing, but
+    # the recovery-passphrase fallback (fired on a PCR change) still needs a keyboard
+    # in early boot, so dropping it would risk a lockout on USB-keyboard machines.
+    "tpm2 unlock keeps usb support forced on for the recovery prompt" =
+      tpm2On.itera.hardware.initrd.usbSupport == true;
     # The enrollment helper is shipped when TPM2 unlock is on.
     "tpm2 unlock ships the itera-tpm2-enroll helper" = hasPkg tpm2On "itera-tpm2-enroll";
 

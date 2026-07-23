@@ -35,23 +35,19 @@
   #     nix run 'github:lcleveland/itera#install-itera-testhost'
   #
   # It lists the machine's disks, confirms the wipe, and hands the chosen device
-  # to disko's one-shot installer as `--disk main <device>`. disko-install is
-  # pinned to itera's own disko input (so it matches `itera.disko`'s layout), and
-  # the whole thing is x86_64-only to match the host it installs.
+  # to disko's one-shot installer as `--disk main <device>`. This is just itera's
+  # general-purpose installer (`itera.lib.mkInstaller`, the same one downstream
+  # flakes build) baked to itera's own flake and preselected to the `itera-testhost`
+  # host, with disko-install pinned to itera's own disko input so it matches
+  # `itera.disko`'s layout. x86_64-only to match the host it installs.
   perSystem =
     { pkgs, system, ... }:
     lib.optionalAttrs (system == "x86_64-linux") {
-      packages.install-itera-testhost = pkgs.writeShellApplication {
+      packages.install-itera-testhost = inputs.self.lib.mkInstaller pkgs {
         name = "install-itera-testhost";
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.util-linux
-          # systemd-cryptenroll + udevadm, for the post-install TPM2 enrollment the
-          # installer runs when the target config sets encryption.tpm2.enable.
-          pkgs.systemd
-          inputs.disko.packages.${system}.disko-install
-        ];
-        text = builtins.readFile ../dev/install-itera-testhost.sh;
+        flake = "github:lcleveland/itera";
+        host = "itera-testhost";
+        diskoInstall = inputs.disko.packages.${system}.disko-install;
       };
     };
 }
