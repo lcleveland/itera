@@ -48,6 +48,15 @@ let
     { itera.desktop.editor.nixLanguageServer.enable = false; }
   ];
 
+  # Clipboard bridge opted out, and with select-to-copy opted in, to assert the
+  # service gating in both directions.
+  cfgClipboardOff = mkConfig [
+    { itera.desktop.clipboard.enable = false; }
+  ];
+  cfgSelectToCopy = mkConfig [
+    { itera.desktop.clipboard.selectToCopy = true; }
+  ];
+
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
@@ -126,6 +135,26 @@ let
     # Opting the Nix LSP out drops the binary and writes no Nix settings.
     "nixd absent when disabled" = !hasPkg "nixd" cfgNoNixLsp.environment.systemPackages;
     "no Nix settings when disabled" = !(cfgNoNixLsp.itera.programs.zed.settings ? languages);
+
+    # Clipboard bridge battery (default ON with the desktop): ships wl-clipboard
+    # and the two always-on bridge user services (Wayland→X11 poll-free watch, and
+    # the CLIPBOARD→PRIMARY autocutsel). Gated off with the desktop or its toggle.
+    "clipboard bridge battery is enabled" = cfg.itera.desktop.clipboard.enable;
+    "wl-clipboard is installed by default" = hasPkg "wl-clipboard" cfg.environment.systemPackages;
+    "clipboard wayland-to-x11 bridge service present" =
+      cfg.systemd.user.services ? "itera-clipboard-wayland-to-x11";
+    "clipboard autocutsel-primary service present" =
+      cfg.systemd.user.services ? "itera-clipboard-autocutsel-primary";
+    # select-to-copy is off by default (no PRIMARY→CLIPBOARD service), and opting
+    # it in adds exactly that service.
+    "select-to-copy is off by default" =
+      !(cfg.systemd.user.services ? "itera-clipboard-autocutsel-clipboard");
+    "select-to-copy adds the PRIMARY->CLIPBOARD service" =
+      cfgSelectToCopy.systemd.user.services ? "itera-clipboard-autocutsel-clipboard";
+    # Gated off: no bridge services when the battery is disabled.
+    "clipboard bridge gated off when disabled" =
+      !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-wayland-to-x11")
+      && !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-autocutsel-primary");
   };
 
 in
