@@ -143,6 +143,10 @@ let
     "wl-clipboard is installed by default" = hasPkg "wl-clipboard" cfg.environment.systemPackages;
     "clipboard wayland-to-x11 bridge service present" =
       cfg.systemd.user.services ? "itera-clipboard-wayland-to-x11";
+    # The reverse direction (copy OUT of XWayland apps) must be present too — it
+    # has no native XWayland fallback on mango.
+    "clipboard x11-to-wayland bridge service present" =
+      cfg.systemd.user.services ? "itera-clipboard-x11-to-wayland";
     "clipboard autocutsel-primary service present" =
       cfg.systemd.user.services ? "itera-clipboard-autocutsel-primary";
     # select-to-copy is off by default (no PRIMARY→CLIPBOARD service), and opting
@@ -154,6 +158,7 @@ let
     # Gated off: no bridge services when the battery is disabled.
     "clipboard bridge gated off when disabled" =
       !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-wayland-to-x11")
+      && !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-x11-to-wayland")
       && !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-autocutsel-primary");
   };
 

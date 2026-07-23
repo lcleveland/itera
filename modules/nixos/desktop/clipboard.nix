@@ -1,16 +1,28 @@
 # itera's Wayland↔X11 clipboard bridge battery.
 #
 # XWayland apps (Proton games, legacy X11 tools) live in their own X11 clipboard
-# world: text copied in a Wayland app is not visible to them, and vice versa.
-# This battery bridges the two so copy/paste works across the boundary, and — as a
-# side effect — stops binary image data (screenshots) from being mangled into a
-# garbled "Long Text" entry in the DankMaterialShell clipboard history.
+# world: text copied in a Wayland app is not visible to them, and text copied
+# inside them is not visible to Wayland apps. This battery bridges the two in BOTH
+# directions so copy/paste works across the boundary, and — as a side effect —
+# stops binary image data (screenshots) from being mangled into a garbled "Long
+# Text" entry in the DankMaterialShell clipboard history.
 #
-# It ships three things:
+# It ships:
 #   • wl-clipboard on PATH (wl-copy/wl-paste) for terminal clipboard access.
 #   • The bridge daemons (below), as systemd *user* services.
 #   • When Steam is on (itera.gaming), wl-clipboard-x11 + xdotool injected into
 #     Steam's FHS container so Proton games can reach the clipboard atoms.
+#
+# The two directions:
+#   • Wayland → X11: `wl-paste --watch` fires on each Wayland clipboard change and
+#     mirrors text into the X11 CLIPBOARD (so a game can paste it). autocutsel then
+#     keeps the X11 CLIPBOARD/PRIMARY selections in step.
+#   • X11 → Wayland: `clipnotify` blocks on X11 CLIPBOARD/PRIMARY changes and
+#     mirrors new text into the Wayland clipboard via `wl-copy` (so text copied in
+#     a game lands in the Wayland/DMS clipboard). MangoWC's XWayland does not do
+#     this sync itself, so without this daemon copy-OUT-of-a-game silently fails.
+# Each side compares against the other's current content before writing, which
+# breaks the echo loop the two daemons would otherwise form.
 #
 # systemd targeting: programs.mango (MangoWC) has NO systemd integration at the
 # NixOS level — that lives in a Home Manager module itera does not use — so
@@ -19,15 +31,16 @@
 # required display sockets (Wayland compositor + XWayland) to appear before doing
 # any work. This is the same constraint eiros hit on the same compositor.
 #
-# Optimization over the original eiros bridge: the Wayland→X11 direction is
-# EVENT-DRIVEN via `wl-paste --watch` rather than a 100 ms busy-poll. The poll
-# spawned a `wl-paste` process ~10×/second forever just to detect changes; `--watch`
-# blocks and fires only when the clipboard actually changes, using the exact same
-# `wlr-data-control` protocol the one-shot reads already rely on (so it needs
-# nothing extra from mango). The careful text-only MIME filtering and the X11 echo
-# guard are preserved. As a bonus, --watch reports CLIPBOARD_STATE, so the bridge
-# now refuses to copy password-manager (sensitive) content into the persistent X11
-# clipboard — a leak the blind poll could not have avoided.
+# Optimization over the original eiros bridge: both watched directions are
+# EVENT-DRIVEN (`wl-paste --watch` / `clipnotify`) rather than the original's 100 ms
+# busy-poll, which spawned a `wl-paste` process ~10×/second forever just to detect
+# changes. They use the exact same `wlr-data-control` / XFixes machinery a one-shot
+# read already relied on, so they need nothing extra from mango. The text-only MIME
+# filtering and the echo guard are preserved. As a bonus, --watch reports
+# CLIPBOARD_STATE, so the bridge refuses to copy password-manager (sensitive)
+# content into the persistent X11 clipboard — a leak the blind poll could not have
+# avoided. (eiros also had no X11→Wayland daemon at all — copy-out relied on native
+# XWayland sync that MangoWC does not provide.)
 #
 # No system state to persist under impermanence — the clipboard is in-memory and
 # per-user wl-clipboard/DMS state lives in $HOME (covered by home persistence),
@@ -49,6 +62,25 @@ let
 
   cfg = config.itera.desktop.clipboard;
 
+  # Shared shell preludes: block until the required display socket appears, then
+  # export the matching env var. mango has no graphical-session.target to order
+  # against (see the header), so every daemon self-waits like this.
+  awaitWaylandSocket = ''
+    runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    until find "$runtime_dir" -maxdepth 1 -name 'wayland-*' -type s 2>/dev/null | grep -q .; do
+      sleep 1
+    done
+    wl_sock=$(find "$runtime_dir" -maxdepth 1 -name 'wayland-*' -type s 2>/dev/null | sort | head -1)
+    export WAYLAND_DISPLAY="''${wl_sock##*/}"
+  '';
+  awaitX11Socket = ''
+    until find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | grep -q .; do
+      sleep 1
+    done
+    x11_sock=$(find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | sort | head -1)
+    export DISPLAY=":''${x11_sock##*/X}"
+  '';
+
   # Wraps autocutsel to wait for an XWayland socket before starting. `selection`
   # is "CLIPBOARD" or "PRIMARY" (uppercase, passed straight to autocutsel's
   # -selection flag).
@@ -63,13 +95,7 @@ let
         gnugrep
       ];
       text = ''
-        # Wait for any XWayland socket to appear.
-        until find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | grep -q .; do
-          sleep 1
-        done
-        # Use the first available X11 display.
-        sock=$(find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | sort | head -1)
-        export DISPLAY=":''${sock##*/X}"
+        ${awaitX11Socket}
         exec autocutsel -selection ${selection}
       '';
     };
@@ -116,8 +142,8 @@ let
       current=$(wl-paste -n ''${req_type:+-t "$req_type"} 2>/dev/null) || exit 0
       [ -n "$current" ] || exit 0
 
-      # Break the XWayland echo loop: if the compositor mirrors our own X11 write
-      # back to Wayland, --watch fires again with identical content — skip it.
+      # Break the echo loop: if the X11 CLIPBOARD already holds this (our own prior
+      # write, or content the X11→Wayland bridge just mirrored in), skip it.
       x11_current=$(xclip -selection clipboard -o 2>/dev/null) || true
       if [ "$current" = "$x11_current" ]; then
         exit 0
@@ -139,24 +165,56 @@ let
       clipboard-sync-once
     ];
     text = ''
-      runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-
-      # Wait for the Wayland compositor socket.
-      until find "$runtime_dir" -maxdepth 1 -name 'wayland-*' -type s 2>/dev/null | grep -q .; do
-        sleep 1
-      done
-      sock=$(find "$runtime_dir" -maxdepth 1 -name 'wayland-*' -type s 2>/dev/null | sort | head -1)
-      export WAYLAND_DISPLAY="''${sock##*/}"
-
-      # Wait for an XWayland socket.
-      until find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | grep -q .; do
-        sleep 1
-      done
-      x11_sock=$(find /tmp/.X11-unix -maxdepth 1 -name 'X*' 2>/dev/null | sort | head -1)
-      export DISPLAY=":''${x11_sock##*/X}"
+      ${awaitWaylandSocket}
+      ${awaitX11Socket}
 
       # Event-driven: fires only when the Wayland clipboard changes.
       exec wl-paste --watch itera-clipboard-sync-once
+    '';
+  };
+
+  # The reverse direction: blocks on X11 CLIPBOARD/PRIMARY changes (clipnotify
+  # watches both and exits on either) and mirrors new text CLIPBOARD content into
+  # the Wayland clipboard, so text copied inside a game is pasteable in Wayland apps.
+  x11-to-wayland-clipboard = pkgs.writeShellApplication {
+    name = "itera-clipboard-x11-to-wayland";
+    runtimeInputs = with pkgs; [
+      clipnotify
+      xclip
+      wl-clipboard
+      findutils
+      coreutils
+      gnugrep
+    ];
+    text = ''
+      ${awaitWaylandSocket}
+      ${awaitX11Socket}
+
+      while true; do
+        # Block until the X11 CLIPBOARD/PRIMARY changes. On a transient X error,
+        # back off rather than exiting the whole service.
+        clipnotify || {
+          sleep 1
+          continue
+        }
+
+        # Only mirror text: check the X11 target list before reading the content.
+        targets=$(xclip -selection clipboard -o -t TARGETS 2>/dev/null) || continue
+        printf '%s\n' "$targets" \
+          | grep -iqE '^(UTF8_STRING|STRING|TEXT)$|^text/plain' || continue
+
+        current=$(xclip -selection clipboard -o 2>/dev/null) || continue
+        [ -n "$current" ] || continue
+
+        # Break the echo loop: skip if the Wayland clipboard already holds this
+        # (our own prior push, or content the Wayland→X11 bridge just mirrored out).
+        wl_current=$(wl-paste -n 2>/dev/null) || true
+        if [ "$current" = "$wl_current" ]; then
+          continue
+        fi
+
+        printf '%s' "$current" | wl-copy
+      done
     '';
   };
 
@@ -179,13 +237,13 @@ in
       type = bool;
       default = true;
       description = ''
-        Run the Wayland↔X11 clipboard bridge so copy/paste works between Wayland
-        apps and XWayland apps (Proton games, legacy X11 tools), install
-        {command}`wl-clipboard`, and — when {option}`itera.gaming` is on — inject the
-        clipboard tools into Steam's container. Also stops binary image data from
-        showing up as garbled "Long Text" in the DankMaterialShell clipboard
-        history. On by default whenever the mango desktop is enabled; set to `false`
-        to opt out. Inert on a headless host (no compositor).
+        Run the Wayland↔X11 clipboard bridge so copy/paste works in both directions
+        between Wayland apps and XWayland apps (Proton games, legacy X11 tools),
+        install {command}`wl-clipboard`, and — when {option}`itera.gaming` is on —
+        inject the clipboard tools into Steam's container. Also stops binary image
+        data from showing up as garbled "Long Text" in the DankMaterialShell
+        clipboard history. On by default whenever the mango desktop is enabled; set
+        to `false` to opt out. Inert on a headless host (no compositor).
       '';
     };
 
@@ -217,6 +275,8 @@ in
 
       systemd.user.services = {
         itera-clipboard-wayland-to-x11 = bridgeService "Mirror Wayland clipboard text into the X11 CLIPBOARD for XWayland apps" "${wayland-to-x11-clipboard}/bin/itera-clipboard-wayland-to-x11";
+
+        itera-clipboard-x11-to-wayland = bridgeService "Mirror X11 CLIPBOARD text into the Wayland clipboard (copy out of XWayland apps)" "${x11-to-wayland-clipboard}/bin/itera-clipboard-x11-to-wayland";
 
         itera-clipboard-autocutsel-primary = bridgeService "Mirror the X11 CLIPBOARD selection into PRIMARY for XWayland apps" "${autocutsel-wait "PRIMARY"}/bin/itera-autocutsel-primary";
       };
