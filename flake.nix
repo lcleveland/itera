@@ -70,6 +70,16 @@
       # with no itera counterpart; it stays unfollowed.
     };
 
+    # DMS IP Indicator plugin: a dank-bar widget (public IP / ISP / location)
+    # shipped as a default-on plugin of `itera.desktop.dankMaterialShell`.
+    # Source-only (`flake = false`) — it's just QML, so there is no nixpkgs input
+    # to follow; the revision lives in `flake.lock` and `nix flake update
+    # dms-ipindicator` bumps it (no manual hash).
+    dms-ipindicator = {
+      url = "github:hthienloc/dms-ipIndicator";
+      flake = false;
+    };
+
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";

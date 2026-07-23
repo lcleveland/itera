@@ -88,7 +88,17 @@ let
             # Per-user package escape hatch.
             packages = [ pkgs.hello ];
             programs = {
-              dankMaterialShell.settings.cornerRadius = 8;
+              dankMaterialShell = {
+                settings.cornerRadius = 8;
+                # Per-user plugin: a new name adds only for alice.
+                plugins.Bar.src = pkgs.emptyDirectory;
+                # Per-user disable of the default-on ipIndicator. A per-user entry
+                # replaces the system one wholesale, so `src` must be re-supplied.
+                plugins.ipIndicator = {
+                  enable = false;
+                  src = pkgs.emptyDirectory;
+                };
+              };
               # Per-user Zed: override the auto-registered `claude` ACP agent with a
               # custom wrapper command (must win over the system default under
               # `agent_servers`) and opt the file out of clobbering so the GUI can
@@ -144,6 +154,9 @@ let
 
   aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
   bobDms = builtins.fromJSON bobFiles."DankMaterialShell/settings.json".text;
+
+  alicePlugins = builtins.fromJSON aliceFiles."DankMaterialShell/plugin_settings.json".text;
+  bobPlugins = builtins.fromJSON bobFiles."DankMaterialShell/plugin_settings.json".text;
 
   # Zed renders via pkgs.formats.json (a store-path `source`, not inline `text`).
   aliceZed = builtins.fromJSON (builtins.readFile aliceFiles."zed/settings.json".source);
@@ -233,6 +246,21 @@ let
     "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
     "sibling key still inherited (alice)" = aliceDms.use24HourClock == true;
     "system-level override still inherited (alice)" = aliceDms.currentThemeName == "blue";
+
+    # ── DMS plugins: default-on plugin ships for every user ──────────────
+    # ipIndicator is shipped by the desktop battery with enable defaulting to
+    # true, so an un-overridden user gets both the plugin dir and enabled=true.
+    "default plugin dir shipped (bob)" = bobFiles ? "DankMaterialShell/plugins/ipIndicator";
+    "default plugin enabled in plugin_settings (bob)" = bobPlugins.ipIndicator.enabled == true;
+
+    # ── DMS plugins: per-user add stays isolated ─────────────────────────
+    "per-user plugin present (alice)" = aliceFiles ? "DankMaterialShell/plugins/Bar";
+    "per-user plugin not leaked to other user (bob)" = !(bobFiles ? "DankMaterialShell/plugins/Bar");
+
+    # ── DMS plugins: per-user disable of a default plugin ────────────────
+    "per-user disable drops plugin dir (alice)" =
+      !(aliceFiles ? "DankMaterialShell/plugins/ipIndicator");
+    "per-user disable reflected in plugin_settings (alice)" = alicePlugins.ipIndicator.enabled == false;
 
     # ── mango keybinds: system defaults reach every user ─────────────────
     "default keybind rendered (alice)" = lib.hasInfix "binds=SUPER,q,killclient," aliceMango;
