@@ -54,6 +54,13 @@ let
     itera.impermanence.homes.clearDownloadsOnBoot = true;
   };
 
+  # Desktop off → power-profiles-daemon is not pulled in, so the profile-persist
+  # service and its persist entry must both drop out (gated on the daemon switch).
+  desktopOff = mkEval { itera.desktop.dankMaterialShell.enable = false; };
+  desktopOffDirNames = map (
+    d: d.directory or d
+  ) desktopOff.environment.persistence."/persist".directories;
+
   # Two extra evals to exercise the hibernation resume wiring (itera.disko.resume):
   # a swap partition sized for hibernation, and the same with resume opted out.
   swapOn = mkEval { itera.disko.swapSize = "16G"; };
@@ -147,6 +154,18 @@ let
     # Bluetooth is on by default (itera.enable), so BlueZ device pairings survive
     # the wiped root rather than needing a re-pair every boot.
     "bluetooth pairings are persisted" = builtins.elem "/var/lib/bluetooth" dirNames;
+
+    # power-profiles-daemon (on via the default DMS desktop) does not persist its
+    # active profile, so itera's power battery saves it under /var/lib and this
+    # persists that across the tmpfs root — otherwise the bar's profile choice
+    # resets to `balanced` every boot. Service and persist entry are both gated on
+    # the daemon: present with the desktop on, gone with it off.
+    "power profile state is persisted" = builtins.elem "/var/lib/itera-power-profile" dirNames;
+    "power profile persist service present" = cfg.systemd.services ? "itera-power-profile-persist";
+    "power profile persist service gated off without the daemon" =
+      !(desktopOff.systemd.services ? "itera-power-profile-persist");
+    "power profile state not persisted without the daemon" =
+      !(builtins.elem "/var/lib/itera-power-profile" desktopOffDirNames);
     # Bluetooth powers the adapter on at boot by default — the Kicksecure
     # AutoEnable=false default is overridden so the radio isn't dark despite
     # powerOnBoot.
