@@ -27,6 +27,15 @@ commands:
     description: update flake inputs, apply on next reboot (nh os boot --update)
   - name: gc
     description: prune old generations to free space (nh clean all)
+  - name: firmware
+    description: update device firmware via fwupd
+    commands:
+      - name: status
+        description: show devices and their current firmware (fwupdmgr get-devices)
+      - name: refresh
+        description: refresh firmware metadata from the LVFS (fwupdmgr refresh)
+      - name: update
+        description: install available firmware updates (fwupdmgr update)
   - name: testhost
     description: itera-repo test-host tooling (dev)
     commands:

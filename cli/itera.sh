@@ -99,6 +99,12 @@ Commands:
   update-boot [nh args]        Update your flake inputs, then apply on next reboot
                                (nh os boot --update).
   gc [nh args]                 Prune old generations to free space (nh clean all).
+  firmware status              Show devices and their current firmware (fwupdmgr
+                               get-devices).
+  firmware refresh             Refresh firmware metadata from the LVFS (fwupdmgr
+                               refresh).
+  firmware update              Install available firmware updates (fwupdmgr
+                               update).
   help                         Show this help.
 EOF
   # Only advertise the dev verbs on a build that actually has them.
@@ -165,6 +171,21 @@ case "$cmd" in
     fi
     ;;
   gc) exec nh clean all "$@" ;;
+  firmware)
+    sub="${1:-}"
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      status) exec fwupdmgr get-devices "$@" ;;
+      refresh) exec fwupdmgr refresh "$@" ;;
+      update) exec fwupdmgr update "$@" ;;
+      *)
+        echo "itera firmware: unknown subcommand '${sub:-}' (expected: status, refresh, update)" >&2
+        echo >&2
+        usage >&2
+        exit 1
+        ;;
+    esac
+    ;;
   testhost)
     sub="${1:-}"
     [ "$#" -gt 0 ] && shift

@@ -68,6 +68,10 @@
             # offline, unlike facter-report.sh's `nix run nixpkgs#nixos-facter`.
             pkgs.nixos-facter
             config.packages.facter-report
+            # `fwupdmgr` backs the `firmware` verbs; carried explicitly (like nh)
+            # so `itera firmware` works even on a host with the firmware battery
+            # off — it then just talks to whatever fwupd daemon is (not) running.
+            pkgs.fwupd
           ];
           text = iteraSrc;
         };
@@ -84,6 +88,7 @@
             config.packages.facter-report
             config.packages.itera-update
             config.packages.install-itera-testhost
+            pkgs.fwupd
           ];
           text = iteraSrc;
         };
