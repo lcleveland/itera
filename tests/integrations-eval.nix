@@ -290,11 +290,18 @@ let
     "ykman is installed by default" = lib.any (
       p: lib.hasInfix "yubikey-manager" (p.name or "")
     ) base.environment.systemPackages;
+    # Like fingerprint: the key is explicitly OFF on the initial-login surfaces...
+    "security key is disabled at TTY login" = base.security.pam.services.login.u2f.enable == false;
+    "security key is disabled at the greeter" = base.security.pam.services.greetd.u2f.enable == false;
+    # ...but ON for in-session privilege prompts (pam_u2f's default from the global).
+    "security key is enabled for sudo" = base.security.pam.services.sudo.u2f.enable == true;
+    "security key is enabled for polkit" = base.security.pam.services.polkit-1.u2f.enable == true;
     # DMS lock screen accepts the key (key OR password).
     "DMS lock screen enables u2f" = base.itera.programs.dankMaterialShell.settings.enableU2f == true;
     "DMS lock screen u2f mode is 'or' by default" =
       base.itera.programs.dankMaterialShell.settings.u2fMode == "or";
-    # The greeter's key-auth UI is wired (a greeter settings.json is supplied).
+    # The greeter's key-auth UI settings.json is still wired (it now carries
+    # greeterEnableU2f = false, since the greeter is a login surface).
     "greeter u2f config file is wired" = base.programs.dms-greeter.configFiles != [ ];
 
     # --- Fingerprint (default on): after-login only, never initial login ---
