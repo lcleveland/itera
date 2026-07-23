@@ -56,7 +56,9 @@ let
     "completion spec shipped to the user by default" =
       withUser.hjem.users.alice.xdg.config.files ? ${specPath};
     "shipped spec is the consumer spec (has the consumer verbs)" =
-      lib.hasInfix "name: rebuild" specText && lib.hasInfix "name: gc" specText;
+      lib.hasInfix "name: rebuild" specText
+      && lib.hasInfix "name: gc" specText
+      && lib.hasInfix "name: firmware" specText;
     "shipped spec omits the dev-only testhost verbs" = !(lib.hasInfix "name: testhost" specText);
     "no completion spec when carapace is off" =
       !(noCarapace.hjem.users.alice.xdg.config.files ? ${specPath});

@@ -57,6 +57,9 @@ let
   # ── keyboard ──────────────────────────────────────────────────────────────
   keyboard = mkConfig [ { itera.keyboard.variant = "colemak_dh"; } ];
 
+  # ── firmware (opt-out) ─────────────────────────────────────────────────────
+  firmwareOff = mkConfig [ { itera.firmware.enable = false; } ];
+
   checks = {
     # ── printing ─────────────────────────────────────────────────────────
     "printing off by default" = !(mkConfig [ ]).services.printing.enable;
@@ -99,6 +102,11 @@ let
       hasName "claude-agent-acp" claude.environment.systemPackages;
     "claude acp adapter installable on its own" =
       hasName "claude-agent-acp" claudeAcp.environment.systemPackages;
+
+    # ── firmware ───────────────────────────────────────────────────────────
+    # Opt-out battery: fwupd is on by default and turns off cleanly.
+    "fwupd on by default" = (mkConfig [ ]).services.fwupd.enable;
+    "fwupd disabled when battery off" = !firmwareOff.services.fwupd.enable;
 
     # ── keyboard ───────────────────────────────────────────────────────────
     "keyboard defaults to us" = (mkConfig [ ]).services.xserver.xkb.layout == "us";
