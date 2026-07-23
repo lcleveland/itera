@@ -391,6 +391,19 @@ let
       !(builtins.elem "ia32_emulation=0" cfg.boot.kernelParams);
     "ia32 emulation stays enabled with gaming" =
       !(builtins.elem "ia32_emulation=0" gamingOn.boot.kernelParams);
+    # The clipboard bridge (default on with the desktop) injects the X11 clipboard
+    # tools into Steam's FHS container so Proton games can reach the clipboard —
+    # only when Steam is actually enabled (here, via the gaming battery).
+    "gaming injects wl-clipboard-x11 into steam" = builtins.any (
+      p: lib.getName p == "wl-clipboard-x11"
+    ) gamingOn.programs.steam.extraPackages;
+    "gaming injects xdotool into steam" = builtins.any (
+      p: lib.getName p == "xdotool"
+    ) gamingOn.programs.steam.extraPackages;
+    # ...and without Steam there is no injection to make (extraPackages stays empty
+    # of the clipboard tools on the default, gaming-off desktop).
+    "no steam clipboard injection without steam" =
+      !(builtins.any (p: lib.getName p == "wl-clipboard-x11") cfg.programs.steam.extraPackages);
   };
 
 in
