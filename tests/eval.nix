@@ -162,6 +162,12 @@ let
     # the daemon: present with the desktop on, gone with it off.
     "power profile state is persisted" = builtins.elem "/var/lib/itera-power-profile" dirNames;
     "power profile persist service present" = cfg.systemd.services ? "itera-power-profile-persist";
+    # It must be a companion of the daemon, never wanted by multi-user.target: the
+    # upstream PPD unit is `After=multi-user.target`, so a multi-user.target tie +
+    # `After=power-profiles-daemon.service` is an ordering cycle that makes systemd
+    # delete the start job (the unit then never runs on boot or shutdown).
+    "power profile persist service is wanted by the daemon (no ordering cycle)" =
+      cfg.systemd.services."itera-power-profile-persist".wantedBy == [ "power-profiles-daemon.service" ];
     "power profile persist service gated off without the daemon" =
       !(desktopOff.systemd.services ? "itera-power-profile-persist");
     "power profile state not persisted without the daemon" =
