@@ -35,7 +35,9 @@
 {
   config,
   lib,
+  pkgs,
   iteraLib,
+  iteraInputs,
   ...
 }:
 let
@@ -76,6 +78,19 @@ in
       itera.desktop.mango.enable = mkDefault true;
 
       programs.dank-material-shell.enable = mkDefault true;
+
+      # IP Indicator: a default-on DMS dank-bar widget (public IP / ISP /
+      # location). `enable` defaults to true in the plugins submodule, so this
+      # alone ships it on; `mkDefault` lets a consumer re-pin `src` or drop it.
+      # Per-user opt-out:
+      #   itera.users.<name>.programs.dankMaterialShell.plugins.ipIndicator.enable = false;
+      # Tracked as the `dms-ipindicator` flake input (source-only), so bumping it
+      # is `nix flake update dms-ipindicator` — no rev/hash in this file.
+      itera.programs.dankMaterialShell.plugins.ipIndicator.src = mkDefault iteraInputs.dms-ipindicator;
+
+      # The IP Indicator widget shells out to `curl`, which itera does not
+      # otherwise install.
+      environment.systemPackages = [ pkgs.curl ];
 
       # DMS turns on geoclue (`services.geoclue2.enable`) for its location-aware
       # features. geoclue's network backend reaches for avahi, which itera
