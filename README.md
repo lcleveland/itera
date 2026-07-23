@@ -72,8 +72,11 @@ bundles [disko](https://github.com/nix-community/disko),
 [lanzaboote](https://github.com/nix-community/lanzaboote),
 [agenix](https://github.com/ryantm/agenix),
 [nixos-facter](https://github.com/nix-community/nixos-facter-modules),
-[nix-index-database](https://github.com/nix-community/nix-index-database) and
-[nix-flatpak](https://github.com/gmodena/nix-flatpak) — unlike hjem these are
+[nix-index-database](https://github.com/nix-community/nix-index-database),
+[nix-flatpak](https://github.com/gmodena/nix-flatpak) and the Wayland desktop
+stack — [mango](https://github.com/mangowm/mango),
+[DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell) and its
+[greeter](https://github.com/AvengeMedia/dank-greeter) — unlike hjem these are
 plain NixOS modules, so you do **not** add them as inputs or `follows` them.
 
 > **You must `follows` hjem.** itera's home modules are class-`hjem` submodules
@@ -103,7 +106,7 @@ The full configuration reference lives in the
 - [Installation](https://github.com/lcleveland/itera/wiki/Installation)
   — installing from a live ISO and the `itera-testhost`.
 - [The `itera` command](https://github.com/lcleveland/itera/wiki/The-itera-Command)
-  — the on-system CLI (`rebuild`, `update`, `gc`, `facter report`).
+  — the on-system CLI (`rebuild`, `update`, `gc`, `firmware`, `facter report`).
 - [Repository structure](https://github.com/lcleveland/itera/wiki/Repository-Structure)
   — repository layout and exported outputs.
 
