@@ -106,7 +106,7 @@ The full configuration reference lives in the
 - [Installation](https://github.com/lcleveland/itera/wiki/Installation)
   — installing from a live ISO and the `itera-testhost`.
 - [The `itera` command](https://github.com/lcleveland/itera/wiki/The-itera-Command)
-  — the on-system CLI (`rebuild`, `update`, `gc`, `facter report`).
+  — the on-system CLI (`rebuild`, `update`, `gc`, `firmware`, `facter report`).
 - [Repository structure](https://github.com/lcleveland/itera/wiki/Repository-Structure)
   — repository layout and exported outputs.
 
