@@ -252,6 +252,10 @@ let
     # true, so an un-overridden user gets both the plugin dir and enabled=true.
     "default plugin dir shipped (bob)" = bobFiles ? "DankMaterialShell/plugins/ipIndicator";
     "default plugin enabled in plugin_settings (bob)" = bobPlugins.ipIndicator.enabled == true;
+    # Enabling only registers the plugin — the widget renders only when placed in
+    # a bar config, so assert the shipped default bar references it.
+    "default bar places ipIndicator widget (bob)" =
+      builtins.elem "ipIndicator" (builtins.head bobDms.barConfigs).rightWidgets;
 
     # ── DMS plugins: per-user add stays isolated ─────────────────────────
     "per-user plugin present (alice)" = aliceFiles ? "DankMaterialShell/plugins/Bar";

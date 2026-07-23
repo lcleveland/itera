@@ -74,19 +74,64 @@ in
 
   config = mkIf (config.itera.enable && cfg.enable) (mkMerge [
     {
-      # The shell needs a compositor — pull mango in.
-      itera.desktop.mango.enable = mkDefault true;
+      itera = {
+        # The shell needs a compositor — pull mango in.
+        desktop.mango.enable = mkDefault true;
+
+        programs.dankMaterialShell = {
+          # IP Indicator: a default-on DMS dank-bar widget (public IP / ISP /
+          # location). `enable` defaults to true in the plugins submodule, so this
+          # alone ships it on; `mkDefault` lets a consumer re-pin `src` or drop it.
+          # Per-user opt-out:
+          #   itera.users.<name>.programs.dankMaterialShell.plugins.ipIndicator.enable = false;
+          # Tracked as the `dms-ipindicator` flake input (source-only), so bumping
+          # it is `nix flake update dms-ipindicator` — no rev/hash in this file.
+          plugins.ipIndicator.src = mkDefault iteraInputs.dms-ipindicator;
+
+          # Enabling a plugin only REGISTERS it — a dank-bar widget renders only
+          # when its id appears in a bar config's widget list. itera writes
+          # settings.json declaratively (clobber = true, so DMS GUI edits do not
+          # survive a rebuild), so the bar layout must be declared here too. Ship
+          # DMS's default bar (schema matches the pinned `configVersion`) with
+          # `ipIndicator` added to the right widgets. mkDefault so a consumer
+          # replaces the whole bar via
+          # `itera.programs.dankMaterialShell.settings.barConfigs`. (Disabling the
+          # plugin leaves a harmless dangling id here — DMS finds no component and
+          # skips it.)
+          settings.barConfigs = mkDefault [
+            {
+              id = "default";
+              name = "Main Bar";
+              enabled = true;
+              position = 0;
+              screenPreferences = [ "all" ];
+              showOnLastDisplay = true;
+              leftWidgets = [
+                "launcherButton"
+                "workspaceSwitcher"
+                "focusedWindow"
+              ];
+              centerWidgets = [
+                "music"
+                "clock"
+                "weather"
+              ];
+              rightWidgets = [
+                "systemTray"
+                "clipboard"
+                "cpuUsage"
+                "memUsage"
+                "ipIndicator"
+                "notificationButton"
+                "battery"
+                "controlCenterButton"
+              ];
+            }
+          ];
+        };
+      };
 
       programs.dank-material-shell.enable = mkDefault true;
-
-      # IP Indicator: a default-on DMS dank-bar widget (public IP / ISP /
-      # location). `enable` defaults to true in the plugins submodule, so this
-      # alone ships it on; `mkDefault` lets a consumer re-pin `src` or drop it.
-      # Per-user opt-out:
-      #   itera.users.<name>.programs.dankMaterialShell.plugins.ipIndicator.enable = false;
-      # Tracked as the `dms-ipindicator` flake input (source-only), so bumping it
-      # is `nix flake update dms-ipindicator` — no rev/hash in this file.
-      itera.programs.dankMaterialShell.plugins.ipIndicator.src = mkDefault iteraInputs.dms-ipindicator;
 
       # The IP Indicator widget shells out to `curl`, which itera does not
       # otherwise install.
