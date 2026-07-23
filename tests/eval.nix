@@ -47,11 +47,11 @@ let
   # home persistence (itera.impermanence.homes).
   cfg = mkEval { itera.users.testuser = { }; };
 
-  # Same, with the opt-out that clears ~/Downloads on every boot (default off), to
-  # assert the boot-time clear service is wired up when enabled.
-  clearDownloadsOn = mkEval {
+  # Same, with the opt-out that KEEPS ~/Downloads across reboots (clearing is on by
+  # default), to assert the boot-time clear service drops out when disabled.
+  clearDownloadsOff = mkEval {
     itera.users.testuser = { };
-    itera.impermanence.homes.clearDownloadsOnBoot = true;
+    itera.impermanence.homes.clearDownloadsOnBoot = false;
   };
 
   # Desktop off → power-profiles-daemon is not pulled in, so the profile-persist
@@ -230,15 +230,19 @@ let
     "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
     # ~/Downloads persisted so large downloads land on disk, not the size-capped tmpfs root.
     "user home Downloads persisted by default" = builtins.elem "Downloads" (userDirs "testuser");
-    # clearDownloadsOnBoot (opt-out, default off): a boot-time service empties
-    # ~/Downloads only when enabled — Downloads stays persisted either way.
-    "clear-downloads service absent by default" = !(cfg.systemd.services ? "itera-clear-downloads");
-    "clear-downloads service present when clearDownloadsOnBoot on" =
-      clearDownloadsOn.systemd.services ? "itera-clear-downloads"
+    # clearDownloadsOnBoot (opt-out, default on): a boot-time service empties
+    # ~/Downloads unless disabled — Downloads stays persisted either way.
+    "clear-downloads service present by default" =
+      (cfg.systemd.services ? "itera-clear-downloads")
+      && builtins.elem "Downloads" (
+        map (d: d.directory or d) cfg.environment.persistence."/persist".users.testuser.directories
+      );
+    "clear-downloads service absent when clearDownloadsOnBoot off" =
+      !(clearDownloadsOff.systemd.services ? "itera-clear-downloads")
       && builtins.elem "Downloads" (
         map (
           d: d.directory or d
-        ) clearDownloadsOn.environment.persistence."/persist".users.testuser.directories
+        ) clearDownloadsOff.environment.persistence."/persist".users.testuser.directories
       );
     # Vivaldi's profile lives at ~/.config/vivaldi, covered by the curated
     # `.config` home dir, so bookmarks/logins/history survive the tmpfs root

@@ -20,9 +20,9 @@
 # introspection the module already does for secureBoot/flatpak/virtualisation —
 # and merges those curated paths with any explicit `itera.impermanence.users.<name>`
 # entries. Opt out via `homes.enable`. `Downloads` is persisted so large downloads
-# land on disk instead of the size-capped tmpfs root; set
-# `homes.clearDownloadsOnBoot` to keep that disk backing but empty the folder on
-# every boot.
+# land on disk instead of the size-capped tmpfs root, but its contents are emptied
+# on every boot by default (`homes.clearDownloadsOnBoot`) so downloads don't
+# accumulate across reboots; set that option to `false` to keep them.
 #
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
@@ -205,7 +205,8 @@ in
           ".claude"
           "Documents"
           # Persisted so large downloads land on disk-backed /persist rather than
-          # the size-capped tmpfs root, and survive the wiped root across reboots.
+          # the size-capped tmpfs root. Its contents are emptied on every boot by
+          # default (homes.clearDownloadsOnBoot); set that to false to keep them.
           "Downloads"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
@@ -222,15 +223,16 @@ in
 
       clearDownloadsOnBoot = mkOption {
         type = lib.types.bool;
-        default = false;
+        default = true;
         description = ''
           Empty every normal user's `~/Downloads` on each boot while keeping the
-          folder itself on the disk-backed {option}`persistRoot`. This is the
-          opt-out to persisting downloads across reboots: large downloads still
-          work (the folder is not on the size-capped tmpfs root), but its contents
-          are wiped at boot so nothing accumulates. Only meaningful while
-          `Downloads` is persisted (the default via {option}`homes.directories`);
-          otherwise the folder is on the tmpfs root and already empty each boot.
+          folder itself on the disk-backed {option}`persistRoot`. On by default:
+          large downloads still work (the folder is not on the size-capped tmpfs
+          root), but its contents are wiped at boot so nothing accumulates across
+          reboots. Set to `false` to instead keep downloads across reboots. Only
+          meaningful while `Downloads` is persisted (the default via
+          {option}`homes.directories`); otherwise the folder is on the tmpfs root
+          and already empty each boot.
         '';
       };
     };
