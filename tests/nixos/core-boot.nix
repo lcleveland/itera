@@ -62,17 +62,31 @@
 
     # The declared user can log in on tty1 with its password.
     machine.wait_until_succeeds("pgrep -f 'agetty.*tty1'")
-    machine.wait_until_tty_matches("1", "login: ")
-    machine.send_chars("test\n")
-    machine.wait_until_tty_matches("1", "Password: ")
-    machine.send_chars("test\n")
 
-    # Wait for the interactive shell prompt (`[test@machine:~]$`) before typing.
-    # Without this, on a slow login `send_chars` races the still-starting shell
-    # and the command below is dropped (or typed back at the login prompt),
-    # leaving the file uncreated and the test to time out. This is the flaky
-    # failure seen intermittently across PR and merge CI runs.
-    machine.wait_until_tty_matches("1", "test@machine")
+    # `send_chars` races the console: if agetty is still (re)initialising the
+    # tty when we type, the first keystrokes are dropped. A dropped username
+    # leaves `login` with an empty/garbage user — it rejects it (in CI this
+    # showed up as `FAILED LOGIN ... FOR 'UNKNOWN'`, and pam_securetty then
+    # flags the bogus user's tty as "not secure"), never prints "Password: ",
+    # and falls back to a fresh "login: ". A dropped command after login has the
+    # same effect one step later (the flaky failure #91 first tried to fix by
+    # waiting for the shell prompt). Both are the same race, so retry the whole
+    # login → password → interactive-shell handshake: a dropped keystroke then
+    # costs one more attempt instead of a 900 s wait_until_tty_matches timeout.
+    def log_in(_last_try: bool) -> bool:
+        machine.wait_until_tty_matches("1", "login: ")
+        machine.send_chars("test\n")
+        try:
+            machine.wait_until_tty_matches("1", "Password: ", timeout=20)
+            machine.send_chars("test\n")
+            # The interactive shell prompt (`[test@machine:~]$`) confirms the
+            # login took before we type the command below.
+            machine.wait_until_tty_matches("1", "test@machine", timeout=40)
+        except Exception:
+            return False
+        return True
+
+    retry(log_in, timeout_seconds=180)
 
     machine.send_chars("whoami > /tmp/whoami.txt\n")
     machine.wait_for_file("/tmp/whoami.txt")
