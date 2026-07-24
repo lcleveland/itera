@@ -41,10 +41,31 @@ let
       (if nvidiaOn then "cuda" else "cpu")
     else
       cfg.ollama.acceleration;
+  # nixpkgs' `ollama-cuda` currently fails to build. The CUDA llama.cpp runner is
+  # compiled in a child ExternalProject that re-runs `find_package(CUDAToolkit)`
+  # and reads `CUDAToolkit_ROOT` from the environment. `setupCudaHook` populates
+  # that variable only from the *host* CUDA dev outputs (cudart/cublas/cccl);
+  # `cuda_nvcc` is a nativeBuildInput, so `nvcc` lands on PATH for the parent build
+  # but never in `CUDAToolkit_ROOT` — and the child dies with "CUDA Toolkit not
+  # found" (`… libggml-cuda … ollama-llama-server-cuda_v12 … Error 2`). Prepend
+  # nvcc's root so the child locates the compiler; this mirrors the parent→child
+  # env workaround the package itself already carries for its Vulkan runner. Drop
+  # once nixpkgs marks cuda_nvcc into CUDAToolkit_ROOT. Lazy: only forced when the
+  # `cuda` build is actually selected.
+  ollamaCuda = pkgs.ollama-cuda.overrideAttrs (old: {
+    preBuild =
+      let
+        nvcc = lib.getBin (pkgs.cudaPackages.cuda_nvcc.__spliced.buildHost or pkgs.cudaPackages.cuda_nvcc);
+      in
+      ''
+        export CUDAToolkit_ROOT="${nvcc}''${CUDAToolkit_ROOT:+;$CUDAToolkit_ROOT}"
+      ''
+      + (old.preBuild or "");
+  });
   ollamaPackage =
     {
       cpu = pkgs.ollama;
-      cuda = pkgs.ollama-cuda;
+      cuda = ollamaCuda;
       rocm = pkgs.ollama-rocm;
     }
     .${accel};
