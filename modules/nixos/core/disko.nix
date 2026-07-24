@@ -23,15 +23,25 @@
 # `/persist`, and the hibernation image in swap — is encrypted. The ESP stays
 # unencrypted (firmware must read it). It is opt-IN (default off, like
 # `itera.secureBoot`) because it changes the on-disk format and demands a passphrase
-# at every boot. Both containers are enrolled to the SAME passphrase, so at boot
-# itera's systemd initrd caches the first entry and unlocks both with a SINGLE
-# prompt; at install time disko's per-device `askPassword` prompts once per
-# container (you type it for root and again for swap — a one-time cost). Set
+# at every boot. Every container (root, swap, and each data drive — see below) is
+# enrolled to the SAME passphrase, so at boot itera's systemd initrd caches the
+# first entry and unlocks them all with a SINGLE prompt; at install time disko's
+# per-device `askPassword` prompts once per container (a one-time cost). Set
 # `encryption.passwordFile` to install non-interactively. Enabling encryption also
 # auto-enables `itera.hardware.initrd.usbSupport` so a USB keyboard can type the
 # passphrase in early boot (override it back to false on a laptop with a built-in
 # keyboard). No key material lives on disk — the passphrase is in the LUKS header
 # plus your memory — so nothing extra needs persisting under impermanence.
+#
+# Extra data drives: `dataDrives` declares additional internal fixed disks that
+# itera OWNS — it partitions, formats (btrfs or ext4), and mounts each whole disk,
+# and, crucially, wraps each in LUKS whenever `encryption.enable` is on so a data
+# drive is encrypted and unlocked by exactly the same single-passphrase/TPM2 flow
+# as the boot disk (that uniform encryption is the whole reason itera owns them
+# rather than just mounting a pre-existing filesystem). They are independent
+# persistent mounts, NOT `neededForBoot`: they unlock in the initrd but mount in
+# stage 2, so they compose with the `itera.impermanence` tmpfs root without touching
+# `/`, `/nix`, or `/persist`. Empty by default (a no-op).
 #
 # TPM2 auto-unlock: layer `encryption.tpm2.enable` on top to unseal the containers
 # from the machine's TPM2 with no passphrase on a trusted boot. A TPM2 keyslot is
@@ -59,24 +69,43 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types) str bool nullOr;
+  inherit (lib.types)
+    str
+    bool
+    nullOr
+    attrsOf
+    submodule
+    listOf
+    enum
+    ;
 
   cfg = config.itera.disko;
   ec = cfg.encryption;
   tpm = ec.tpm2;
 
-  # The LUKS containers wrapLuks creates, paired with whether each is present.
-  # `cryptroot` always exists when encryption is on; `cryptswap` only when a swap
-  # partition is declared. Enrollment and crypttab wiring iterate this list.
-  luksContainers = {
-    cryptroot = true;
-    cryptswap = cfg.swapSize != "";
-  };
+  # Underlying raw partition (by disko partlabel) for a given disko disk +
+  # partition name — the device systemd-cryptenroll writes TPM2 tokens into. It
+  # operates on the LUKS header, so the raw partition (not the /dev/mapper device)
+  # is the target. disko always names partitions `disk-<diskname>-<partname>`, so
+  # this generalizes over any disk (the boot disk "main" AND each data drive).
+  cryptPartition = disk: part: "/dev/disk/by-partlabel/disk-${disk}-${part}";
 
-  # Underlying raw partitions (by disko partlabel) behind those mappers — the
-  # devices systemd-cryptenroll writes TPM2 tokens into. It operates on the LUKS
-  # header, so the raw partition (not the /dev/mapper device) is the target.
-  cryptPartition = name: "/dev/disk/by-partlabel/disk-main-${lib.removePrefix "crypt" name}";
+  # The LUKS mapper name for a data drive. The `cryptdata-` prefix can never
+  # collide with `cryptroot`/`cryptswap`, so any drive attr name (even "root" or
+  # "swap") is safe.
+  dataMapper = name: "cryptdata-${name}";
+
+  # Every LUKS container wrapLuks creates, mapped to its underlying raw partition.
+  # Contains ONLY present containers: `cryptroot` always, `cryptswap` when a swap
+  # partition is declared, and one `cryptdata-<name>` per data drive. Enrollment
+  # and crypttab wiring iterate this set (all gated on encryption being on).
+  luksContainers = {
+    cryptroot = cryptPartition "main" "root";
+  }
+  // lib.optionalAttrs (cfg.swapSize != "") { cryptswap = cryptPartition "main" "swap"; }
+  // lib.mapAttrs' (
+    name: _: lib.nameValuePair (dataMapper name) (cryptPartition name "data")
+  ) cfg.dataDrives;
 
   # A helper that (re-)enrolls every present LUKS container's TPM2 keyslot against
   # the configured PCRs. `--wipe-slot=tpm2` first makes it idempotent and lets it
@@ -88,15 +117,10 @@ let
     name = "itera-tpm2-enroll";
     runtimeInputs = [ pkgs.systemd ];
     text = ''
-      # Rebind the TPM2 keyslot on every itera LUKS container. Pass through any
-      # extra args (e.g. --unlock-key-file=/path) to every invocation.
-      for dev in ${
-        lib.concatStringsSep " " (
-          lib.mapAttrsToList (name: _: cryptPartition name) (
-            lib.filterAttrs (_: present: present) luksContainers
-          )
-        )
-      }; do
+      # Rebind the TPM2 keyslot on every itera LUKS container (root, swap, and any
+      # data drives). Pass through any extra args (e.g. --unlock-key-file=/path) to
+      # every invocation.
+      for dev in ${lib.escapeShellArgs (lib.attrValues luksContainers)}; do
         echo "Enrolling TPM2 (PCRs ${tpm.pcrs}) into $dev" >&2
         systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto \
           --tpm2-pcrs=${lib.escapeShellArg tpm.pcrs} "$@" "$dev"
@@ -129,6 +153,42 @@ let
       }
     else
       inner;
+
+  # The disko partition `content` for a data drive: a flat filesystem (no
+  # subvolumes — unlike the boot disk's btrfs root) mounted directly at the
+  # drive's `mountpoint`, wrapped in LUKS when encryption is on. btrfs uses the
+  # dedicated `btrfs` type with `-f` to force-format over any existing signature
+  # (as the root does); ext4 uses the generic `filesystem`/`format` pair. A
+  # `label` maps to `-L` for both. mountOptions default per fsType (see the option
+  # below) because `compress=zstd` is btrfs-only and would break an ext4 mount.
+  mkDataContent =
+    name: drive:
+    wrapLuks (dataMapper name) (
+      if drive.fsType == "btrfs" then
+        {
+          type = "btrfs";
+          extraArgs = [
+            "-f"
+          ]
+          ++ lib.optionals (drive.label != null) [
+            "-L"
+            drive.label
+          ];
+          inherit (drive) mountpoint mountOptions;
+        }
+      else
+        {
+          type = "filesystem";
+          format = drive.fsType;
+          inherit (drive) mountpoint mountOptions;
+        }
+        // lib.optionalAttrs (drive.label != null) {
+          extraArgs = [
+            "-L"
+            drive.label
+          ];
+        }
+    );
 in
 {
   options.itera.disko = {
@@ -291,6 +351,94 @@ in
         };
       };
     };
+
+    dataDrives = mkOption {
+      type = attrsOf (
+        submodule (
+          { name, ... }:
+          {
+            options = {
+              device = mkOption {
+                type = str;
+                example = "/dev/sdb";
+                description = ''
+                  The whole-disk device for this data drive. Required, and DESTRUCTIVE:
+                  itera owns the entire disk (a single-partition GPT) so that encryption
+                  can be applied uniformly — everything on it is destroyed when disko
+                  formats it. Point it at a fixed internal disk, not removable media
+                  (use {option}`itera.storage` for USB drives).
+                '';
+              };
+
+              fsType = mkOption {
+                type = enum [
+                  "btrfs"
+                  "ext4"
+                ];
+                default = "btrfs";
+                description = ''
+                  Filesystem to create on the drive: `btrfs` (the default, matching
+                  itera's root layout, formatted with `compress=zstd,noatime`) or `ext4`.
+                '';
+              };
+
+              mountpoint = mkOption {
+                type = str;
+                example = "/data";
+                description = ''
+                  Absolute path this drive's filesystem mounts at. Required. Keep it
+                  clear of the boot disk's mountpoints ({file}`/`, {file}`/nix`,
+                  {file}`/persist`, {file}`/boot`); a data drive is an independent
+                  persistent mount, not part of the impermanence root.
+                '';
+              };
+
+              mountOptions = mkOption {
+                type = listOf str;
+                default =
+                  if config.itera.disko.dataDrives.${name}.fsType == "btrfs" then
+                    [
+                      "compress=zstd"
+                      "noatime"
+                    ]
+                  else
+                    [ "noatime" ];
+                defaultText = lib.literalExpression ''btrfs: [ "compress=zstd" "noatime" ]; ext4: [ "noatime" ]'';
+                description = ''
+                  Mount options for this drive. The default diverges by
+                  {option}`fsType` because `compress=zstd` is btrfs-only and would
+                  break an ext4 mount.
+                '';
+              };
+
+              label = mkOption {
+                type = nullOr str;
+                default = null;
+                example = "data";
+                description = "Optional filesystem label (`-L`) for the drive.";
+              };
+            };
+          }
+        )
+      );
+      default = { };
+      example = lib.literalExpression ''
+        { data = { device = "/dev/sdb"; mountpoint = "/data"; }; }
+      '';
+      description = ''
+        Additional internal fixed data drives that itera partitions, formats,
+        mounts, and — when {option}`itera.disko.encryption.enable` is set —
+        LUKS-encrypts with the SAME passphrase and TPM2 auto-unlock flow as the boot
+        disk. Each attr becomes a whole-disk, single-partition GPT disk (DESTRUCTIVE),
+        and the attr name is used as the disko disk name and the partlabel base
+        (`disk-<name>-data`) — so keep it short (the GPT partlabel `disk-<name>-data`
+        caps at 36 chars, i.e. name <= 26) and never `"main"` (that is the boot disk).
+
+        Empty (the default) is a no-op. Data drives are independent persistent mounts
+        (not `neededForBoot`): under {option}`itera.impermanence` they are unaffected
+        by the tmpfs root, unlocking in the initrd but mounting in stage 2.
+      '';
+    };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
@@ -299,7 +447,26 @@ in
         assertion = cfg.device != "";
         message = "itera.disko.enable is set but itera.disko.device is empty — set it to the target disk (e.g. \"/dev/nvme0n1\").";
       }
-    ];
+    ]
+    # Per-data-drive sanity checks. The attr name is reused as the disko disk name
+    # and partlabel base, so guard the collisions and limits that would otherwise
+    # surface as opaque disko/GPT errors much later.
+    ++ lib.mapAttrsToList (name: drive: {
+      assertion = drive.device != "";
+      message = "itera.disko.dataDrives.${name}.device is empty — set it to the target disk (e.g. \"/dev/sdb\").";
+    }) cfg.dataDrives
+    ++ lib.mapAttrsToList (name: drive: {
+      assertion = lib.hasPrefix "/" drive.mountpoint;
+      message = "itera.disko.dataDrives.${name}.mountpoint must be an absolute path (e.g. \"/data\").";
+    }) cfg.dataDrives
+    ++ lib.mapAttrsToList (name: _: {
+      assertion = name != "main";
+      message = "itera.disko.dataDrives.\"main\" collides with the boot disk — rename it.";
+    }) cfg.dataDrives
+    ++ lib.mapAttrsToList (name: _: {
+      assertion = builtins.stringLength "disk-${name}-data" <= 36;
+      message = "itera.disko.dataDrives.${name}: GPT partlabel \"disk-${name}-data\" exceeds 36 chars — use a shorter attr name (<= 26).";
+    }) cfg.dataDrives;
 
     # With encryption on, a LUKS passphrase may be typed in the initrd — which
     # needs USB HID modules present for a USB keyboard to work. `mkDefault` so it's
@@ -315,16 +482,16 @@ in
     itera.hardware.initrd.usbSupport = mkIf ec.enable (mkDefault true);
 
     # TPM2 auto-unlock. disko already emits a `boot.initrd.luks.devices.<name>` entry
-    # per container; we augment each present one with `tpm2-device=auto` so the
-    # systemd initrd unseals the volume key from the TPM (falling back to the
-    # passphrase prompt when the sealed PCR state no longer matches). The TPM kernel
-    # modules must be in the initrd for the device node to exist in stage 1
-    # (`boot.initrd.systemd.tpm2.enable` — default true under systemd initrd — pulls
-    # in the tpm2-tss userspace). The enroll helper is shipped for manual/rebind use.
+    # per container (root, swap, and each data drive); we augment every one with
+    # `tpm2-device=auto` so the systemd initrd unseals the volume key from the TPM
+    # (falling back to the passphrase prompt when the sealed PCR state no longer
+    # matches). The TPM kernel modules must be in the initrd for the device node to
+    # exist in stage 1 (`boot.initrd.systemd.tpm2.enable` — default true under
+    # systemd initrd — pulls in the tpm2-tss userspace). The enroll helper is shipped
+    # for manual/rebind use. `luksContainers` already holds only the present
+    # containers keyed by mapper name, so map over it directly.
     boot.initrd.luks.devices = mkIf (ec.enable && tpm.enable) (
-      lib.mapAttrs (_: _: { crypttabExtraOpts = [ "tpm2-device=auto" ]; }) (
-        lib.filterAttrs (_: present: present) luksContainers
-      )
+      lib.mapAttrs (_: _: { crypttabExtraOpts = [ "tpm2-device=auto" ]; }) luksContainers
     );
     boot.initrd.availableKernelModules = mkIf (ec.enable && tpm.enable) [
       "tpm"
@@ -333,67 +500,88 @@ in
     ];
     environment.systemPackages = mkIf (ec.enable && tpm.enable) [ enrollScript ];
 
-    disko.devices.disk.main = {
-      inherit (cfg) device;
-      type = "disk";
-      content = {
-        type = "gpt";
-        partitions = {
-          ESP = {
-            size = cfg.espSize;
-            type = "EF00";
-            content = {
-              type = "filesystem";
-              format = "vfat";
-              mountpoint = "/boot";
-              mountOptions = [ "umask=0077" ];
+    # The boot disk (`main`) plus one whole-disk GPT per data drive. disko happily
+    # manages many `disk.*` entries; NixOS mounts the resulting filesystems in
+    # mountpoint-path order, so the boot disk's `/`, `/nix`, `/persist`, `/boot` and
+    # each data drive's mountpoint all order correctly regardless of disk. Data
+    # drives contribute nothing when `dataDrives` is empty (the default).
+    disko.devices.disk = {
+      main = {
+        inherit (cfg) device;
+        type = "disk";
+        content = {
+          type = "gpt";
+          partitions = {
+            ESP = {
+              size = cfg.espSize;
+              type = "EF00";
+              content = {
+                type = "filesystem";
+                format = "vfat";
+                mountpoint = "/boot";
+                mountOptions = [ "umask=0077" ];
+              };
             };
-          };
 
-          swap = mkIf (cfg.swapSize != "") {
-            size = cfg.swapSize;
-            # Wrapped in LUKS when encryption is on (mapper `/dev/mapper/cryptswap`),
-            # so the hibernation image written here is encrypted. The swap type's
-            # `resumeDevice` then resolves to the mapper, so `boot.resumeDevice`
-            # points at the decrypted device and hibernation still works.
-            content = wrapLuks "cryptswap" {
-              type = "swap";
-              discardPolicy = "both";
-              # Register this partition as the hibernation resume target. disko sets
-              # `boot.resumeDevice` to the (decrypted, when encrypted) device and
-              # adds it to `swapDevices`; itera's systemd initrd then emits the
-              # `resume=` kernel param from it. Gated on `resume` so swap can exist
-              # without wiring suspend-to-disk.
-              resumeDevice = cfg.resume;
+            swap = mkIf (cfg.swapSize != "") {
+              size = cfg.swapSize;
+              # Wrapped in LUKS when encryption is on (mapper `/dev/mapper/cryptswap`),
+              # so the hibernation image written here is encrypted. The swap type's
+              # `resumeDevice` then resolves to the mapper, so `boot.resumeDevice`
+              # points at the decrypted device and hibernation still works.
+              content = wrapLuks "cryptswap" {
+                type = "swap";
+                discardPolicy = "both";
+                # Register this partition as the hibernation resume target. disko sets
+                # `boot.resumeDevice` to the (decrypted, when encrypted) device and
+                # adds it to `swapDevices`; itera's systemd initrd then emits the
+                # `resume=` kernel param from it. Gated on `resume` so swap can exist
+                # without wiring suspend-to-disk.
+                resumeDevice = cfg.resume;
+              };
             };
-          };
 
-          root = {
-            size = "100%";
-            # Wrapped in LUKS when encryption is on (mapper `/dev/mapper/cryptroot`);
-            # the btrfs and its `/`, `/nix`, `/persist` subvolumes then live inside
-            # the encrypted container, unlocked in the initrd before they mount.
-            content = wrapLuks "cryptroot" {
-              type = "btrfs";
-              extraArgs = [ "-f" ];
-              subvolumes = {
-                "/root" = {
-                  inherit mountOptions;
-                  mountpoint = "/";
-                };
-                "/nix" = {
-                  inherit mountOptions;
-                  mountpoint = "/nix";
-                };
-                "/persist" = {
-                  inherit mountOptions;
-                  mountpoint = "/persist";
+            root = {
+              size = "100%";
+              # Wrapped in LUKS when encryption is on (mapper `/dev/mapper/cryptroot`);
+              # the btrfs and its `/`, `/nix`, `/persist` subvolumes then live inside
+              # the encrypted container, unlocked in the initrd before they mount.
+              content = wrapLuks "cryptroot" {
+                type = "btrfs";
+                extraArgs = [ "-f" ];
+                subvolumes = {
+                  "/root" = {
+                    inherit mountOptions;
+                    mountpoint = "/";
+                  };
+                  "/nix" = {
+                    inherit mountOptions;
+                    mountpoint = "/nix";
+                  };
+                  "/persist" = {
+                    inherit mountOptions;
+                    mountpoint = "/persist";
+                  };
                 };
               };
             };
           };
         };
       };
-    };
+    }
+    // lib.mapAttrs (name: drive: {
+      inherit (drive) device;
+      type = "disk";
+      content = {
+        type = "gpt";
+        # A single 100% partition carrying the drive's filesystem, wrapped in LUKS
+        # (mapper `cryptdata-<name>`) when encryption is on so it joins the boot
+        # disk's single-passphrase + TPM2 unlock. The partlabel is `disk-<name>-data`.
+        partitions.data = {
+          size = "100%";
+          content = mkDataContent name drive;
+        };
+      };
+    }) cfg.dataDrives;
   };
 }

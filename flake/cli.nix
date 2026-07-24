@@ -46,6 +46,29 @@
           text = builtins.readFile ../facter-report.sh;
         };
 
+        # `itera disks`: lists internal fixed disks and prints a ready-to-paste
+        # itera.disko.dataDrives block for each. Multi-arch and shipped to every
+        # consumer (it is in itera-consumer's runtimeInputs below). Only lsblk is
+        # special enough to carry explicitly; readlink/grep come from the host PATH
+        # like facter-report.sh's awk.
+        itera-disks = pkgs.writeShellApplication {
+          name = "itera-disks";
+          runtimeInputs = [ pkgs.util-linux ];
+          text = builtins.readFile ../cli/itera-disks.sh;
+        };
+
+        # `itera disks prep`: destructively wipe a disk blank so itera.disko.autoClaim
+        # will claim it. lsblk/wipefs/sgdisk are special; sudo/systemctl come from the
+        # ambient PATH (writeShellApplication prepends runtimeInputs, keeping it).
+        itera-disks-prep = pkgs.writeShellApplication {
+          name = "itera-disks-prep";
+          runtimeInputs = [
+            pkgs.util-linux
+            pkgs.gptfdisk
+          ];
+          text = builtins.readFile ../cli/itera-disks-prep.sh;
+        };
+
         # In-place rebuild command. Moved here from dev/remote-access.nix so both
         # the on-host command and the dispatcher reuse the same package.
         itera-update = pkgs.writeShellApplication {
@@ -68,6 +91,8 @@
             # offline, unlike facter-report.sh's `nix run nixpkgs#nixos-facter`.
             pkgs.nixos-facter
             config.packages.facter-report
+            config.packages.itera-disks
+            config.packages.itera-disks-prep
             # `fwupdmgr` backs the `firmware` verbs; carried explicitly (like nh)
             # so `itera firmware` works even on a host with the firmware battery
             # off — it then just talks to whatever fwupd daemon is (not) running.
@@ -86,6 +111,8 @@
             pkgs.nh
             pkgs.nixos-facter
             config.packages.facter-report
+            config.packages.itera-disks
+            config.packages.itera-disks-prep
             config.packages.itera-update
             config.packages.install-itera-testhost
             pkgs.fwupd

@@ -99,6 +99,10 @@ Commands:
   update-boot [nh args]        Update your flake inputs, then apply on next reboot
                                (nh os boot --update).
   gc [nh args]                 Prune old generations to free space (nh clean all).
+  disks [list]                 List internal fixed disks and the config needed to
+                               add each as an itera.disko.dataDrives entry.
+  disks prep [--yes] <device>  Wipe a disk blank so itera.disko.autoClaim will
+                               format and mount it (DESTROYS all data on it).
   firmware status              Show devices and their current firmware (fwupdmgr
                                get-devices).
   firmware refresh             Refresh firmware metadata from the LVFS (fwupdmgr
@@ -171,6 +175,20 @@ case "$cmd" in
     fi
     ;;
   gc) exec nh clean all "$@" ;;
+  disks)
+    sub="${1:-list}"
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      list) exec itera-disks "$@" ;;
+      prep) exec itera-disks-prep "$@" ;;
+      *)
+        echo "itera disks: unknown subcommand '${sub:-}' (expected: list, prep)" >&2
+        echo >&2
+        usage >&2
+        exit 1
+        ;;
+    esac
+    ;;
   firmware)
     sub="${1:-}"
     [ "$#" -gt 0 ] && shift

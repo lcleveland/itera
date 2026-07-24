@@ -89,6 +89,50 @@ let
     };
   };
 
+  # Extra data drives (itera.disko.dataDrives). itera OWNS these disks so encryption
+  # applies uniformly, so three variants exercise the matrix: an encrypted btrfs
+  # drive with TPM2 on (must join the boot disk's LUKS + tpm2-device=auto flow), a
+  # plain encryption-off drive (no LUKS wrapper), and an ext4 drive (fsType-specific
+  # format + mountOptions).
+  dataDrivesEncTpm2 = mkEval {
+    itera.disko.encryption = {
+      enable = true;
+      tpm2.enable = true;
+    };
+    itera.disko.dataDrives.extra = {
+      device = "/dev/vdb";
+      mountpoint = "/data";
+    };
+  };
+  dataDrivesPlain = mkEval {
+    itera.disko.dataDrives.extra = {
+      device = "/dev/vdb";
+      mountpoint = "/data";
+    };
+  };
+  dataDrivesExt4 = mkEval {
+    itera.disko.dataDrives.extra = {
+      device = "/dev/vdb";
+      mountpoint = "/data";
+      fsType = "ext4";
+    };
+  };
+
+  # Runtime auto-claim of blank disks (itera.disko.autoClaim, opt-in). Assert the
+  # boot service is gated and that its environment reflects fsType/encryption/keyfile.
+  autoClaimOn = mkEval { itera.disko.autoClaim.enable = true; };
+  autoClaimEncrypted = mkEval {
+    itera.disko.encryption.enable = true;
+    itera.disko.autoClaim.enable = true;
+  };
+  autoClaimExt4 = mkEval {
+    itera.disko.autoClaim = {
+      enable = true;
+      fsType = "ext4";
+    };
+  };
+  claimEnv = c: c.systemd.services.itera-claim-disks.environment;
+
   # NVIDIA is opt-in (default off). Evaluate a plain-defaults config to assert it
   # stays inert, and an enabled + PRIME-offload config to assert the wiring.
   nvidiaOn = mkEval {
@@ -130,6 +174,9 @@ let
   partitions = c: c.disko.devices.disk.main.content.partitions;
   encRoot = (partitions encryptionOn).root.content;
   encSwap = (partitions encryptionOn).swap.content;
+  # The `extra` data drive's single-partition content (a LUKS wrapper when
+  # encrypted, else the bare filesystem) — used by the dataDrives checks below.
+  dataPart = c: c.disko.devices.disk.extra.content.partitions.data.content;
 
   # impermanence coerces string entries into attrsets ({ file = ...; } /
   # { directory = ...; }); tolerate either shape.
@@ -361,6 +408,67 @@ let
       tpm2On.itera.hardware.initrd.usbSupport == true;
     # The enrollment helper is shipped when TPM2 unlock is on.
     "tpm2 unlock ships the itera-tpm2-enroll helper" = hasPkg tpm2On "itera-tpm2-enroll";
+
+    # extra data drives (itera.disko.dataDrives) — itera owns them so encryption applies
+    "no data drives by default" = cfg.itera.disko.dataDrives == { };
+    "no extra disk emitted without data drives" = !(cfg.disko.devices.disk ? "extra");
+    # Plain (encryption off): a flat btrfs filesystem mounted at the drive's mountpoint,
+    # no LUKS wrapper, carrying the btrfs zstd mount options.
+    "data drive is plain btrfs when encryption is off" =
+      (dataPart dataDrivesPlain).type == "btrfs" && (dataPart dataDrivesPlain).mountpoint == "/data";
+    "plain data drive gets the btrfs zstd mount options" =
+      builtins.elem "compress=zstd" (dataPart dataDrivesPlain).mountOptions;
+    # ext4 variant: the generic filesystem type + ext4 format, and NO btrfs-only
+    # compress option (which would break an ext4 mount).
+    "ext4 data drive uses the filesystem type with ext4 format" =
+      (dataPart dataDrivesExt4).type == "filesystem" && (dataPart dataDrivesExt4).format == "ext4";
+    "ext4 data drive omits the btrfs compress mount option" =
+      !(builtins.elem "compress=zstd" (dataPart dataDrivesExt4).mountOptions);
+    # Encrypted: wrapped in a uniquely-named cryptdata-<name> LUKS container, with the
+    # btrfs inside, still mounted at /data.
+    "encryption wraps the data drive in a cryptdata luks container" =
+      (dataPart dataDrivesEncTpm2).type == "luks"
+      && (dataPart dataDrivesEncTpm2).name == "cryptdata-extra"
+      && (dataPart dataDrivesEncTpm2).content.type == "btrfs"
+      && (dataPart dataDrivesEncTpm2).content.mountpoint == "/data";
+    "encryption registers a cryptdata initrd luks device" =
+      dataDrivesEncTpm2.boot.initrd.luks.devices ? "cryptdata-extra";
+    # ...and it joins the same single TPM2 unlock flow as the boot disk.
+    "tpm2 unlock wires tpm2-device=auto onto the data container" =
+      builtins.elem "tpm2-device=auto"
+        dataDrivesEncTpm2.boot.initrd.luks.devices."cryptdata-extra".crypttabExtraOpts;
+    # The user-facing outcome: disko turns the drive into a real NixOS fileSystems
+    # mount at its mountpoint, off the decrypted mapper, btrfs, and NOT neededForBoot
+    # (it mounts in stage 2, independent of the impermanence tmpfs root).
+    "data drive produces a /data fileSystems mount off the luks mapper" =
+      dataDrivesEncTpm2.fileSystems ? "/data"
+      && dataDrivesEncTpm2.fileSystems."/data".device == "/dev/mapper/cryptdata-extra"
+      && dataDrivesEncTpm2.fileSystems."/data".fsType == "btrfs";
+    "data drive mount is not neededForBoot" =
+      (dataDrivesEncTpm2.fileSystems."/data".neededForBoot or false) == false;
+
+    # runtime auto-claim (itera.disko.autoClaim, opt-in, default off)
+    "autoClaim is off by default" = cfg.itera.disko.autoClaim.enable == false;
+    "no claim service by default" = !(cfg.systemd.services ? "itera-claim-disks");
+    "autoClaim installs the boot claim service" = autoClaimOn.systemd.services ? "itera-claim-disks";
+    "claim service is a oneshot that stays active" =
+      autoClaimOn.systemd.services.itera-claim-disks.serviceConfig.Type == "oneshot"
+      && autoClaimOn.systemd.services.itera-claim-disks.serviceConfig.RemainAfterExit;
+    # Encryption follows itera.disko.encryption, surfaced to the script via env.
+    "claim service reports encryption off by default" =
+      (claimEnv autoClaimOn).ITERA_CLAIM_ENCRYPT == "0";
+    "autoClaim + encryption tells the service to encrypt" =
+      (claimEnv autoClaimEncrypted).ITERA_CLAIM_ENCRYPT == "1";
+    # Under impermanence the LUKS keyfile lives on the persistent root.
+    "autoClaim keyfile lives under the persist root" =
+      (claimEnv autoClaimEncrypted).ITERA_CLAIM_KEYFILE == "/persist/itera/claim-disks.key";
+    # fsType drives both the format and the (btrfs-only) compress mount option.
+    "autoClaim defaults to btrfs with zstd mount options" =
+      (claimEnv autoClaimOn).ITERA_CLAIM_FSTYPE == "btrfs"
+      && lib.hasInfix "compress=zstd" (claimEnv autoClaimOn).ITERA_CLAIM_MOUNTOPTS;
+    "autoClaim ext4 drops the btrfs compress option" =
+      (claimEnv autoClaimExt4).ITERA_CLAIM_FSTYPE == "ext4"
+      && !(lib.hasInfix "compress=zstd" (claimEnv autoClaimExt4).ITERA_CLAIM_MOUNTOPTS);
 
     # NVIDIA battery (itera.nvidia, opt-in)
     "nvidia is off by default" = cfg.itera.nvidia.enable == false;
