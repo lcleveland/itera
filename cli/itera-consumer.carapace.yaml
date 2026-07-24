@@ -28,6 +28,16 @@ commands:
     description: update flake inputs, apply on next reboot (nh os boot --update)
   - name: gc
     description: prune old generations to free space (nh clean all)
+  - name: disks
+    description: inspect internal fixed disks / prep one for autoClaim
+    commands:
+      - name: list
+        description: list internal fixed disks and how to add them as data drives
+      - name: prep
+        description: wipe a disk blank so itera.disko.autoClaim will claim it
+        completion:
+          positional:
+            - ["$files"]
   - name: firmware
     description: update device firmware via fwupd
     commands:

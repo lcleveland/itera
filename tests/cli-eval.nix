@@ -58,6 +58,8 @@ let
     "shipped spec is the consumer spec (has the consumer verbs)" =
       lib.hasInfix "name: rebuild" specText
       && lib.hasInfix "name: gc" specText
+      && lib.hasInfix "name: disks" specText
+      && lib.hasInfix "name: prep" specText
       && lib.hasInfix "name: firmware" specText;
     "shipped spec omits the dev-only testhost verbs" = !(lib.hasInfix "name: testhost" specText);
     "no completion spec when carapace is off" =

@@ -107,6 +107,15 @@ in
   disko.devices.disk.main.imageSize = "20G";
   disko.memSize = 4096;
 
+  # To exercise itera.disko.dataDrives interactively, uncomment both lines below and
+  # `nix run .#vm`: disko creates and formats a second virtio disk (/dev/vdb) and
+  # mounts it at /data. Verify inside with `findmnt /data`; add
+  # `itera.disko.encryption.enable = true;` above and `cryptsetup status
+  # cryptdata-extra` shows it unlocked by the SAME single boot passphrase. Left
+  # commented so the default VM stays a single-disk boot.
+  #   itera.disko.dataDrives.extra = { device = "/dev/vdb"; mountpoint = "/data"; };
+  #   disko.devices.disk.extra.imageSize = "5G";
+
   # ── virtio guest drivers ──────────────────────────────────────────────────
   # The VM boots through systemd-boot off an emulated virtio disk and renders on
   # the virtio-gpu configured below, so the guest kernel needs the virtio

@@ -121,6 +121,17 @@
               #     installer a scratch key path it fills and shreds:
               #       disko.encryption.passwordFile = "/tmp/itera-luks.key"; # install-time only
               #     Without it you just run `sudo itera-tpm2-enroll` once after first boot.
+              #   disko.dataDrives.data = { # extra internal fixed drive(s) itera OWNS:
+              #       device = "/dev/sdb";  #   WIPES this disk, formats + mounts it, and
+              #       mountpoint = "/data"; #   (when disko.encryption is on) LUKS-encrypts
+              #     };                      #   it with the SAME passphrase/TPM2 as the boot
+              #     # disk. fsType defaults to btrfs ("ext4" also supported). The attr name
+              #     # becomes the disk/partlabel base — keep it short and never "main".
+              #   disko.autoClaim.enable = true; # instead of listing each drive:
+              #     # auto-claim EVERY blank internal fixed disk that isn't the boot
+              #     # disk at boot — format + mount (+ encrypt if disko.encryption is
+              #     # on). Only touches BLANK disks; run `itera disks prep <dev>` to
+              #     # wipe a disk you want claimed. `itera disks` lists candidates.
               #   impermanence.directories = [ "/var/lib/tailscale" ];
 
               # Advanced: to manage partitioning yourself (e.g. a pre-partitioned

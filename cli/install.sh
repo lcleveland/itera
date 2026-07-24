@@ -264,6 +264,22 @@ if [ "$tpm2_enabled" = "true" ]; then
   # writes the TPM2 token into the LUKS header on those, not the mapper devices.
   targets=("/dev/disk/by-partlabel/disk-${DISK_NAME}-root")
   [ -n "$(cfg_attr swapSize)" ] && targets+=("/dev/disk/by-partlabel/disk-${DISK_NAME}-swap")
+
+  # Plus one container per itera.disko.dataDrives.<name> (partlabel disk-<name>-data).
+  # Enrolling them here means an encrypted data drive auto-unlocks from the very first
+  # boot; without this they'd only get their TPM2 keyslot on a later manual
+  # `itera-tpm2-enroll` run. --apply joins the attr names with newlines so --raw emits
+  # one per line (empty string when there are none, so the loop is a no-op).
+  data_drives="$(
+    nix eval --raw "${FLAKE}#nixosConfigurations.${host}.config.itera.disko.dataDrives" \
+      --apply 'ds: builtins.concatStringsSep "\n" (builtins.attrNames ds)' 2>/dev/null || true
+  )"
+  if [ -n "$data_drives" ]; then
+    while IFS= read -r dd; do
+      [ -n "$dd" ] && targets+=("/dev/disk/by-partlabel/disk-${dd}-data")
+    done <<<"$data_drives"
+  fi
+
   command -v udevadm >/dev/null && udevadm settle || true
 
   if [ -n "$pwfile" ] && [ -r "$pwfile" ]; then
