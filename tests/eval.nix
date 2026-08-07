@@ -318,8 +318,10 @@ let
 
     # hardening (nix-mineral, auto-on with itera.enable)
     "nix-mineral hardening is enabled" = cfg.nix-mineral.enable;
-    # Kicksecure's static generic machine-id is disabled so hosts get a unique,
-    # persisted id (and to avoid the systemd-machine-id-commit boot failure).
+    # Kicksecure's static generic machine-id is never applied, so hosts get a
+    # unique, persisted id (and avoid the systemd-machine-id-commit boot
+    # failure). itera gets this by leaving nix-mineral's deprecated, now-inert
+    # `settings.etc.generic-machine-id` unset — see hardening.nix.
     "machine-id is not a static generic id" = !(cfg.environment.etc ? "machine-id");
     "machine-id commit is disabled under hardening" =
       cfg.systemd.services.systemd-machine-id-commit.enable == false;
