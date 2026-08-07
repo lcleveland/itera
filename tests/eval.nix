@@ -283,6 +283,8 @@ let
     "user home Documents persisted by default" = builtins.elem "Documents" (userDirs "testuser");
     # ~/Downloads persisted so large downloads land on disk, not the size-capped tmpfs root.
     "user home Downloads persisted by default" = builtins.elem "Downloads" (userDirs "testuser");
+    # ~/Pictures persisted on the same reasoning, but nothing clears it on boot.
+    "user home Pictures persisted by default" = builtins.elem "Pictures" (userDirs "testuser");
     # clearDownloadsOnBoot (opt-out, default on): a boot-time service empties
     # ~/Downloads unless disabled — Downloads stays persisted either way.
     "clear-downloads service present by default" =
