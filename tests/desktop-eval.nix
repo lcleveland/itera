@@ -48,6 +48,21 @@ let
     { itera.desktop.editor.nixLanguageServer.enable = false; }
   ];
 
+  # No compositor at all, to assert the session target is gated on the battery
+  # rather than declared unconditionally.
+  cfgNoDesktop = mkConfig [
+    { itera.desktop.dankMaterialShell.enable = false; }
+  ];
+
+  # The appearance battery flipped to light, and switched off entirely, to assert
+  # Zed's color scheme follows it in both directions.
+  cfgLightTheme = mkConfig [
+    { itera.desktop.theme.dark = false; }
+  ];
+  cfgNoTheme = mkConfig [
+    { itera.desktop.theme.enable = false; }
+  ];
+
   # Clipboard bridge opted out, and with select-to-copy opted in, to assert the
   # service gating in both directions.
   cfgClipboardOff = mkConfig [
@@ -118,6 +133,23 @@ let
     # Home layer: the Zed user config renders. Probing the key forces the hjem
     # battery's gated config path (settings serialization) to evaluate.
     "zed user config is generated" = mangoUserFiles ? "zed/settings.json";
+
+    # Session target: greetd execs mango directly, so itera has to bring up
+    # `graphical-session.target` itself — xdg-desktop-portal 1.22+ has
+    # `Requisite=` on it and cannot start otherwise (no file picker, no
+    # screencast, no color-scheme). The binding is what pulls the real target up.
+    "mango-session target is declared" = cfg.systemd.user.targets ? "mango-session";
+    "mango-session binds to graphical-session.target" =
+      cfg.systemd.user.targets.mango-session.bindsTo == [ "graphical-session.target" ];
+    "mango-session target is absent without the compositor" =
+      !(cfgNoDesktop.systemd.user.targets ? "mango-session");
+
+    # Zed follows itera.desktop.theme rather than Zed's own `mode = "system"`,
+    # which asks the portal and falls back to LIGHT when nothing answers.
+    "zed pins the dark color scheme by default" = cfg.itera.programs.zed.settings.theme.mode == "dark";
+    "zed follows theme.dark = false" = cfgLightTheme.itera.programs.zed.settings.theme.mode == "light";
+    "zed sets no theme when the theme battery is off" =
+      !(cfgNoTheme.itera.programs.zed.settings ? theme);
 
     # Nix language server (default ON): nixd + nixfmt land on PATH and Zed's
     # settings select nixd (disabling nil) with nixfmt format-on-save.

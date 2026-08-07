@@ -165,6 +165,13 @@ let
   aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
   bobMango = builtins.readFile bobFiles."mango/config.conf".source;
 
+  # The session bring-up is an `exec-once=` pointing at a generated script, so
+  # reach through the rendered config to the script itself and assert on its
+  # contents — that is where the ordering guarantee actually lives.
+  bobSessionSetup = lib.removePrefix "exec-once=" (
+    lib.findFirst (l: lib.hasInfix "itera-mango-session-setup" l) "" (lib.splitString "\n" bobMango)
+  );
+
   # The DMS greeter (on by default) runs its own mango instance; itera feeds it
   # the SYSTEM-WIDE monitors via `compositor.customConfig`.
   greeterMonitors = cfg.programs.dms-greeter.compositor.customConfig;
@@ -225,6 +232,9 @@ let
 
     # ── Zed settings: system defaults reach an un-overridden user (bob) ──
     "zed telemetry-off default present (bob)" = bobZed.telemetry.diagnostics == false;
+    # Reaches the written file, not just the option: Zed only honours a named
+    # mode, so a dropped `theme` key silently means light.
+    "zed dark theme reaches the written settings (bob)" = bobZed.theme.mode == "dark";
     "zed raw system setting reaches user (bob)" = bobZed.buffer_font_size == 14;
     "zed curated agent field reaches user (bob)" = bobZed.agent.default_profile == "ask";
     "zed settings.json clobbers by default (bob)" = bobFiles."zed/settings.json".clobber == true;
@@ -280,6 +290,17 @@ let
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch vivaldi.
     "browser keybind launches vivaldi" = lib.hasInfix "binds=SUPER,b,spawn,vivaldi" bobMango;
     "autostart still present" = lib.hasInfix "exec-once=dms run" bobMango;
+    # The session bring-up must be the FIRST autostart entry and a single script:
+    # mango spawns each exec-once asynchronously, so splitting the environment
+    # export from the target start would race and hand the portal an empty
+    # environment. Assert the rendered script, not just that a line exists.
+    "session setup autostarts before the shell" = lib.hasInfix "itera-mango-session-setup" (
+      builtins.head (lib.splitString "exec-once=dms run" bobMango)
+    );
+    "session setup starts mango-session.target" =
+      lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);
+    "session setup exports the environment first" =
+      lib.hasInfix "dbus-update-activation-environment --all" (builtins.readFile bobSessionSetup);
 
     # ── mango keybinds: per-user override ────────────────────────────────
     "per-user keybind override rendered (alice)" =
