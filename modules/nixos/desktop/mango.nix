@@ -113,5 +113,29 @@ in
     # GTK apps persist their settings through dconf; enable it now that a
     # graphical session exists.
     programs.dconf.enable = mkDefault true;
+
+    # Session target. mango is a bare wlroots compositor: greetd execs it
+    # directly, so nothing brings up `graphical-session.target` in the systemd
+    # user manager. That used to be merely untidy, but xdg-desktop-portal 1.22
+    # added `Requisite=graphical-session.target` to its user unit (upstream
+    # #1830, "launch after the graphical session target"), so with the target
+    # dead the portal cannot start at all — taking file pickers, screencast and
+    # the `org.freedesktop.appearance` color-scheme (itera's dark default, read
+    # by Zed and every Flatpak app) down with it.
+    #
+    # This mirrors the `mango-session.target` that mango's own home-manager
+    # module defines — itera uses hjem, not home-manager, so the NixOS half
+    # declares it instead. `bindsTo` is what pulls `graphical-session.target`
+    # up: the hjem battery's autostart starts *this* target, and the binding
+    # activates the real one (and tears this one down with it). Starting
+    # `graphical-session.target` directly would work too, but keeping mango's
+    # unit name means anything written against upstream's layout still applies.
+    systemd.user.targets.mango-session = {
+      description = "mango compositor session";
+      documentation = [ "man:systemd.special(7)" ];
+      bindsTo = [ "graphical-session.target" ];
+      wants = [ "graphical-session-pre.target" ];
+      after = [ "graphical-session-pre.target" ];
+    };
   };
 }

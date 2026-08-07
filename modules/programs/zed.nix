@@ -29,8 +29,10 @@ iteraLib.programs.mkCuratedProgram {
       description = ''
         Zed settings, written to {file}`$XDG_CONFIG_HOME/zed/settings.json`. The
         system-wide default ({option}`itera.programs.zed.settings`) and each
-        per-user override merge per key. itera's only opinionated default is
-        disabling telemetry. The dedicated {option}`agent` and
+        per-user override merge per key. itera's opinionated defaults are
+        disabling telemetry and pinning the color scheme to
+        {option}`itera.desktop.theme.dark` (Zed cannot read the GTK/dconf
+        preference itself). The dedicated {option}`agent` and
         {option}`agentServers` options are merged in on top of this under their
         respective settings keys.
       '';
@@ -87,6 +89,15 @@ iteraLib.programs.mkCuratedProgram {
     let
       editor = config.itera.desktop.editor;
       nixLsp = editor.enable && editor.nixLanguageServer.enable;
+      # Follow the appearance battery (`itera.desktop.theme`) explicitly instead
+      # of leaning on Zed's default `mode = "system"`. Zed is not a GTK app, so
+      # neither GTK_THEME nor the dconf `color-scheme` reaches it — under
+      # `"system"` it asks xdg-desktop-portal for `org.freedesktop.appearance`
+      # and silently falls back to LIGHT whenever no portal answers. Naming the
+      # mode makes the editor match the rest of the desktop from a cold start,
+      # with no portal in the loop.
+      themeCfg = config.itera.desktop.theme;
+      followsTheme = config.itera.enable && themeCfg.enable;
       # When the Claude ACP battery is on and Zed is installed, register the
       # adapter as an external agent so it shows up in Zed's agent panel with no
       # further config. `mkDefault` lets an explicit system/per-user value win.
@@ -97,6 +108,16 @@ iteraLib.programs.mkCuratedProgram {
         telemetry = {
           diagnostics = mkDefault false;
           metrics = mkDefault false;
+        };
+      }
+      // lib.optionalAttrs followsTheme {
+        # `light`/`dark` name the theme used in each mode; `mode` pins which one
+        # is active. Both are Zed's own built-in defaults, so flipping
+        # `itera.desktop.theme.dark` needs no theme extension installed.
+        theme = mkDefault {
+          mode = if themeCfg.dark then "dark" else "light";
+          light = "One Light";
+          dark = "One Dark";
         };
       }
       // lib.optionalAttrs nixLsp {

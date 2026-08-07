@@ -206,6 +206,9 @@ let
     "GTK apps default to dark" = base.environment.sessionVariables.GTK_THEME == "Adwaita:dark";
     "DMS shell defaults to dark (portal sync off)" =
       base.itera.programs.dankMaterialShell.settings.syncModeWithPortal == false;
+    # Zed reads neither GTK_THEME nor dconf, so it needs its own pinned mode —
+    # otherwise it asks the portal and falls back to light when none answers.
+    "Zed defaults to dark" = base.itera.programs.zed.settings.theme.mode == "dark";
 
     # --- Secure Boot (default OFF, so systemd-boot stays) ---
     "lanzaboote is off by default" = !base.boot.lanzaboote.enable;

@@ -8,11 +8,16 @@
 # {file}`$XDG_CONFIG_HOME/mango/config.conf` — most importantly the autostart lines
 # that launch DankMaterialShell inside the session.
 #
-# Why autostart `dms` here rather than via DMS's systemd user service: a bare
-# wlroots compositor launched by greetd does not bring up
-# {file}`graphical-session.target` on its own, so the DMS systemd unit would never
-# start. mango runs `exec-once=` commands on startup and `dms` is on the system
-# PATH, so spawning it directly is the reliable path.
+# A bare wlroots compositor launched by greetd brings up no systemd user session
+# of its own, so this battery's first autostart entry does it: it exports the
+# session environment and starts `mango-session.target`, which is bound to
+# {file}`graphical-session.target` (see `modules/nixos/desktop/mango.nix`).
+# xdg-desktop-portal 1.22+ refuses to start without that target, so this is what
+# keeps portals — file pickers, screencast, the color-scheme preference — alive.
+#
+# `dms` is still spawned directly rather than through DMS's systemd user service:
+# it is on the system PATH and starting it from `exec-once=` keeps the shell's
+# lifetime tied to the compositor without depending on unit ordering.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`), so sinks
 # like `xdg.config.files` are written unprefixed, `osConfig`/`pkgs`/`iteraLib` are
@@ -75,13 +80,35 @@ let
   # session's layout in lockstep with the console/greeter without a per-user knob.
   xkb = osConfig.services.xserver.xkb or { };
 
-  # itera's opinionated startup: refresh the D-Bus/systemd user environment (so
-  # portals and user services see WAYLAND_DISPLAY etc.), start the removable-
-  # storage automount agent (when the storage battery is on — udisks2 has no
-  # automount of its own), then launch the shell.
+  # itera's opinionated startup: bring the systemd/D-Bus user session up (so
+  # portals and user services see WAYLAND_DISPLAY etc. and can actually start),
+  # start the removable-storage automount agent (when the storage battery is on
+  # — udisks2 has no automount of its own), then launch the shell.
+  #
+  # The session bring-up is one script rather than three `exec-once=` lines
+  # because mango spawns each `exec-once` asynchronously: the environment must
+  # be in place *before* the target activates, or the units it pulls in inherit
+  # an empty one. mango does export the session variables itself these days
+  # (`set_activation_env()` in mango.c, issued just before the exec-once list),
+  # but it too is an async spawn and its fixed variable list omits NixOS's
+  # `NIXOS_OZONE_WL`, so doing it here keeps the ordering deterministic.
+  #
+  # `mango-session.target` is declared by the system battery
+  # (`modules/nixos/desktop/mango.nix`) and is bound to
+  # `graphical-session.target`, so starting it activates the target that
+  # xdg-desktop-portal 1.22+ requires. `reset-failed` first, so units left
+  # failed by a previous session on this user manager can start again.
+  sessionSetup = pkgs.writeShellScript "itera-mango-session-setup" ''
+    ${pkgs.dbus}/bin/dbus-update-activation-environment --all
+    ${pkgs.systemd}/bin/systemctl --user import-environment \
+      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIXOS_OZONE_WL
+    ${pkgs.systemd}/bin/systemctl --user reset-failed
+    ${pkgs.systemd}/bin/systemctl --user start mango-session.target
+  '';
+
   autostartUdiskie = (osConfig.itera.storage.enable or false) && (osConfig.itera.enable or false);
   autostartConfig = lib.concatStringsSep "\n" (
-    [ "exec-once=${pkgs.dbus}/bin/dbus-update-activation-environment --all" ]
+    [ "exec-once=${sessionSetup}" ]
     ++ lib.optional autostartUdiskie "exec-once=${pkgs.udiskie}/bin/udiskie --automount --tray"
     ++ [ "exec-once=dms run" ]
   );
