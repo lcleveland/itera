@@ -81,13 +81,18 @@ in
       enable = mkDefault true;
       preset = mkDefault cfg.preset;
 
-      # Kicksecure's generic-machine-id gives EVERY host the same static
-      # machine-id (b08dfa60…) via a read-only environment.etc entry. That
-      # defeats itera's requirement of a unique, persisted per-host machine-id
-      # and collides with impermanence's writable /persist bind mount (forcing
-      # systemd into the transient-overmount + failing commit path). Opt itera
-      # into unique per-host ids; a host wanting the generic id back can flip it.
-      settings.etc.generic-machine-id = mkDefault false;
+      # NOTE: itera deliberately sets NO `settings.etc.generic-machine-id`.
+      # Kicksecure's generic machine-id gives EVERY host the same static id
+      # (b08dfa60…) via a read-only environment.etc entry, which defeats itera's
+      # requirement of a unique, persisted per-host machine-id and collides with
+      # impermanence's writable /persist bind mount (forcing systemd into the
+      # transient-overmount + failing commit path — see
+      # `modules/nixos/core/impermanence.nix`). nix-mineral deprecated the option
+      # and now defaults it to null (inert), so leaving it unset is what gets us
+      # unique per-host ids; explicitly setting it to `false` would only earn an
+      # eval warning for no change in behaviour. tests/eval.nix asserts the
+      # invariant ("machine-id is not a static generic id"). A host that wants
+      # the generic id back sets `environment.etc.machine-id.text` itself.
 
       # Keep 32-bit (i686) execution working system-wide. nix-mineral's
       # `system.multilib` defaults to false, which sets `ia32_emulation=0` and

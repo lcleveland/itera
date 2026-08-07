@@ -114,9 +114,9 @@ in
     (mkIf cfg.stableMac.enable {
       # Stop nix-mineral's per-connection MAC randomization (which hands us a
       # new DHCP lease/IP every reboot) and pin a stable, deterministic-but-
-      # private MAC. Disabling the upstream toggle mirrors how hardening.nix
-      # opts out of nix-mineral's generic-machine-id. Scan-time randomization
-      # is preserved.
+      # private MAC — the same "stable identity beats churn on a workstation"
+      # trade-off hardening.nix makes for the machine-id. Scan-time
+      # randomization is preserved.
       nix-mineral.settings.network.random-mac = mkDefault false;
       networking.networkmanager = {
         ethernet.macAddress = mkDefault "stable";
