@@ -13,16 +13,18 @@
 # that subvolume simply goes unused. The two features never reference each other.
 #
 # Home directories: a curated subset of every normal user's $HOME (`.config`,
-# `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, `Downloads`, plus
-# `.steam` when Steam is on) is persisted by default so desktop/login state
-# survives the wiped root with no per-user wiring. This reads the account set from
-# `config.users.users` (filtered to normal users) — the same cross-battery
-# introspection the module already does for secureBoot/flatpak/virtualisation —
-# and merges those curated paths with any explicit `itera.impermanence.users.<name>`
-# entries. Opt out via `homes.enable`. `Downloads` is persisted so large downloads
-# land on disk instead of the size-capped tmpfs root, but its contents are emptied
-# on every boot by default (`homes.clearDownloadsOnBoot`) so downloads don't
-# accumulate across reboots; set that option to `false` to keep them.
+# `.local/share`, `.local/state`, `.cache`, `.ssh`, `Documents`, `Downloads`,
+# `Pictures`, plus `.steam` when Steam is on) is persisted by default so
+# desktop/login state survives the wiped root with no per-user wiring. This
+# reads the account set from `config.users.users` (filtered to normal users) —
+# the same cross-battery introspection the module already does for
+# secureBoot/flatpak/virtualisation — and merges those curated paths with any
+# explicit `itera.impermanence.users.<name>` entries. Opt out via
+# `homes.enable`. `Downloads` is persisted so large downloads land on disk
+# instead of the size-capped tmpfs root, but its contents are emptied on every
+# boot by default (`homes.clearDownloadsOnBoot`) so downloads don't accumulate
+# across reboots; set that option to `false` to keep them. `Pictures` is
+# persisted on the same disk-vs-tmpfs reasoning but is never auto-cleared.
 #
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
@@ -208,6 +210,10 @@ in
           # the size-capped tmpfs root. Its contents are emptied on every boot by
           # default (homes.clearDownloadsOnBoot); set that to false to keep them.
           "Downloads"
+          # Screenshots and camera/photo imports are user data people expect to
+          # keep, and image files are large enough to be worth keeping off the
+          # size-capped tmpfs root. Unlike Downloads, nothing clears this.
+          "Pictures"
         ];
         description = "Home-relative directories persisted for each user when {option}`homes.enable` is set.";
       };
