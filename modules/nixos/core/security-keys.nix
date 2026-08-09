@@ -199,6 +199,18 @@ in
         pkgs.yubikey-personalization
       ];
 
+      # Every rule in libfido2's 70-u2f.rules carries both `TAG+="uaccess"` and
+      # `GROUP="plugdev"`. On systemd it is uaccess that actually grants the
+      # seat-local user access, so keys work whether or not `plugdev` exists —
+      # but udev still logs `Failed to resolve group 'plugdev', ignoring: Unknown
+      # group` once per rule per re-parse. With 101 rules in the file that is
+      # ~900-1200 error-priority lines every boot, which is the bulk of the
+      # journal's error output and makes `journalctl -p err` useless without a
+      # grep filter. Declaring the group empty costs nothing and silences all of
+      # it; membership is deliberately left empty, since uaccess already covers
+      # the interactive case and adding users would only widen access.
+      users.groups.plugdev = { };
+
       # `ykman` for inspecting/configuring the key.
       environment.systemPackages = [ pkgs.yubikey-manager ];
     }
