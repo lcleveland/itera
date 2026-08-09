@@ -64,9 +64,14 @@ let
   ];
 
   # Clipboard bridge opted out, and with select-to-copy opted in, to assert the
-  # service gating in both directions.
+  # service gating in both directions. selectToCopy stays ON in the opted-out
+  # fixture so the autocutsel half of the gate is actually exercised rather than
+  # passing vacuously (it is off by default).
   cfgClipboardOff = mkConfig [
-    { itera.desktop.clipboard.enable = false; }
+    {
+      itera.desktop.clipboard.enable = false;
+      itera.desktop.clipboard.selectToCopy = true;
+    }
   ];
   cfgSelectToCopy = mkConfig [
     { itera.desktop.clipboard.selectToCopy = true; }
@@ -168,9 +173,10 @@ let
     "nixd absent when disabled" = !hasPkg "nixd" cfgNoNixLsp.environment.systemPackages;
     "no Nix settings when disabled" = !(cfgNoNixLsp.itera.programs.zed.settings ? languages);
 
-    # Clipboard bridge battery (default ON with the desktop): ships wl-clipboard
-    # and the two always-on bridge user services (Wayland→X11 poll-free watch, and
-    # the CLIPBOARD→PRIMARY autocutsel). Gated off with the desktop or its toggle.
+    # Clipboard bridge battery (default ON with the desktop): ships wl-clipboard and
+    # the two always-on bridge user services. Both are load-bearing — mango does not
+    # sync the X11 and Wayland selections natively, so neither direction works
+    # without them. Gated off with the desktop or its toggle.
     "clipboard bridge battery is enabled" = cfg.itera.desktop.clipboard.enable;
     "wl-clipboard is installed by default" = hasPkg "wl-clipboard" cfg.environment.systemPackages;
     "clipboard wayland-to-x11 bridge service present" =
@@ -179,14 +185,32 @@ let
     # has no native XWayland fallback on mango.
     "clipboard x11-to-wayland bridge service present" =
       cfg.systemd.user.services ? "itera-clipboard-x11-to-wayland";
-    "clipboard autocutsel-primary service present" =
-      cfg.systemd.user.services ? "itera-clipboard-autocutsel-primary";
-    # select-to-copy is off by default (no PRIMARY→CLIPBOARD service), and opting
-    # it in adds exactly that service.
+
+    # Bound to the graphical session rather than default.target. PartOf= is what
+    # lets a session (or XWayland) restart cycle the daemons instead of leaving the
+    # X11→Wayland loop spinning against a dead DISPLAY while looking healthy.
+    "clipboard bridges are bound to the graphical session" =
+      let
+        unit = cfg.systemd.user.services."itera-clipboard-x11-to-wayland";
+      in
+      unit.partOf == [ "graphical-session.target" ]
+      && unit.wantedBy == [ "graphical-session.target" ]
+      && unit.after == [ "graphical-session.target" ];
+    # The X11→Wayland loop exits when its display dies, so restarts must not trip
+    # systemd's start rate limit.
+    "clipboard bridges disable the start rate limit" =
+      cfg.systemd.user.services."itera-clipboard-x11-to-wayland".startLimitIntervalSec == 0;
+
+    # autocutsel links ONE selection to the X11 cut buffer, so select-to-copy must
+    # start BOTH halves — a lone instance has nothing to link against and does
+    # nothing at all (which is what the old always-on PRIMARY unit did).
     "select-to-copy is off by default" =
-      !(cfg.systemd.user.services ? "itera-clipboard-autocutsel-clipboard");
-    "select-to-copy adds the PRIMARY->CLIPBOARD service" =
-      cfgSelectToCopy.systemd.user.services ? "itera-clipboard-autocutsel-clipboard";
+      !(cfg.systemd.user.services ? "itera-clipboard-autocutsel-primary")
+      && !(cfg.systemd.user.services ? "itera-clipboard-autocutsel-clipboard");
+    "select-to-copy starts both autocutsel halves" =
+      (cfgSelectToCopy.systemd.user.services ? "itera-clipboard-autocutsel-primary")
+      && (cfgSelectToCopy.systemd.user.services ? "itera-clipboard-autocutsel-clipboard");
+
     # Gated off: no bridge services when the battery is disabled.
     "clipboard bridge gated off when disabled" =
       !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-wayland-to-x11")
