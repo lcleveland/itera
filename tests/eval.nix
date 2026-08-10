@@ -69,6 +69,10 @@ let
     itera.disko.resume = false;
   };
 
+  # Flakes opted out → channels come back, since a channel-based system is then
+  # the only way to resolve `<nixpkgs>`.
+  flakesOff = mkEval { itera.nix.flakes.enable = false; };
+
   # Full-disk encryption (itera.disko.encryption, opt-in, default off). Enable it
   # alongside a swap partition so this eval exercises BOTH LUKS containers (root +
   # swap) and the resume-through-LUKS wiring.
@@ -311,6 +315,15 @@ let
     "EFI variables are touchable" = cfg.boot.loader.efi.canTouchEfiVariables;
     "systemd initrd is enabled" = cfg.boot.initrd.systemd.enable;
     "flakes are enabled" = builtins.elem "flakes" cfg.nix.settings.experimental-features;
+    # Channels off under flakes, so the never-created channel dir stays out of
+    # NIX_PATH and stops warning on every eval — but `<nixpkgs>` still resolves,
+    # via the registry pin nixpkgs sets for flake-built systems.
+    "nix channels are disabled under flakes" = cfg.nix.channel.enable == false;
+    "channel dir is not on the nix search path" =
+      !(builtins.elem "/nix/var/nix/profiles/per-user/root/channels" cfg.nix.nixPath);
+    "nixpkgs still resolves via the flake registry" =
+      builtins.elem "nixpkgs=flake:nixpkgs" cfg.nix.nixPath;
+    "channels return when flakes are opted out" = flakesOff.nix.channel.enable;
     "unfree is allowed" = cfg.nixpkgs.config.allowUnfree;
     "stateVersion is set" = cfg.system.stateVersion == "25.05";
     "time zone is set" = cfg.time.timeZone == "America/Chicago";

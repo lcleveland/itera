@@ -60,6 +60,20 @@ in
       "flakes"
     ]);
 
+    # A flake-built system never subscribes root to a channel, so the channel
+    # state directory is never created — but nixpkgs still appends it to
+    # `nix.nixPath` (modules/misc/nixpkgs-flake.nix, gated on
+    # `nix.channel.enable`), and every evaluation then warns:
+    #
+    #   warning: Nix search path entry
+    #   '/nix/var/nix/profiles/per-user/root/channels' does not exist, ignoring
+    #
+    # Turning channels off drops that entry, leaving `nixpkgs=flake:nixpkgs`,
+    # which resolves through the flake registry pin nixpkgs already sets — so
+    # `<nixpkgs>` keeps working and matches the system's own nixpkgs. It also
+    # drops the `nix-channel` command, which has nothing to manage here.
+    nix.channel.enable = mkIf cfg.flakes.enable (mkDefault false);
+
     # `nixpkgs.config` is an opaque `attrs`-typed option, so a nested `mkDefault`
     # would be stored literally rather than resolved — set it plainly. Override
     # via `itera.nix.allowUnfree`, not by redefining `nixpkgs.config.allowUnfree`.
