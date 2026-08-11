@@ -8,7 +8,9 @@
 #
 #   1. Device support: udev rules for hotplug FIDO2/YubiKey access (libfido2 +
 #      yubikey-personalization), the pcscd smartcard daemon (so the key also works
-#      as a GPG/PIV/SSH smartcard), and `ykman` to manage the key.
+#      as a GPG/PIV/SSH smartcard), and tooling to manage the key — `libfido2`'s
+#      vendor-neutral CLI (`fido2-token`, `fido2-cred`, `fido2-assert`) plus
+#      `ykman` for YubiKey-specific configuration.
 #   2. PAM: `security.pam.u2f` wired in as an *additional* factor. nixpkgs would
 #      otherwise apply it to EVERY PAM service (login, greetd, sudo, polkit-1, …);
 #      we explicitly set `u2f.enable = false` on the login-surface services
@@ -211,8 +213,18 @@ in
       # the interactive case and adding users would only widen access.
       users.groups.plugdev = { };
 
-      # `ykman` for inspecting/configuring the key.
-      environment.systemPackages = [ pkgs.yubikey-manager ];
+      # Key-management tooling. `ykman` covers YubiKey-specific configuration;
+      # `libfido2` adds the vendor-neutral FIDO2 CLI (`fido2-token` to list/reset
+      # tokens and manage the PIN and resident credentials, `fido2-cred` /
+      # `fido2-assert` to exercise enrollment and assertion by hand), which is what
+      # you need to inspect a non-Yubico key or debug a key the PAM stack rejects.
+      # Only the udev rules from this package were wired above — `services.udev.packages`
+      # pulls in the rules, not the binaries. `pamu2fcfg`, used for enrollment, comes
+      # from pkgs.pam_u2f, which nixpkgs installs for us via `security.pam.u2f.enable`.
+      environment.systemPackages = [
+        pkgs.libfido2
+        pkgs.yubikey-manager
+      ];
     }
 
     # Tell the DMS lock screen to accept the key. DMS's settings are a flat
