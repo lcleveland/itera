@@ -81,6 +81,8 @@ let
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
 
+  screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
+
   hasPkg =
     pname: pkgList:
     builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
@@ -216,6 +218,29 @@ let
       !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-wayland-to-x11")
       && !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-x11-to-wayland")
       && !(cfgClipboardOff.systemd.user.services ? "itera-clipboard-autocutsel-primary");
+
+    # Electron/Chromium apps must run on native Wayland, or they never reach the
+    # ScreenCast portal and screen sharing silently produces an empty stream.
+    "Electron apps run on native Wayland" = cfg.environment.sessionVariables.NIXOS_OZONE_WL == "1";
+
+    # Screencast battery pins the portal's source picker. Left unset, xdg-desktop-
+    # portal-wlr walks a cascade of dmenu programs itera does not ship and every
+    # share request dies with "no output found".
+    "screencast battery is enabled" = cfg.itera.desktop.screencast.enable;
+    "screencast picker is configured" =
+      screencastSettings.chooser_type == "dmenu" && screencastSettings.chooser_cmd != "";
+    # dmenu mode is what makes `Window:` sources selectable, not just whole outputs.
+    "screencast picker is the DMS chooser" =
+      lib.hasInfix "itera-screencast-chooser" screencastSettings.chooser_cmd;
+    "screencast chooser plugin is registered" =
+      cfg.itera.programs.dankMaterialShell.plugins ? screencastChooser;
+    # Uncapped by default: the option exists, but no max_fps key is emitted unless
+    # someone asks for one.
+    "screencast frame rate is uncapped by default" = !(screencastSettings ? max_fps);
+
+    # Gated off: nothing written to the portal config without a compositor.
+    "screencast battery is inert without a compositor" =
+      !(cfgNoDesktop.xdg.portal.wlr.settings ? screencast);
   };
 
 in
