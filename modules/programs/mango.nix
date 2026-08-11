@@ -336,23 +336,32 @@ iteraLib.programs.mkCuratedProgram {
       };
 
       mediaBinds = {
+        # Volume goes through wpctl (WirePlumber), NOT pactl. `pactl` ships in
+        # `pkgs.pulseaudio`, which a PipeWire system never installs — the
+        # PipeWire module only puts `pkgs.pipewire` (the `pw-*` tools) on PATH,
+        # so a `pactl` bind is a silent no-op. `wpctl` is always there: the
+        # WirePlumber module installs its own package and defaults to on
+        # whenever PipeWire is, which is exactly where these binds live.
+        #
+        # `-l 1.0` caps the raise at 100% so holding the key cannot push the
+        # sink into software boost and clip.
         volumeUp = {
           flagModifiers = [ "s" ];
           keySymbol = "XF86AudioRaiseVolume";
           mangoCommand = "spawn_shell";
-          commandArguments = "pactl set-sink-volume @DEFAULT_SINK@ +5%";
+          commandArguments = "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+";
         };
         volumeDown = {
           flagModifiers = [ "s" ];
           keySymbol = "XF86AudioLowerVolume";
           mangoCommand = "spawn_shell";
-          commandArguments = "pactl set-sink-volume @DEFAULT_SINK@ -5%";
+          commandArguments = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
         };
         volumeMute = {
           flagModifiers = [ "s" ];
           keySymbol = "XF86AudioMute";
           mangoCommand = "spawn_shell";
-          commandArguments = "pactl set-sink-mute @DEFAULT_SINK@ toggle";
+          commandArguments = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
         };
         mediaPlay = {
           flagModifiers = [ "s" ];
