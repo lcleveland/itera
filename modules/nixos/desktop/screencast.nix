@@ -68,9 +68,14 @@ let
   # The `dms` CLI, from whatever package the shell battery installed.
   dmsPackage = config.programs.dank-material-shell.package;
 
-  # xdpw's own label format for an output, which the DMS fallback path and the
-  # slurp-only default both have to reproduce exactly: whatever a chooser prints is
-  # compared against the offered labels with strcmp.
+  # Quickshell, which `dms ipc` execs as `qs`. Separate package from the CLI.
+  quickshellPackage = config.programs.dank-material-shell.quickshell.package;
+
+  # The standalone slurp chooser, for hosts with no DMS to hand off to. Valid ONLY
+  # under `chooser_type = simple`, where xdpw labels an output `Monitor: <name>`.
+  # Under `dmenu` the label also carries the output description, so this format is
+  # rejected as an unknown target — see the fallback inside the wrapper, which has
+  # to translate rather than reuse this.
   slurpChooser = "${pkgs.slurp}/bin/slurp -f 'Monitor: %o' -or";
 
   # What xdpw actually execs. It runs `chooser_cmd` through `/bin/sh -c` with only
@@ -80,7 +85,14 @@ let
     name = "itera-screencast-chooser";
     runtimeInputs = [
       dmsPackage
+      # `dms ipc` is a thin front-end that execs `qs` — Quickshell's binary, which
+      # lives in a DIFFERENT package (dms-shell ships only bin/dms). Without it here
+      # every call died with `exec: "qs": executable file not found in $PATH`, and
+      # since the IPC call is what selects the DMS path, the chooser silently fell
+      # through to slurp on every single screencast request.
+      quickshellPackage
       pkgs.coreutils
+      pkgs.gawk
       pkgs.slurp
     ];
     text = ''
@@ -120,12 +132,25 @@ let
         exit 0
       fi
 
-      # DMS is not answering — fall back to xdpw's own picker so a share request
+      # DMS is not answering — fall back to a slurp crosshair so a share request
       # still has some way to succeed. Monitors only; slurp cannot name a window.
-      # Not `exec`, so the EXIT trap still clears the handoff files.
-      ${slurpChooser}
+      #
+      # slurp is asked for the bare output name, NOT a ready-made label. In dmenu
+      # mode xdpw labels an output "Monitor: <name> <description>" and compares the
+      # answer with strcmp, so a hand-built "Monitor: <name>" is rejected outright
+      # ("selected unknown target"). Translate instead: match slurp's name against
+      # the lines xdpw actually piped in and echo that line back verbatim.
+      picked=$(slurp -f '%o' -or) || exit 0
+      [ -n "$picked" ] || exit 0
+
+      # Field-exact, so DP-1 can never match DP-10. No match means the output went
+      # away mid-pick; printing nothing reads as declined.
+      awk -v name="$picked" '$1 == "Monitor:" && $2 == name { print; exit }' "$dir/sources"
     '';
   };
+
+  defaultChooserCommand =
+    if dmsEnabled then "${chooser}/bin/itera-screencast-chooser" else slurpChooser;
 in
 {
   options.itera.desktop.screencast = {
@@ -145,7 +170,7 @@ in
 
     chooserCommand = mkOption {
       type = str;
-      default = if dmsEnabled then "${chooser}/bin/itera-screencast-chooser" else slurpChooser;
+      default = defaultChooserCommand;
       defaultText = lib.literalExpression "the DankMaterialShell picker when the shell battery is on (slurp fallback built in), otherwise slurp alone";
       example = lib.literalExpression ''"''${pkgs.fuzzel}/bin/fuzzel -d -l 10 -p 'Share: '"'';
       description = ''
@@ -205,6 +230,17 @@ in
     // lib.optionalAttrs (cfg.maxFps != null) {
       max_fps = mkDefault cfg.maxFps;
     };
+
+    # The chooser reaches xdpw as an absolute store path, so it does not need to be
+    # on PATH to work — but a screencast picker that cannot be run by hand is
+    # miserable to debug, since the only other way to exercise it is to start a real
+    # call. Ship it so the source list can be replayed directly:
+    #
+    #   printf 'Monitor: eDP-1\nMonitor: DP-10\n' | itera-screencast-chooser
+    #
+    # Only when it is actually the configured chooser — a consumer who points
+    # `chooserCommand` elsewhere gets no stray binary.
+    environment.systemPackages = lib.optional (cfg.chooserCommand == defaultChooserCommand) chooser;
 
     # The picker itself. Registered like the ipIndicator plugin next door, so it is
     # installed AND enabled declaratively — no Settings → Plugins → Scan step.

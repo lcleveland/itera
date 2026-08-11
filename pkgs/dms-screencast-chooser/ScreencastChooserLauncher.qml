@@ -84,25 +84,38 @@ Item {
             return [];
         }
 
-        const labels = raw.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+        // Split on newlines only — deliberately NOT trimmed. xdpw compares the answer
+        // against its own label with strcmp, and it builds a monitor label as
+        // "Monitor: <name> <description>"; an output with an EMPTY description yields
+        // a trailing space that trimming would silently eat, turning every pick on
+        // that monitor into "selected unknown target".
+        const labels = raw.split("\n").map(line => line.replace(/\r$/, "")).filter(line => line.trim().length > 0);
 
-        const items = labels.map(label => ({
-                    // The label IS the payload. xdpw compares the chooser's stdout against
-                    // the lines it piped in with strcmp, so it has to survive round-trip
-                    // untouched — never reformat it for display.
-                    name: label,
-                    icon: label.startsWith("Window:") ? "material:web_asset" : "material:monitor",
-                    comment: label.startsWith("Window:") ? "Share this window" : "Share this whole screen",
-                    action: label,
-                    categories: ["Screencast"]
-                }));
+        const items = labels.map(label => {
+            const isWindow = label.startsWith("Window:");
+            // xdpw's dmenu labels are built for a flat list, so they carry the whole
+            // description inline ("Monitor: DP-10 Lenovo Group Limited LEN T24i-10
+            // VNA4B1P6 (DP-10)"). Split that into a name and a subtitle for display —
+            // `action` keeps the label verbatim, which is the part that must round-trip.
+            const body = label.replace(/^(Monitor|Window):\s*/, "");
+            const split = body.indexOf(" ");
+            return {
+                name: isWindow || split < 0 ? body : body.substring(0, split),
+                icon: isWindow ? "material:web_asset" : "material:monitor",
+                comment: isWindow ? "Share this window" : (split < 0 ? "Share this whole screen" : body.substring(split + 1)),
+                action: label,
+                categories: ["Screencast"]
+            };
+        });
 
         if (!query || query.length === 0) {
             return items;
         }
 
+        // Match against the full label, not just the display name, so searching by
+        // monitor description or window identifier still narrows the list.
         const lowerQuery = query.toLowerCase();
-        return items.filter(item => item.name.toLowerCase().includes(lowerQuery));
+        return items.filter(item => item.action.toLowerCase().includes(lowerQuery));
     }
 
     function executeItem(item) {
