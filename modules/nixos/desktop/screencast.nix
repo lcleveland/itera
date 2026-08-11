@@ -126,6 +126,9 @@ let
       ${slurpChooser}
     '';
   };
+
+  defaultChooserCommand =
+    if dmsEnabled then "${chooser}/bin/itera-screencast-chooser" else slurpChooser;
 in
 {
   options.itera.desktop.screencast = {
@@ -145,7 +148,7 @@ in
 
     chooserCommand = mkOption {
       type = str;
-      default = if dmsEnabled then "${chooser}/bin/itera-screencast-chooser" else slurpChooser;
+      default = defaultChooserCommand;
       defaultText = lib.literalExpression "the DankMaterialShell picker when the shell battery is on (slurp fallback built in), otherwise slurp alone";
       example = lib.literalExpression ''"''${pkgs.fuzzel}/bin/fuzzel -d -l 10 -p 'Share: '"'';
       description = ''
@@ -205,6 +208,17 @@ in
     // lib.optionalAttrs (cfg.maxFps != null) {
       max_fps = mkDefault cfg.maxFps;
     };
+
+    # The chooser reaches xdpw as an absolute store path, so it does not need to be
+    # on PATH to work — but a screencast picker that cannot be run by hand is
+    # miserable to debug, since the only other way to exercise it is to start a real
+    # call. Ship it so the source list can be replayed directly:
+    #
+    #   printf 'Monitor: eDP-1\nMonitor: DP-10\n' | itera-screencast-chooser
+    #
+    # Only when it is actually the configured chooser — a consumer who points
+    # `chooserCommand` elsewhere gets no stray binary.
+    environment.systemPackages = lib.optional (cfg.chooserCommand == defaultChooserCommand) chooser;
 
     # The picker itself. Registered like the ipIndicator plugin next door, so it is
     # installed AND enabled declaratively — no Settings → Plugins → Scan step.

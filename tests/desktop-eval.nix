@@ -234,6 +234,9 @@ let
       lib.hasInfix "itera-screencast-chooser" screencastSettings.chooser_cmd;
     "screencast chooser plugin is registered" =
       cfg.itera.programs.dankMaterialShell.plugins ? screencastChooser;
+    # On PATH so the picker can be replayed by hand instead of only through a live
+    # call — it reaches the portal by absolute path either way.
+    "screencast chooser is on PATH" = hasPkg "itera-screencast-chooser" cfg.environment.systemPackages;
     # Uncapped by default: the option exists, but no max_fps key is emitted unless
     # someone asks for one.
     "screencast frame rate is uncapped by default" = !(screencastSettings ? max_fps);
