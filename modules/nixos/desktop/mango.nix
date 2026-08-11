@@ -101,10 +101,13 @@ in
   config = mkIf cfg.enable {
     programs.mango.enable = mkDefault true;
 
-    # Tools the default media/brightness keybinds shell out to (`pactl` already
-    # comes with the audio server). Without these on PATH the XF86 keys are
-    # silent no-ops. brightnessctl needs the `video` group, which the user
-    # battery already grants (`core/users.nix`).
+    # Tools the default media/brightness keybinds shell out to. Without these on
+    # PATH the XF86 keys are silent no-ops. brightnessctl needs the `video`
+    # group, which the user battery already grants (`core/users.nix`).
+    #
+    # The volume keys are not listed here: they call `wpctl`, which the
+    # WirePlumber module already installs alongside PipeWire (see the note on
+    # `volumeUp` in `modules/programs/mango.nix`).
     environment.systemPackages = [
       pkgs.playerctl
       pkgs.brightnessctl

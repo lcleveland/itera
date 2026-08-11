@@ -286,6 +286,17 @@ let
     "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" bobMango;
     "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" bobMango);
     "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," bobMango;
+    # The volume keys must call a tool the system actually ships. `pactl` lives
+    # in pkgs.pulseaudio, which a PipeWire host never installs, so a pactl bind
+    # is a silent no-op; `wpctl` comes with WirePlumber, which is on whenever
+    # PipeWire is. Guard both directions so a regression cannot slip back.
+    "volume up uses wpctl" =
+      lib.hasInfix "binds=none,XF86AudioRaiseVolume,spawn_shell,wpctl set-volume" bobMango;
+    "volume down uses wpctl" =
+      lib.hasInfix "binds=none,XF86AudioLowerVolume,spawn_shell,wpctl set-volume" bobMango;
+    "volume mute uses wpctl" =
+      lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,wpctl set-mute" bobMango;
+    "no keybind shells out to pactl" = !(lib.hasInfix "pactl" bobMango);
     "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" bobMango;
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch vivaldi.
     "browser keybind launches vivaldi" = lib.hasInfix "binds=SUPER,b,spawn,vivaldi" bobMango;
