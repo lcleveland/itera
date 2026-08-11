@@ -293,6 +293,11 @@ let
     "ykman is installed by default" = lib.any (
       p: lib.hasInfix "yubikey-manager" (p.name or "")
     ) base.environment.systemPackages;
+    # The FIDO2 CLI (fido2-token/-cred/-assert) — udev.packages above only pulls in
+    # libfido2's rules, so the package has to be installed separately to get binaries.
+    "libfido2 CLI is installed by default" = lib.any (
+      p: lib.hasInfix "libfido2" (p.name or "")
+    ) base.environment.systemPackages;
     # Like fingerprint: the key is explicitly OFF on the initial-login surfaces...
     "security key is disabled at TTY login" = base.security.pam.services.login.u2f.enable == false;
     "security key is disabled at the greeter" = base.security.pam.services.greetd.u2f.enable == false;
