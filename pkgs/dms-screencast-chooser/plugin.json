@@ -1,0 +1,13 @@
+{
+  "id": "screencastChooser",
+  "name": "Screencast Chooser",
+  "description": "Pick the monitor or window to share when an app requests a screencast",
+  "version": "1.0.0",
+  "author": "itera",
+  "icon": "screen_share",
+  "type": "launcher",
+  "capabilities": ["launcher", "command-execution"],
+  "component": "./ScreencastChooserLauncher.qml",
+  "trigger": "#share",
+  "permissions": ["process"]
+}

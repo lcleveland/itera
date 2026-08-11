@@ -114,6 +114,32 @@ in
     # graphical session exists.
     programs.dconf.enable = mkDefault true;
 
+    # Put Electron and Chromium apps on native Wayland. nixpkgs' wrappers for both
+    # read this variable and, when it is set alongside WAYLAND_DISPLAY, append
+    # `--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations,
+    # WebRTCPipeWireCapturer …`. Nothing set it before, so those wrappers expanded to
+    # nothing and every Electron app ran under XWayland.
+    #
+    # That is load-bearing for screen sharing, not just crispness: without
+    # WebRTCPipeWireCapturer an Electron app never asks the ScreenCast portal at all.
+    # It falls back to Chromium's X11 capturer, which under XWayland has no real root
+    # desktop to read, so a share silently produces an empty stream — the symptom
+    # that looks like "sharing is broken" in Teams and friends.
+    #
+    # Delivery is already in place: `environment.sessionVariables` reaches the session
+    # through /etc/pam/environment (greetd's PAM session), and the mango autostart
+    # re-exports it into the systemd/D-Bus user environment — its `import-environment`
+    # list in `modules/hjem/programs/mango.nix` has always named NIXOS_OZONE_WL,
+    # waiting for something to actually set it.
+    #
+    # Vivaldi is the exception and stays as it is: its wrapper ignores this variable,
+    # which is why `modules/nixos/desktop/browser.nix` bakes the Ozone flag into
+    # `commandLineArgs` instead. Both mechanisms are needed; neither replaces the other.
+    #
+    # `mkDefault` so a consumer with an Electron app that regresses on native Wayland
+    # can drop back to XWayland.
+    environment.sessionVariables.NIXOS_OZONE_WL = mkDefault "1";
+
     # Session target. mango is a bare wlroots compositor: greetd execs it
     # directly, so nothing brings up `graphical-session.target` in the systemd
     # user manager. That used to be merely untidy, but xdg-desktop-portal 1.22
