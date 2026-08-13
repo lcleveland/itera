@@ -147,7 +147,9 @@
               #   nixIndex          command-not-found + `comma` (`,`)
               #   virtualisation    QEMU/KVM via libvirt + virt-manager GUI (add
               #     "libvirtd" to the user's extraGroups below; set hardware.cpu
-              #     to "intel"/"amd" for KVM acceleration)
+              #     to "intel"/"amd" for KVM acceleration). The `default` NAT
+              #     network (virbr0) is started + autostarted; turn it off with
+              #     virtualisation.defaultNetwork.enable = false;
               #   desktop.fileManager   Nemo file manager
               #   desktop.theme         dark mode for GTK/Flatpak apps
               #                         (theme.dark = false for a light session)
