@@ -101,6 +101,9 @@ let
     itera.ai.openWebui.enable = true;
   };
 
+  # libvirt's default NAT network opted out, to assert the starter unit is gated.
+  defaultNetworkOff = mkEval { itera.virtualisation.defaultNetwork.enable = false; };
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
@@ -158,6 +161,14 @@ let
     "virt-manager GUI is enabled" = base.programs.virt-manager.enable;
     "swtpm is enabled for guests" = base.virtualisation.libvirtd.qemu.swtpm.enable;
     "libvirt state is persisted" = builtins.elem "/var/lib/libvirt" (persistDirs base);
+    # The `default` NAT network is defined by upstream but left inactive, so itera
+    # starts + autostarts it at boot. Present by default, gone when opted out.
+    "default network unit is pulled in at boot" =
+      builtins.elem "multi-user.target" base.systemd.services.itera-libvirt-default-network.wantedBy;
+    "default network unit starts it after libvirtd" =
+      builtins.elem "libvirtd.service" base.systemd.services.itera-libvirt-default-network.after;
+    "default network unit is dropped when opted out" =
+      !(defaultNetworkOff.systemd.services ? itera-libvirt-default-network);
 
     # --- Nemo file manager (default on) ---
     "gvfs is enabled" = base.services.gvfs.enable;
