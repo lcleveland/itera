@@ -44,7 +44,10 @@ probes exists. Each recovers on its own; the capability works once the system ha
 settled, so there is nothing to fix.
 
 - **`wireplumber: spa.bluez5: BlueZ system service is not available`.** WirePlumber's bluez5 monitor probes D-Bus at session start; `bluetooth.service` came up ~40 s later. The monitor picks the service up via D-Bus activation once it appears, so Bluetooth audio works — verify with `systemctl status bluetooth` (active) rather than by the log line.
-- **`pipewire: spa.alsa: 'hdmi:0': playback open failed: Permission denied`.** PipeWire opens the HDMI PCM before logind has applied the seat ACL to `/dev/snd/*`. Confirm it healed by checking the sink is present in `wpctl status`; on the test host the HDMI sink is there and usable.
+- **`pipewire: spa.alsa: 'hdmi:0': playback open failed: Permission denied`.** This is the **greeter's** PipeWire, not the user's: greetd runs a full user session, so a second PipeWire/WirePlumber pair runs as `greeter` and holds the ALSA cards. At the moment the user logs in, logind moves the `/dev/snd/*` seat ACL to the new session and the greeter's instance loses access, logs this, and exits. The user's own PipeWire is unaffected — check `wpctl status` for the sink.
+
+  **This line does not explain missing audio devices after login.** If sinks/sources are absent for tens of seconds into a session, look at when the kernel registered the card, not at PipeWire — a `snd-usb-audio` device that enumerates before its module is loaded can spend ~50 s in `parse_audio_format_rates_v2v3()` / `cannot get freq (v2/v3): err -110` timeouts before its card appears. Compare `journalctl -k | grep -E 'Product:|registered new interface driver snd-usb-audio'`: if the driver registers _after_ the device is detected, force-load the module early (`itera.hardware.kernelModules = [ "snd_usb_audio" ]`) so it is resident before enumeration.
+
 - **`pipewire: mod.x11-bell: X11 display (:0) has encountered a fatal I/O error`.** Upstream PipeWire loads `module-x11-bell` in its default `pipewire.conf`; on a Wayland session it grabs a display that Xwayland then tears down. Purely the X11 bell — no effect on audio. Not worth forking the stock `pipewire.conf` to drop one module.
 
 ## Accepted — hardware/driver specific

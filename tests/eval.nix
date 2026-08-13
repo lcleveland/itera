@@ -155,12 +155,23 @@ let
   # the 32-bit binaries Steam/Proton ship.
   gamingOn = mkEval { itera.gaming.enable = true; };
 
-  # Same battery on a host that has relaxed yama, to assert the ptrace warning
-  # is conditional and not a permanent nag.
-  gamingYamaRelaxed = mkEval {
-    itera.gaming.enable = true;
-    nix-mineral.settings.system.yama = "relaxed";
-  };
+  # The ptrace/yama warning checks read `config.warnings`, which aggregates every
+  # module's warnings and so forces far more of the config than the narrow
+  # attributes the other gaming checks touch — enough to reach Steam's i686
+  # package set ("i686 Linux package set can only be used with the x86 family" on
+  # the aarch64 runner). Pin the platform like the nvidia evals do so these run
+  # identically on both runners. Second variant: a host that has relaxed yama, to
+  # assert the warning is conditional and not a permanent nag.
+  mkGamingEval =
+    extra:
+    mkConfig [
+      diskoOn
+      { nixpkgs.hostPlatform = lib.mkForce "x86_64-linux"; }
+      { itera.gaming.enable = true; }
+      extra
+    ];
+  gamingWarn = mkGamingEval { };
+  gamingYamaRelaxed = mkGamingEval { nix-mineral.settings.system.yama = "relaxed"; };
 
   # caching resolver (itera.networking.resolved, on by default); a second eval
   # with it off to assert systemd-resolved is gated, and one with AAAA
@@ -543,7 +554,7 @@ let
     "hardening keeps yama restricted by default" = cfg.nix-mineral.settings.system.yama == "restricted";
     "gaming warns about the ptrace/yama conflict" = builtins.any (
       w: lib.hasInfix "ptrace_scope" w
-    ) gamingOn.warnings;
+    ) gamingWarn.warnings;
     "gaming is quiet once yama is relaxed" =
       !(builtins.any (w: lib.hasInfix "ptrace_scope" w) gamingYamaRelaxed.warnings);
   };
