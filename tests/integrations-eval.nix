@@ -104,11 +104,18 @@ let
   # libvirt's default NAT network opted out, to assert the starter unit is gated.
   defaultNetworkOff = mkEval { itera.virtualisation.defaultNetwork.enable = false; };
 
+  # File manager opted out, to assert the gvfs helpers go with it.
+  fileManagerOff = mkEval { itera.desktop.fileManager.enable = false; };
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
   vivaldiPkg =
     cfg: lib.findFirst (p: lib.hasInfix "vivaldi" (p.name or "")) null cfg.environment.systemPackages;
+
+  # `wsdd-` (with the dash) so this matches the wsdd package itself and not some
+  # other member of the closure whose name merely contains "wsdd".
+  hasWsdd = cfg: lib.any (p: lib.hasPrefix "wsdd-" (p.name or "")) cfg.environment.systemPackages;
 
   # facter auto-NVIDIA: feed a synthetic report directly (pure — no impure file
   # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
@@ -175,6 +182,13 @@ let
     "tumbler thumbnails are enabled" = base.services.tumbler.enable;
     "nemo is the default directory handler" =
       base.xdg.mime.defaultApplications."inode/directory" == "nemo.desktop";
+    # gvfs' WS-Discovery backend automounts but spawns `wsdd` off PATH, so the
+    # binary has to be installed or Nemo's "Network" finds no SMB hosts.
+    "wsdd is installed for gvfs network discovery" = hasWsdd base;
+    "wsdd is dropped with the file manager" = !hasWsdd fileManagerOff;
+    # Client-side discovery only: itera must not stand up the wsdd *responder*,
+    # which would advertise this host on the LAN.
+    "wsdd responder is not enabled" = !base.services.samba-wsdd.enable;
 
     # --- Vivaldi browser (default on) ---
     "vivaldi is the default https handler" =

@@ -155,6 +155,24 @@ let
   # the 32-bit binaries Steam/Proton ship.
   gamingOn = mkEval { itera.gaming.enable = true; };
 
+  # The ptrace/yama warning checks read `config.warnings`, which aggregates every
+  # module's warnings and so forces far more of the config than the narrow
+  # attributes the other gaming checks touch — enough to reach Steam's i686
+  # package set ("i686 Linux package set can only be used with the x86 family" on
+  # the aarch64 runner). Pin the platform like the nvidia evals do so these run
+  # identically on both runners. Second variant: a host that has relaxed yama, to
+  # assert the warning is conditional and not a permanent nag.
+  mkGamingEval =
+    extra:
+    mkConfig [
+      diskoOn
+      { nixpkgs.hostPlatform = lib.mkForce "x86_64-linux"; }
+      { itera.gaming.enable = true; }
+      extra
+    ];
+  gamingWarn = mkGamingEval { };
+  gamingYamaRelaxed = mkGamingEval { nix-mineral.settings.system.yama = "relaxed"; };
+
   # caching resolver (itera.networking.resolved, on by default); a second eval
   # with it off to assert systemd-resolved is gated, and one with AAAA
   # suppression opted out (on by default) to assert the no-aaaa gate.
@@ -529,6 +547,16 @@ let
     # of the clipboard tools on the default, gaming-off desktop).
     "no steam clipboard injection without steam" =
       !(builtins.any (p: lib.getName p == "wl-clipboard-x11") cfg.programs.steam.extraPackages);
+    # Hardening leaves yama at "restricted" (ptrace_scope 3), which blocks the
+    # ptrace Wine/Proton does on its own children. The gaming battery must warn
+    # about that rather than silently relax it — and must go quiet once a host
+    # has actually relaxed it.
+    "hardening keeps yama restricted by default" = cfg.nix-mineral.settings.system.yama == "restricted";
+    "gaming warns about the ptrace/yama conflict" = builtins.any (
+      w: lib.hasInfix "ptrace_scope" w
+    ) gamingWarn.warnings;
+    "gaming is quiet once yama is relaxed" =
+      !(builtins.any (w: lib.hasInfix "ptrace_scope" w) gamingYamaRelaxed.warnings);
   };
 
 in
