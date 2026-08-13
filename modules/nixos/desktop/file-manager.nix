@@ -44,7 +44,19 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    environment.systemPackages = mkIf (cfg.package != null) [ cfg.package ];
+    # `wsdd` backs gvfs's WS-Discovery backend (`gvfsd-wsdd`) — what actually
+    # finds Windows/SMB hosts under Nemo's "Network". gvfs ships that backend
+    # with `AutoMount=true` and spawns the daemon by bare name off PATH, but
+    # nixpkgs puts no `wsdd` there, so opening Network logs "Failed to spawn the
+    # wsdd daemon … No such file or directory" plus "Couldn't create directory
+    # monitor on wsdd:///" and silently discovers nothing. Same shape as the
+    # avahi/nss-mdns gap fixed in the DankMaterialShell battery: the feature was
+    # advertised with nothing behind it. Client side only — this discovers other
+    # hosts, it does NOT advertise this one on the LAN (that would be
+    # `services.samba-wsdd`, deliberately left off on a hardened desktop).
+    environment.systemPackages =
+      lib.optional (cfg.package != null) cfg.package
+      ++ lib.optional config.services.gvfs.enable pkgs.wsdd;
 
     # gvfs: trash, network shares, removable-drive automounting. tumbler:
     # thumbnail generation. dconf: where Nemo/Cinnamon store their settings.

@@ -50,6 +50,27 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
+    # The hardening battery leaves nix-mineral's `settings.system.yama` at its
+    # "restricted" default (kernel.yama.ptrace_scope = 3), which forbids ptrace
+    # outright. Wine/Proton's `wineserver` ptraces its own children, so Proton
+    # titles spam `kernel: ptrace attach of "…" was attempted by "…/wineserver"`
+    # and kernel-adjacent anti-cheats can refuse to run. Upstream nix-mineral
+    # calls this out and its `compatibility` preset sets `yama = "relaxed"`
+    # (scope 1: a parent may trace its own children — exactly Wine's pattern)
+    # for this reason. Warn rather than relax it here: weakening hardening is
+    # the host's call, not something a gaming battery should do silently.
+    warnings =
+      lib.optional
+        (config.itera.hardening.enable && config.nix-mineral.settings.system.yama == "restricted")
+        ''
+          itera.gaming is enabled but nix-mineral.settings.system.yama = "restricted"
+          (kernel.yama.ptrace_scope = 3), which blocks all ptrace. Wine/Proton needs
+          it for its own child processes: expect ptrace denials in the journal and
+          anti-cheats that refuse to start. Set
+          nix-mineral.settings.system.yama = "relaxed" (or add "compatibility" to
+          itera.hardening.preset) if you hit that.
+        '';
+
     programs = {
       steam = {
         enable = mkDefault true;

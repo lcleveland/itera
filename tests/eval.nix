@@ -155,6 +155,13 @@ let
   # the 32-bit binaries Steam/Proton ship.
   gamingOn = mkEval { itera.gaming.enable = true; };
 
+  # Same battery on a host that has relaxed yama, to assert the ptrace warning
+  # is conditional and not a permanent nag.
+  gamingYamaRelaxed = mkEval {
+    itera.gaming.enable = true;
+    nix-mineral.settings.system.yama = "relaxed";
+  };
+
   # caching resolver (itera.networking.resolved, on by default); a second eval
   # with it off to assert systemd-resolved is gated, and one with AAAA
   # suppression opted out (on by default) to assert the no-aaaa gate.
@@ -529,6 +536,16 @@ let
     # of the clipboard tools on the default, gaming-off desktop).
     "no steam clipboard injection without steam" =
       !(builtins.any (p: lib.getName p == "wl-clipboard-x11") cfg.programs.steam.extraPackages);
+    # Hardening leaves yama at "restricted" (ptrace_scope 3), which blocks the
+    # ptrace Wine/Proton does on its own children. The gaming battery must warn
+    # about that rather than silently relax it — and must go quiet once a host
+    # has actually relaxed it.
+    "hardening keeps yama restricted by default" = cfg.nix-mineral.settings.system.yama == "restricted";
+    "gaming warns about the ptrace/yama conflict" = builtins.any (
+      w: lib.hasInfix "ptrace_scope" w
+    ) gamingOn.warnings;
+    "gaming is quiet once yama is relaxed" =
+      !(builtins.any (w: lib.hasInfix "ptrace_scope" w) gamingYamaRelaxed.warnings);
   };
 
 in
