@@ -105,8 +105,7 @@ in
       # always works; a host wanting the tighter default can flip it back off.
       settings.system.multilib = mkDefault true;
 
-      # Known benign boot-log noise from this layer — left as-is on purpose
-      # (see docs/known-boot-log-noise.md for the full triage):
+      # Known benign boot-log noise from this layer — left as-is on purpose:
       #
       #   • `udev-worker: Error running install command
       #     '/usr/bin/disabled-*-by-security-misc' … retcode 127` (thunderbolt,
