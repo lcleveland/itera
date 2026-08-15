@@ -90,7 +90,8 @@ in
       # `modules/nixos/core/impermanence.nix`). nix-mineral deprecated the option
       # and now defaults it to null (inert), so leaving it unset is what gets us
       # unique per-host ids; explicitly setting it to `false` would only earn an
-      # eval warning for no change in behaviour. tests/eval.nix asserts the
+      # eval warning for no change in behaviour. The disko-impermanence eval
+      # (tests/disko-impermanence-eval.nix) asserts the
       # invariant ("machine-id is not a static generic id"). A host that wants
       # the generic id back sets `environment.etc.machine-id.text` itself.
 

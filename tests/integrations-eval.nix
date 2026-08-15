@@ -3,7 +3,8 @@
 # (lanzaboote), declarative Flatpak, nixos-facter, security keys (FIDO2/U2F), and
 # the fingerprint reader (fprintd).
 #
-# Like tests/eval.nix, these are hard to VM-boot (Secure Boot needs enrolled keys,
+# Like tests/disko-impermanence-eval.nix, these are hard to VM-boot (Secure Boot
+# needs enrolled keys,
 # libvirt/flatpak pull services) so we evaluate two NixOS configurations — one at
 # defaults, one with the opt-in batteries turned on — and assert the generated
 # config. `nix build` forces evaluation and fails loudly on any false assertion.
@@ -25,17 +26,11 @@ let
     })
     mkConfig
     mkCheckDrv
+    diskoOn
     ;
 
-  # This check exercises impermanence persistence, so turn disko + impermanence
-  # on (overriding mkConfig's defaults) alongside each variant's extra module.
-  diskoOn = {
-    itera.disko = {
-      enable = true;
-      device = "/dev/vda";
-    };
-    itera.impermanence.enable = true;
-  };
+  # `diskoOn` (tests/lib.nix) turns disko + impermanence back on, so this eval
+  # exercises partitioning and the tmpfs root alongside each variant's module.
   mkEval =
     extra:
     mkConfig [

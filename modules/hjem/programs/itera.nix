@@ -15,11 +15,21 @@
 # installed and carapace being on — the spec is useless without either.
 {
   lib,
+  pkgs,
   osConfig ? null,
   ...
 }:
 let
   inherit (lib.modules) mkIf;
+
+  # Rendered from the shared spec (cli/carapace-spec.nix) with the dev-only
+  # `testhost` verbs left out — they are not in the consumer command.
+  spec = (pkgs.formats.yaml { }).generate "itera-carapace-spec.yaml" (
+    import ../../../cli/carapace-spec.nix {
+      inherit lib;
+      withTesthost = false;
+    }
+  );
 
   cliEnabled = osConfig.itera.cli.enable or false;
   carapaceEnabled =
@@ -31,7 +41,7 @@ in
     # Explicit clobber so the declarative spec survives impermanence (same
     # rationale as the nushell config files).
     xdg.config.files."carapace/specs/itera.yaml" = {
-      source = ../../../cli/itera-consumer.carapace.yaml;
+      source = spec;
       clobber = true;
     };
   };

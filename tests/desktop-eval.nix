@@ -24,6 +24,7 @@ let
     })
     mkConfig
     mkCheckDrv
+    hasPkgInfix
     ;
 
   # itera.enable alone brings up the desktop (opt-out): it defaults the shell
@@ -83,10 +84,6 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
-  hasPkg =
-    pname: pkgList:
-    builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
-
   checks = {
     # Shell battery pulls in the compositor.
     "mango compositor is enabled" = cfg.programs.mango.enable;
@@ -112,8 +109,8 @@ let
     # Font WezTerm needs for the shell's glyphs.
     "terminal battery is enabled" = cfg.itera.desktop.terminal.enable;
     "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm start";
-    "wezterm package is installed" = hasPkg "wezterm" cfg.environment.systemPackages;
-    "JetBrains Mono Nerd Font is installed" = hasPkg "jetbrains-mono" cfg.fonts.packages;
+    "wezterm package is installed" = hasPkgInfix "wezterm" cfg.environment.systemPackages;
+    "JetBrains Mono Nerd Font is installed" = hasPkgInfix "jetbrains-mono" cfg.fonts.packages;
 
     # File-manager battery ships Nemo (default ON) and wires SUPER+f to it.
     "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
@@ -123,7 +120,7 @@ let
     # SUPER+e to it. It deliberately does NOT set EDITOR/VISUAL (GUI-default only).
     "editor battery is enabled" = cfg.itera.desktop.editor.enable;
     "SUPER+e spawns zeditor" = cfg.itera.desktop.mango.commands.editor == "zeditor";
-    "zed-editor package is installed" = hasPkg "zed-editor" cfg.environment.systemPackages;
+    "zed-editor package is installed" = hasPkgInfix "zed-editor" cfg.environment.systemPackages;
     "zed is the default text/plain handler" =
       cfg.xdg.mime.defaultApplications."text/plain" == "dev.zed.Zed.desktop";
 
@@ -160,8 +157,8 @@ let
 
     # Nix language server (default ON): nixd + nixfmt land on PATH and Zed's
     # settings select nixd (disabling nil) with nixfmt format-on-save.
-    "nixd is installed" = hasPkg "nixd" cfg.environment.systemPackages;
-    "nixfmt is installed" = hasPkg "nixfmt" cfg.environment.systemPackages;
+    "nixd is installed" = hasPkgInfix "nixd" cfg.environment.systemPackages;
+    "nixfmt is installed" = hasPkgInfix "nixfmt" cfg.environment.systemPackages;
     "zed selects nixd for Nix" =
       cfg.itera.programs.zed.settings.languages.Nix.language_servers == [
         "nixd"
@@ -172,7 +169,7 @@ let
       && cfg.itera.programs.zed.settings.languages.Nix.formatter.external.command == "nixfmt";
 
     # Opting the Nix LSP out drops the binary and writes no Nix settings.
-    "nixd absent when disabled" = !hasPkg "nixd" cfgNoNixLsp.environment.systemPackages;
+    "nixd absent when disabled" = !hasPkgInfix "nixd" cfgNoNixLsp.environment.systemPackages;
     "no Nix settings when disabled" = !(cfgNoNixLsp.itera.programs.zed.settings ? languages);
 
     # Clipboard bridge battery (default ON with the desktop): ships wl-clipboard and
@@ -180,7 +177,7 @@ let
     # sync the X11 and Wayland selections natively, so neither direction works
     # without them. Gated off with the desktop or its toggle.
     "clipboard bridge battery is enabled" = cfg.itera.desktop.clipboard.enable;
-    "wl-clipboard is installed by default" = hasPkg "wl-clipboard" cfg.environment.systemPackages;
+    "wl-clipboard is installed by default" = hasPkgInfix "wl-clipboard" cfg.environment.systemPackages;
     "clipboard wayland-to-x11 bridge service present" =
       cfg.systemd.user.services ? "itera-clipboard-wayland-to-x11";
     # The reverse direction (copy OUT of XWayland apps) must be present too — it
@@ -236,7 +233,8 @@ let
       cfg.itera.programs.dankMaterialShell.plugins ? screencastChooser;
     # On PATH so the picker can be replayed by hand instead of only through a live
     # call — it reaches the portal by absolute path either way.
-    "screencast chooser is on PATH" = hasPkg "itera-screencast-chooser" cfg.environment.systemPackages;
+    "screencast chooser is on PATH" =
+      hasPkgInfix "itera-screencast-chooser" cfg.environment.systemPackages;
     # Uncapped by default: the option exists, but no max_fps key is emitted unless
     # someone asks for one.
     "screencast frame rate is uncapped by default" = !(screencastSettings ? max_fps);

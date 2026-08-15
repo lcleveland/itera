@@ -25,17 +25,11 @@ let
     })
     mkConfig
     mkCheckDrv
+    diskoOn
     ;
 
-  # disko + impermanence on (overriding mkConfig's defaults) so this eval
-  # exercises partitioning and the tmpfs root alongside the core-boot batteries.
-  diskoOn = {
-    itera.disko = {
-      enable = true;
-      device = "/dev/vda";
-    };
-    itera.impermanence.enable = true;
-  };
+  # `diskoOn` (tests/lib.nix) turns disko + impermanence back on, so this eval
+  # exercises partitioning and the tmpfs root alongside each variant's module.
   mkEval =
     extra:
     mkConfig [

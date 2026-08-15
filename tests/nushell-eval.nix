@@ -22,6 +22,7 @@ let
     })
     mkConfig
     mkCheckDrv
+    hasPkgInfix
     ;
 
   # An account so the hjem home layer renders; disko/impermanence stay off.
@@ -41,19 +42,15 @@ let
   # carapace off: nushell stays, but no completion engine or hookup.
   carapaceOff = mkEval { itera.shell.nushell.carapace.enable = false; };
 
-  hasPkg =
-    pname: pkgList:
-    builtins.any (p: (p.pname or p.name or "") == pname || lib.hasInfix pname (p.name or "")) pkgList;
-
   baseFiles = base.hjem.users.alice.xdg.config.files;
   carapaceOffFiles = carapaceOff.hjem.users.alice.xdg.config.files;
 
   checks = {
     # ── system battery (default on) ──────────────────────────────────────
-    "nushell is installed" = hasPkg "nushell" base.environment.systemPackages;
-    "carapace is installed" = hasPkg "carapace" base.environment.systemPackages;
+    "nushell is installed" = hasPkgInfix "nushell" base.environment.systemPackages;
+    "carapace is installed" = hasPkgInfix "carapace" base.environment.systemPackages;
     "nushell is the default login shell" = (base.users.defaultUserShell.pname or "") == "nushell";
-    "nushell is registered in /etc/shells" = hasPkg "nushell" base.environment.shells;
+    "nushell is registered in /etc/shells" = hasPkgInfix "nushell" base.environment.shells;
 
     # ── home config (default on) ─────────────────────────────────────────
     "config.nu sources carapace init" =
@@ -65,14 +62,14 @@ let
 
     # ── nushell off → login shell and home files drop ────────────────────
     "nushell off: not the default shell" = (nushellOff.users.defaultUserShell.pname or "") != "nushell";
-    "nushell off: not in /etc/shells" = !(hasPkg "nushell" nushellOff.environment.shells);
+    "nushell off: not in /etc/shells" = !(hasPkgInfix "nushell" nushellOff.environment.shells);
     "nushell off: no config.nu" = !(nushellOff.hjem.users.alice.xdg.config.files ? "nushell/config.nu");
 
     # ── carapace off → nushell stays, completion hookup drops ────────────
     "carapace off: nushell still default shell" =
       (carapaceOff.users.defaultUserShell.pname or "") == "nushell";
     "carapace off: carapace not installed" =
-      !(hasPkg "carapace" carapaceOff.environment.systemPackages);
+      !(hasPkgInfix "carapace" carapaceOff.environment.systemPackages);
     "carapace off: config.nu does not source carapace" =
       !(lib.hasInfix "carapace-init.nu" carapaceOffFiles."nushell/config.nu".text);
     "carapace off: no carapace-init.nu" = !(carapaceOffFiles ? "nushell/carapace-init.nu");
