@@ -21,3 +21,6 @@ result-*
 # Claude Code — ignore personal/local settings, keep shared config
 # (CLAUDE.md, .claude/settings.json, and .claude/{commands,agents}/ are committable)
 .claude/settings.local.json
+
+# Claude Code scheduled-task lockfile (runtime state, per checkout)
+.claude/scheduled_tasks.lock

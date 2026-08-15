@@ -60,13 +60,19 @@
 
   # Tab-completion for the full command. carapace (itera's external completer in
   # nushell — see modules/nixos/core/shell/nushell.nix) auto-loads specs from
-  # ~/.config/carapace/specs/; drop the FULL spec (with `testhost`) there for the
-  # login user. Gated on carapace being enabled. `itera` is the sole account on
-  # the test hosts (dev/test-user.nix). Consumer hosts get the testhost-less spec
+  # ~/.config/carapace/specs/; render the shared spec (cli/carapace-spec.nix) with
+  # the `testhost` verbs included and drop it there for the login user. Gated on
+  # carapace being enabled. `itera` is the sole account on the test hosts
+  # (dev/test-user.nix). Consumer hosts render the same spec without `testhost`
   # via the `itera.programs.itera` home battery instead.
   hjem.users.itera.xdg.config.files = lib.mkIf config.itera.shell.nushell.carapace.enable {
     "carapace/specs/itera.yaml" = {
-      source = ../cli/itera.carapace.yaml;
+      source = (pkgs.formats.yaml { }).generate "itera-carapace-spec.yaml" (
+        import ../cli/carapace-spec.nix {
+          inherit lib;
+          withTesthost = true;
+        }
+      );
       clobber = true;
     };
   };

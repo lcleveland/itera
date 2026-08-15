@@ -43,8 +43,14 @@ let
       itera.shell.nushell.carapace.enable = false;
     }
   ];
-  userSpec = withUser.hjem.users.alice.xdg.config.files.${specPath};
-  specText = builtins.readFile userSpec.source;
+  # Both specs come from one source (cli/carapace-spec.nix), rendered to YAML by
+  # whoever installs them. Assert against that DATA rather than the rendered file:
+  # it is what the two builds actually differ in, and reading the generated file
+  # back would mean an import-from-derivation in every eval.
+  mkSpec = withTesthost: import ../cli/carapace-spec.nix { inherit lib withTesthost; };
+  verbs = spec: map (c: c.name) spec.commands;
+  consumerVerbs = verbs (mkSpec false);
+  fullVerbs = verbs (mkSpec true);
 
   checks = {
     # ── system battery ───────────────────────────────────────────────────
@@ -55,15 +61,25 @@ let
     # ── home battery (completion for all users) ──────────────────────────
     "completion spec shipped to the user by default" =
       withUser.hjem.users.alice.xdg.config.files ? ${specPath};
-    "shipped spec is the consumer spec (has the consumer verbs)" =
-      lib.hasInfix "name: rebuild" specText
-      && lib.hasInfix "name: gc" specText
-      && lib.hasInfix "name: disks" specText
-      && lib.hasInfix "name: prep" specText
-      && lib.hasInfix "name: firmware" specText;
-    "shipped spec omits the dev-only testhost verbs" = !(lib.hasInfix "name: testhost" specText);
     "no completion spec when carapace is off" =
       !(noCarapace.hjem.users.alice.xdg.config.files ? ${specPath});
+
+    # ── the shared carapace spec ─────────────────────────────────────────
+    "consumer spec carries the consumer verbs" = lib.all (v: builtins.elem v consumerVerbs) [
+      "facter"
+      "rebuild"
+      "update"
+      "boot"
+      "update-boot"
+      "gc"
+      "disks"
+      "firmware"
+      "help"
+    ];
+    "consumer spec omits the dev-only testhost verbs" = !(builtins.elem "testhost" consumerVerbs);
+    "full spec adds testhost and nothing else" =
+      builtins.elem "testhost" fullVerbs
+      && lib.sort (a: b: a < b) (lib.remove "testhost" fullVerbs) == lib.sort (a: b: a < b) consumerVerbs;
   };
 in
 mkCheckDrv "itera-cli-eval" checks

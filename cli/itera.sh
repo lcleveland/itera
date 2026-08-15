@@ -11,9 +11,9 @@
 # which is how the consumer build stays free of them.
 #
 # To add a subcommand: add a `case` arm and a `usage` line, add its package to the
-# right `runtimeInputs` in flake/cli.nix, and add an entry to the carapace specs
-# in cli/ (itera.carapace.yaml for the full command, itera-consumer.carapace.yaml
-# for the shipped one).
+# right `runtimeInputs` in flake/cli.nix, and add an entry to the shared carapace
+# spec (cli/carapace-spec.nix — one tree for both builds; dev-only verbs go behind
+# its `withTesthost` flag).
 #
 # writeShellApplication supplies `set -euo pipefail` and runs shellcheck, so this
 # file is plain bash with no preamble of its own.
@@ -68,6 +68,29 @@ itera_update_fetch_flag() {
   if [ "${ITERA_UPDATE_REMOTE:-0}" = "1" ]; then echo "--refresh"; else echo "--update"; fi
 }
 
+# The shared body of the four rebuild verbs. They differ only in the nh
+# subcommand (`switch` vs `boot`) and whether they fetch first, so the argument
+# order and the facter/`--impure` hand-off live here once.
+#
+#   itera_rebuild <nh-subcommand> <fetch: 0|1> [extra nh args...]
+#
+# `--impure` goes after `--` so nh forwards it to nixos-rebuild rather than
+# consuming it, and only when itera_facter_refresh actually wrote a report.
+itera_rebuild() {
+  local nh_cmd="$1" fetch="$2"
+  shift 2
+
+  itera_update_source
+  local fetch_args=()
+  [ "$fetch" = "1" ] && fetch_args+=("$(itera_update_fetch_flag)")
+
+  if itera_facter_refresh; then
+    exec nh os "$nh_cmd" "${SRC_ARGS[@]}" "${fetch_args[@]}" "$@" -- --impure
+  else
+    exec nh os "$nh_cmd" "${SRC_ARGS[@]}" "${fetch_args[@]}" "$@"
+  fi
+}
+
 # testhost tooling is itera-repo dev-only. It is absent from the consumer build,
 # so guide the user to the flake instead of failing obscurely.
 require() {
@@ -96,8 +119,9 @@ Commands:
                                --update for a local one).
   boot [nh args]               Rebuild from your flake, but apply on next reboot
                                instead of now (nh os boot).
-  update-boot [nh args]        Update your flake inputs, then apply on next reboot
-                               (nh os boot --update).
+  update-boot [nh args]        Fetch the newest config, then apply on next reboot
+                               (nh os boot; --refresh for a remote
+                               itera.update.flake, --update for a local one).
   gc [nh args]                 Prune old generations to free space (nh clean all).
   disks [list]                 List internal fixed disks and the config needed to
                                add each as an itera.disko.dataDrives entry.
@@ -140,40 +164,10 @@ case "$cmd" in
         ;;
     esac
     ;;
-  rebuild)
-    itera_update_source
-    if itera_facter_refresh; then
-      exec nh os switch "${SRC_ARGS[@]}" "$@" -- --impure
-    else
-      exec nh os switch "${SRC_ARGS[@]}" "$@"
-    fi
-    ;;
-  update)
-    itera_update_source
-    fetch="$(itera_update_fetch_flag)"
-    if itera_facter_refresh; then
-      exec nh os switch "${SRC_ARGS[@]}" "$fetch" "$@" -- --impure
-    else
-      exec nh os switch "${SRC_ARGS[@]}" "$fetch" "$@"
-    fi
-    ;;
-  boot)
-    itera_update_source
-    if itera_facter_refresh; then
-      exec nh os boot "${SRC_ARGS[@]}" "$@" -- --impure
-    else
-      exec nh os boot "${SRC_ARGS[@]}" "$@"
-    fi
-    ;;
-  update-boot)
-    itera_update_source
-    fetch="$(itera_update_fetch_flag)"
-    if itera_facter_refresh; then
-      exec nh os boot "${SRC_ARGS[@]}" "$fetch" "$@" -- --impure
-    else
-      exec nh os boot "${SRC_ARGS[@]}" "$fetch" "$@"
-    fi
-    ;;
+  rebuild) itera_rebuild switch 0 "$@" ;;
+  update) itera_rebuild switch 1 "$@" ;;
+  boot) itera_rebuild boot 0 "$@" ;;
+  update-boot) itera_rebuild boot 1 "$@" ;;
   gc) exec nh clean all "$@" ;;
   disks)
     sub="${1:-list}"

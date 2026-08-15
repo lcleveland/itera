@@ -22,9 +22,8 @@ let
     })
     mkConfig
     mkCheckDrv
+    hasPkgName
     ;
-
-  hasName = name: list: builtins.elem name (map lib.getName list);
 
   # ── printing ─────────────────────────────────────────────────────────────
   printing = mkConfig [ { itera.printing.enable = true; } ];
@@ -64,7 +63,7 @@ let
     # ── printing ─────────────────────────────────────────────────────────
     "printing off by default" = !(mkConfig [ ]).services.printing.enable;
     "printing enables CUPS" = printing.services.printing.enable;
-    "printing ships the default HP driver" = hasName "hplip" printing.services.printing.drivers;
+    "printing ships the default HP driver" = hasPkgName "hplip" printing.services.printing.drivers;
     "printing enables avahi discovery" = printing.services.avahi.enable;
     "printing opens the discovery firewall" = printing.services.avahi.openFirewall;
     "printing installs the GUI by default" = printing.services.system-config-printer.enable;
@@ -72,7 +71,7 @@ let
     # ── gaming ─────────────────────────────────────────────────────────────
     "gaming off by default" = !(mkConfig [ ]).programs.steam.enable;
     "gaming enables Steam" = gaming.programs.steam.enable;
-    "gaming ships Proton-GE" = hasName "proton-ge-bin" gaming.programs.steam.extraCompatPackages;
+    "gaming ships Proton-GE" = hasPkgName "proton-ge-bin" gaming.programs.steam.extraCompatPackages;
     "gaming enables gamescope" = gaming.programs.gamescope.enable;
     "gaming enables gamemode" = gaming.programs.gamemode.enable;
 
@@ -92,16 +91,16 @@ let
       w: lib.hasInfix "fall back to CPU" w
     ) aiCudaNoGpu.warnings;
     # Claude Code CLI is opt-in: absent by default, on the system PATH once enabled.
-    "claude cli off by default" = !(hasName "claude-code" (mkConfig [ ]).environment.systemPackages);
-    "claude cli installed when opted in" = hasName "claude-code" claude.environment.systemPackages;
+    "claude cli off by default" = !(hasPkgName "claude-code" (mkConfig [ ]).environment.systemPackages);
+    "claude cli installed when opted in" = hasPkgName "claude-code" claude.environment.systemPackages;
     # Claude ACP adapter: off by default, follows the CLI toggle, and can be
     # enabled on its own.
     "claude acp adapter off by default" =
-      !(hasName "claude-agent-acp" (mkConfig [ ]).environment.systemPackages);
+      !(hasPkgName "claude-agent-acp" (mkConfig [ ]).environment.systemPackages);
     "claude acp adapter follows the CLI toggle" =
-      hasName "claude-agent-acp" claude.environment.systemPackages;
+      hasPkgName "claude-agent-acp" claude.environment.systemPackages;
     "claude acp adapter installable on its own" =
-      hasName "claude-agent-acp" claudeAcp.environment.systemPackages;
+      hasPkgName "claude-agent-acp" claudeAcp.environment.systemPackages;
 
     # ── firmware ───────────────────────────────────────────────────────────
     # Opt-out battery: fwupd is on by default and turns off cleanly.

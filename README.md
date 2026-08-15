@@ -56,7 +56,9 @@ Or wire itera into an existing flake:
             itera.disko.device = "/dev/nvme0n1"; # CHANGE ME — disko WIPES this disk
             itera.hardware.cpu = "auto"; # or "intel" / "amd"
             hjem.users.alice.enable = true;
-            # curated program modules plug in under `hjem.users.<name>.itera.*`
+            # curated per-user program config lives under
+            # `itera.users.<name>.programs.<app>.*`, overriding the system-wide
+            # default at `itera.programs.<app>.*` per key
           }
         ];
       };

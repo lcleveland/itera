@@ -7,8 +7,9 @@
 # `mango` wayland session with the display manager.
 #
 # Unlike the core-boot batteries, a desktop is NOT part of the opinionated base,
-# so this gates on its OWN `enable` (`mkEnableOption`, opt-in) rather than the
-# global `itera.enable` — exactly like `itera.disko`.
+# so this carries its OWN `enable` (`mkEnableOption`, opt-in) on top of the global
+# `itera.enable` — exactly like `itera.disko`. Both must be on: `itera.enable =
+# false` turns the whole layer off, this module included.
 #
 # Scope: this module owns *installation* and the host-level spawn `commands`
 # (which sibling batteries — terminal/browser/editor/file-manager — set, and which
@@ -98,7 +99,7 @@ in
     };
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (config.itera.enable && cfg.enable) {
     programs.mango.enable = mkDefault true;
 
     # Tools the default media/brightness keybinds shell out to. Without these on

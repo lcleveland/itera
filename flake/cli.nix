@@ -28,6 +28,25 @@
     }:
     let
       iteraSrc = builtins.readFile ../cli/itera.sh;
+
+      # Everything the system-management verbs shell out to. Shared by BOTH
+      # builds so a new verb's tool is added once — the full dispatcher below is
+      # this list plus the dev-only tools, not a second copy of it.
+      #
+      # `nh` (rebuild/update/gc), `nixos-facter` (the auto-regeneration the
+      # rebuild verbs run before switching — see cli/itera.sh
+      # `itera_facter_refresh`; pinned + offline, unlike facter-report.sh's
+      # `nix run nixpkgs#nixos-facter`), and `fwupdmgr` (the `firmware` verbs)
+      # are carried explicitly so each verb works even on a host with the
+      # matching battery turned off.
+      consumerInputs = [
+        pkgs.nh
+        pkgs.nixos-facter
+        pkgs.fwupd
+        config.packages.facter-report
+        config.packages.itera-disks
+        config.packages.itera-disks-prep
+      ];
     in
     {
       packages = {
@@ -80,24 +99,10 @@
         };
 
         # The consumer `itera`: system-management verbs only, so it stays
-        # multi-arch and free of the disko-install closure. `nh` backs
-        # rebuild/update/gc (carried explicitly like itera-update does).
+        # multi-arch and free of the disko-install closure.
         itera-consumer = pkgs.writeShellApplication {
           name = "itera";
-          runtimeInputs = [
-            pkgs.nh
-            # `nixos-facter` backs the auto-regeneration the rebuild verbs run
-            # before switching (see cli/itera.sh `itera_facter_refresh`); pinned +
-            # offline, unlike facter-report.sh's `nix run nixpkgs#nixos-facter`.
-            pkgs.nixos-facter
-            config.packages.facter-report
-            config.packages.itera-disks
-            config.packages.itera-disks-prep
-            # `fwupdmgr` backs the `firmware` verbs; carried explicitly (like nh)
-            # so `itera firmware` works even on a host with the firmware battery
-            # off — it then just talks to whatever fwupd daemon is (not) running.
-            pkgs.fwupd
-          ];
+          runtimeInputs = consumerInputs;
           text = iteraSrc;
         };
       }
@@ -107,15 +112,12 @@
       // lib.optionalAttrs (system == "x86_64-linux") {
         itera = pkgs.writeShellApplication {
           name = "itera";
-          runtimeInputs = [
-            pkgs.nh
-            pkgs.nixos-facter
-            config.packages.facter-report
-            config.packages.itera-disks
-            config.packages.itera-disks-prep
+          # The consumer tools plus the two the `testhost` verbs route to. Their
+          # presence on PATH is exactly what makes the dispatcher show and accept
+          # those verbs (see `require` in cli/itera.sh).
+          runtimeInputs = consumerInputs ++ [
             config.packages.itera-update
             config.packages.install-itera-testhost
-            pkgs.fwupd
           ];
           text = iteraSrc;
         };

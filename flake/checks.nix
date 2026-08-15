@@ -5,6 +5,32 @@
   # check` is the single entry point that runs all three.
   perSystem =
     { pkgs, lib, ... }:
+    let
+      # Every `tests/*-eval.nix` is an evaluation check: it builds a NixOS config
+      # on `self.nixosModules.default` (via tests/lib.nix) and asserts things
+      # about the result. Auto-discovered, like the VM tests below and like the
+      # module tree itself — these used to be hand-listed here, which meant a new
+      # eval file silently never ran. The check name is the file name minus the
+      # extension, so `tests/nh-eval.nix` becomes `checks.<system>.nh-eval`.
+      #
+      # `tests/lib.nix` and `tests/default.nix` are excluded by the suffix, and
+      # `tests/nixos/` holds VM tests rather than evals — none of them match.
+      evalChecks = lib.listToAttrs (
+        map
+          (file: {
+            name = lib.strings.removeSuffix ".nix" (baseNameOf (toString file));
+            value = import file {
+              inherit pkgs lib;
+              inherit (inputs) self nixpkgs;
+            };
+          })
+          (
+            lib.filter (f: lib.strings.hasSuffix "-eval.nix" (baseNameOf (toString f))) (
+              lib.filesystem.listFilesRecursive ../tests
+            )
+          )
+      );
+    in
     {
       checks =
         # Auto-discovered VM tests under tests/nixos.
@@ -12,69 +38,9 @@
           inherit pkgs lib;
           inherit (inputs) self;
           # VM boot tests need KVM; hosted aarch64 runners have none, so only
-          # discover them on x86_64. The eval check below still runs everywhere.
+          # discover them on x86_64. The eval checks below still run everywhere.
           testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
         })
-        # Evaluation check for the disko + impermanence batteries.
-        // {
-          disko-impermanence-eval = import ../tests/eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the desktop batteries (mango + DankMaterialShell).
-          desktop-eval = import ../tests/desktop-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the default-settings-for-all-users system
-          # (itera.users + DMS settings + mango keybinds).
-          user-defaults-eval = import ../tests/user-defaults-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the ecosystem-integration batteries (agenix,
-          # nix-index, virtualisation, Nemo, Secure Boot, Flatpak, facter).
-          integrations-eval = import ../tests/integrations-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the shell battery (nushell default login shell +
-          # carapace completion + the per-user nushell home config).
-          nushell-eval = import ../tests/nushell-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the nh battery (nh as rebuild front-end + nh
-          # clean owning scheduled GC, with the gc.nix hand-off).
-          nh-eval = import ../tests/nh-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the cli battery (the consumer `itera` command).
-          cli-eval = import ../tests/cli-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the update battery (itera.update.flake /
-          # .configuration -> NH_FLAKE + /etc/itera/update.env).
-          update-eval = import ../tests/update-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-
-          # Evaluation check for the opt-in service batteries (printing, gaming,
-          # local AI) and the keyboard-layout battery.
-          services-eval = import ../tests/services-eval.nix {
-            inherit pkgs lib;
-            inherit (inputs) self nixpkgs;
-          };
-        };
+        // evalChecks;
     };
 }
