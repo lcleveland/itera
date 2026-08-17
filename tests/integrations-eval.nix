@@ -1,7 +1,7 @@
 # Evaluation check for itera's ecosystem-integration batteries: agenix secrets,
-# nix-index/comma, QEMU/KVM virtualization, the Nemo file manager, Secure Boot
-# (lanzaboote), declarative Flatpak, nixos-facter, security keys (FIDO2/U2F), and
-# the fingerprint reader (fprintd).
+# sops-nix secrets, nix-index/comma, QEMU/KVM virtualization, the Nemo file
+# manager, Secure Boot (lanzaboote), declarative Flatpak, nixos-facter, security
+# keys (FIDO2/U2F), and the fingerprint reader (fprintd).
 #
 # Like tests/disko-impermanence-eval.nix, these are hard to VM-boot (Secure Boot
 # needs enrolled keys,
@@ -27,6 +27,7 @@ let
     mkConfig
     mkCheckDrv
     diskoOn
+    hasPkgName
     ;
 
   # `diskoOn` (tests/lib.nix) turns disko + impermanence back on, so this eval
@@ -105,6 +106,29 @@ let
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
+  # sops battery (opt-in, OFF by default) merely turned ON, with no secrets
+  # declared — the inert state. sops-nix gates all of its own config on
+  # `sops.secrets != {}`, so this asserts itera's wiring without activating it.
+  sopsOn = mkEval { itera.sops.enable = true; };
+
+  # sops with a secret actually declared and a dedicated age key file, to assert
+  # the passthrough and the impermanence wiring. sops-nix's `validateSopsFiles`
+  # hashes every sopsFile at EVAL time and rejects non-sops files, so it is
+  # turned off here — the check is about itera's plumbing, not about carrying a
+  # real encrypted fixture (and a committed one would need a private key to be
+  # useful anyway).
+  sopsSecret = mkEval {
+    itera.sops = {
+      enable = true;
+      keyFile = "/var/lib/sops-nix/key.txt";
+      secrets.wifi-psk = {
+        sopsFile = pkgs.writeText "secrets.yaml" "wifi-psk: ENC[dummy]";
+        mode = "0400";
+      };
+    };
+    sops.validateSopsFiles = false;
+  };
+
   vivaldiPkg =
     cfg: lib.findFirst (p: lib.hasInfix "vivaldi" (p.name or "")) null cfg.environment.systemPackages;
 
@@ -145,6 +169,7 @@ let
   };
 
   persistDirs = cfg: map (d: d.directory or d) cfg.environment.persistence."/persist".directories;
+  persistFiles = cfg: map (f: f.file or f) cfg.environment.persistence."/persist".files;
   userDirs =
     cfg: name:
     map (d: d.directory or d) cfg.environment.persistence."/persist".users.${name}.directories;
@@ -153,6 +178,47 @@ let
     # --- agenix (default on, inert) ---
     "agenix identity is the persisted host key" =
       builtins.elem "/etc/ssh/ssh_host_ed25519_key" base.age.identityPaths;
+
+    # --- sops-nix (opt-in, OFF by default) ---
+    # agenix stays the default engine, so a default host gets no sops wiring at
+    # all. sops-nix's own sshKeyPaths default derives from services.openssh
+    # (off in itera core), so an empty list here really means "itera wired
+    # nothing" rather than "upstream defaulted to nothing visible".
+    "sops is off by default" = !base.itera.sops.enable;
+    "sops CLI is not installed by default" = !hasPkgName "sops" base.environment.systemPackages;
+    "sops age identity is unwired by default" = base.sops.age.sshKeyPaths == [ ];
+    # Turned on but inert: identity and CLI are wired, no secrets are declared.
+    "sops age identity is the persisted host key when on" =
+      builtins.elem "/etc/ssh/ssh_host_ed25519_key" sopsOn.sops.age.sshKeyPaths;
+    "sops declares no secrets when merely enabled" = sopsOn.sops.secrets == { };
+    "sops default format is yaml" = sopsOn.sops.defaultSopsFormat == "yaml";
+    "sops CLI is installed when on" = hasPkgName "sops" sopsOn.environment.systemPackages;
+    "ssh-to-age is installed when on" = hasPkgName "ssh-to-age" sopsOn.environment.systemPackages;
+    # itera pins the engine to age; upstream would otherwise adopt the host RSA
+    # key as a second, GnuPG decryption path whenever openssh is on.
+    "sops stays age-only (no GnuPG identity)" = sopsOn.sops.gnupg.sshKeyPaths == [ ];
+    # The two engines are independent: enabling sops leaves agenix fully wired.
+    "agenix is untouched when sops is enabled" =
+      builtins.elem "/etc/ssh/ssh_host_ed25519_key" sopsOn.age.identityPaths;
+    # A declared secret reaches the native option tree untouched.
+    "sops secret passes through to sops.secrets" = sopsSecret.sops.secrets ? wifi-psk;
+    "sops secret keeps its declared mode" = sopsSecret.sops.secrets.wifi-psk.mode == "0400";
+    # ...and actually activates: sops-nix installs secrets from an activation
+    # script, decrypting to the /run tmpfs. This is the pair that proves "inert
+    # until used" is real rather than merely unasserted — no script with the
+    # battery merely on, a script once a secret exists.
+    "sops installs nothing while inert" = !(sopsOn.system.activationScripts ? setupSecrets);
+    "sops installs secrets once one is declared" = sopsSecret.system.activationScripts ? setupSecrets;
+    "sops secret decrypts to the /run tmpfs" =
+      sopsSecret.sops.secrets.wifi-psk.path == "/run/secrets/wifi-psk";
+    # A dedicated age key file lives outside the store, so the ephemeral root
+    # would eat it; itera.impermanence persists it, but only when it is in use.
+    "sops key file is wired when set" = sopsSecret.sops.age.keyFile == "/var/lib/sops-nix/key.txt";
+    "sops key file is persisted when set" = builtins.elem "/var/lib/sops-nix/key.txt" (
+      persistFiles sopsSecret
+    );
+    "sops key file is not persisted when unused" =
+      !lib.any (f: lib.hasInfix "sops-nix" f) (persistFiles base);
 
     # --- nix-index + comma (default on) ---
     "nix-index is enabled" = base.programs.nix-index.enable;

@@ -1,4 +1,9 @@
-# itera's declarative-secrets battery.
+# itera's declarative-secrets battery (agenix) — itera's DEFAULT secrets engine.
+#
+# See `itera.sops` (modules/nixos/core/sops.nix) for the alternative engine:
+# sops-nix keeps many secrets in one encrypted file instead of one `.age` file
+# per secret. Both are opt-in-compatible and can run side by side; this one is
+# on by default.
 #
 # A thin, opinionated wrapper over agenix (bundled by
 # `modules/nixos/default.nix`). agenix keeps secrets in the repo as `.age` files
