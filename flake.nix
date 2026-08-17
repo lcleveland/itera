@@ -109,6 +109,16 @@
       # they stay unfollowed.
     };
 
+    # Declarative sops-encrypted secrets — the other half of itera's secrets
+    # story. Where agenix keeps one `.age` file per secret, sops-nix keeps many
+    # secrets in one encrypted YAML/JSON file, which is what team/multi-host
+    # setups usually want. itera bundles its NixOS module (see modules/nixos).
+    # Powers `itera.sops`.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Declarative hardware detection. Assumes disko (which itera uses). itera
     # bundles its NixOS module (see modules/nixos). Powers `itera.hardware.facter`.
     # Pure modules — no inputs to follow.

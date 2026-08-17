@@ -82,10 +82,19 @@ let
   # ownership/mode, for both the system- and per-user scopes.
   entryType = listOf (either str attrs);
 
+  # A dedicated age key file for the sops battery, when it uses one instead of
+  # the default host SSH key (already covered by curatedFiles above). It lives
+  # outside the Nix store by construction, so on a tmpfs root it would be gone
+  # after a reboot and nothing would decrypt. Gated on the battery being on and
+  # actually pointing at a key file.
+  sopsKeyFiles = lib.optional (
+    config.itera.sops.enable && config.itera.sops.keyFile != null
+  ) config.itera.sops.keyFile;
+
   # The effective set of persisted files (curated defaults + consumer additions),
   # used to decide whether /etc/machine-id is being persisted (see the
   # systemd-machine-id-commit handling in the config body).
-  persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ cfg.files;
+  persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ sopsKeyFiles ++ cfg.files;
   machineIdPersisted = builtins.elem "/etc/machine-id" (map (f: f.file or f) persistedFiles);
 
   # Curated per-user home persistence: apply `cfg.homes.{directories,files}` to

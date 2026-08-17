@@ -39,6 +39,10 @@ in
       inputs.lanzaboote.nixosModules.lanzaboote
       # agenix: declarative age secrets (powers `itera.secrets`).
       inputs.agenix.nixosModules.default
+      # sops-nix: declarative sops secrets, the many-secrets-one-file alternative
+      # to agenix (powers `itera.sops`). Both are bundled; each is inert until
+      # its battery declares a secret.
+      inputs.sops-nix.nixosModules.sops
       # nixos-facter: declarative hardware detection (powers `itera.hardware.facter`).
       inputs.nixos-facter-modules.nixosModules.facter
       # nix-index-database: prebuilt nix-index DB + comma (powers `itera.nixIndex`).

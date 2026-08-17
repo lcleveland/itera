@@ -73,6 +73,7 @@ bundles [disko](https://github.com/nix-community/disko),
 [nix-mineral](https://github.com/cynicsketch/nix-mineral),
 [lanzaboote](https://github.com/nix-community/lanzaboote),
 [agenix](https://github.com/ryantm/agenix),
+[sops-nix](https://github.com/Mic92/sops-nix),
 [nixos-facter](https://github.com/nix-community/nixos-facter-modules),
 [nix-index-database](https://github.com/nix-community/nix-index-database),
 [nix-flatpak](https://github.com/gmodena/nix-flatpak) and the Wayland desktop
@@ -103,8 +104,9 @@ The full configuration reference lives in the
 - [Desktop](https://github.com/lcleveland/itera/wiki/Desktop)
   — mango + DankMaterialShell, monitors, and per-user program config.
 - [Ecosystem integrations](https://github.com/lcleveland/itera/wiki/Ecosystem-Integrations)
-  — secrets, virtualisation, secure boot, flatpak, facter, NVIDIA, security keys,
-  fingerprint, and nixos-hardware.
+  — secrets (agenix `itera.secrets` and sops-nix `itera.sops`), virtualisation,
+  secure boot, flatpak, facter, NVIDIA, security keys, fingerprint, and
+  nixos-hardware.
 - [Installation](https://github.com/lcleveland/itera/wiki/Installation)
   — installing from a live ISO and the `itera-testhost`.
 - [The `itera` command](https://github.com/lcleveland/itera/wiki/The-itera-Command)

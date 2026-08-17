@@ -142,7 +142,9 @@
               #   impermanence.enable = false;
 
               # Ecosystem batteries. ON by default (opt-out):
-              #   secrets           agenix declarative secrets (inert until used):
+              #   secrets           agenix declarative secrets, one .age file per
+              #     # secret (inert until used). See sops.enable below for the
+              #     # many-secrets-one-file alternative.
               #     secrets.secrets.wifi-psk.file = ./secrets/wifi-psk.age;
               #   nixIndex          command-not-found + `comma` (`,`)
               #   virtualisation    QEMU/KVM via libvirt + virt-manager GUI (add
@@ -155,6 +157,14 @@
               #                         (theme.dark = false for a light session)
               #
               # OFF by default (opt-in):
+              #   sops.enable = true;            # sops-nix secrets — the
+              #     # alternative to agenix above: MANY secrets in ONE encrypted
+              #     # file, values-only, so it stays diffable in git. Decrypts
+              #     # with the same host SSH key. Both engines can run at once.
+              #     sops.defaultSopsFile = ./secrets/secrets.yaml;
+              #     sops.secrets.wifi-psk = { mode = "0400"; };
+              #     # get the age recipient for .sops.yaml with:
+              #     #   ssh-keyscan localhost | ssh-to-age
               #   secureBoot.enable = true;      # then: sbctl create-keys && sbctl enroll-keys
               #   desktop.flatpak.enable = true; # declarative Flatpak (Flathub)
               #   desktop.flatpak.packages = [ "com.brave.Browser" ];
