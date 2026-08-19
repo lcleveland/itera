@@ -109,6 +109,18 @@ in
       # on any carrier-less port (e.g. an unplugged second NIC). Turn the global
       # DHCP fallback off so NetworkManager is the sole DHCP client.
       networking.useDHCP = mkDefault false;
+
+      # ...and turn the daemon off outright, because that global flag alone does
+      # NOT keep it away: nixpkgs starts dhcpcd when `networking.useDHCP` is true
+      # OR when *any* `networking.interfaces.<name>.useDHCP` is. nixos-facter
+      # (the hardware-detection battery, see facter.nix) sets that per-interface
+      # flag for every NIC it detects, so dhcpcd still came up and raced
+      # NetworkManager on the very same links — two addresses and two default
+      # routes per interface, NM deleting the ones dhcpcd installed, and dhcpcd
+      # segfaulting on the resulting netlink event. Gate the daemon rather than
+      # the per-interface flags, since those are generated from hardware
+      # detection: a newly detected NIC would silently bring the race back.
+      networking.dhcpcd.enable = mkDefault false;
     })
 
     (mkIf cfg.stableMac.enable {
