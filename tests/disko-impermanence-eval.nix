@@ -173,6 +173,17 @@ let
   resolvedOff = mkEval { itera.networking.resolved.enable = false; };
   suppressAAAAOff = mkEval { itera.networking.resolved.suppressAAAA = false; };
 
+  # NetworkManager must be the *only* DHCP client. nixos-facter sets
+  # `networking.interfaces.<name>.useDHCP` per detected NIC, and nixpkgs starts
+  # dhcpcd on either that or the global `networking.useDHCP` — so this eval
+  # stands in for a hardware-detected host (mkDefault, exactly as facter emits
+  # them) to assert those flags can't pull dhcpcd back in alongside NM.
+  facterIfaces = mkEval {
+    networking.interfaces = lib.genAttrs [ "eth0" "usb0" "wlp2s0" ] (_: {
+      useDHCP = lib.mkDefault true;
+    });
+  };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -342,6 +353,22 @@ let
     "default locale is set" = cfg.i18n.defaultLocale == "en_US.UTF-8";
     "NetworkManager is enabled" = cfg.networking.networkmanager.enable;
     "hostname is set" = cfg.networking.hostName == "itera";
+
+    # NetworkManager owns DHCP, so the standalone dhcpcd must not run — it would
+    # race NM for leases on the same links (duplicate addresses/default routes,
+    # then dhcpcd segfaulting when NM deletes them). Both of nixpkgs' triggers
+    # have to stay off: the global flag AND the per-interface flags that
+    # nixos-facter generates from hardware detection. See networking.nix.
+    "global useDHCP is off under NetworkManager" = cfg.networking.useDHCP == false;
+    "dhcpcd is off under NetworkManager" = cfg.networking.dhcpcd.enable == false;
+    "dhcpcd unit is not generated under NetworkManager" = !(cfg.systemd.services ? dhcpcd);
+    "per-interface useDHCP does not resurrect dhcpcd" =
+      facterIfaces.networking.dhcpcd.enable == false && !(facterIfaces.systemd.services ? dhcpcd);
+    # ...one DHCP client, not zero: NetworkManager must still be managing those
+    # same detected interfaces (it is unless they're listed as unmanaged).
+    "NetworkManager still owns the detected interfaces" =
+      facterIfaces.networking.networkmanager.enable
+      && facterIfaces.networking.networkmanager.unmanaged == [ ];
 
     # hardening (nix-mineral, auto-on with itera.enable)
     "nix-mineral hardening is enabled" = cfg.nix-mineral.enable;
