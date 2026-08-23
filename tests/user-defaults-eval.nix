@@ -300,6 +300,14 @@ let
     "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" bobMango;
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch vivaldi.
     "browser keybind launches vivaldi" = lib.hasInfix "binds=SUPER,b,spawn,vivaldi" bobMango;
+    # Calculator battery (opt-out, ON by default) wires SUPER+c AND the bare
+    # XF86Calculator key. The dedicated key must render with `none` as its
+    # modifier — rendering it as `SUPER+XF86Calculator` would mean the key alone
+    # does nothing, which is the whole point of claiming it.
+    "calculator keybind launches gnome-calculator" =
+      lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
+    "calculator key needs no modifier" =
+      lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
     "autostart still present" = lib.hasInfix "exec-once=dms run" bobMango;
     # The session bring-up must be the FIRST autostart entry and a single script:
     # mango spawns each exec-once asynchronously, so splitting the environment

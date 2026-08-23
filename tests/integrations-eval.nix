@@ -103,6 +103,9 @@ let
   # File manager opted out, to assert the gvfs helpers go with it.
   fileManagerOff = mkEval { itera.desktop.fileManager.enable = false; };
 
+  # Calculator opted out, to assert the package and its keybind command go with it.
+  calculatorOff = mkEval { itera.desktop.calculator.enable = false; };
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
@@ -131,6 +134,12 @@ let
 
   vivaldiPkg =
     cfg: lib.findFirst (p: lib.hasInfix "vivaldi" (p.name or "")) null cfg.environment.systemPackages;
+
+  calculatorPkg =
+    cfg:
+    lib.findFirst (
+      p: lib.hasInfix "gnome-calculator" (p.name or "")
+    ) null cfg.environment.systemPackages;
 
   # `wsdd-` (with the dash) so this matches the wsdd package itself and not some
   # other member of the closure whose name merely contains "wsdd".
@@ -260,6 +269,18 @@ let
     "vivaldi not installed when browser off" = vivaldiPkg batteriesOff == null;
     # Vivaldi's profile lives at ~/.config/vivaldi, covered by the curated `.config`
     # home dir (persisted unconditionally), so no browser-gated persistence entry.
+
+    # --- GNOME Calculator (default on) ---
+    "calculator keybind command is wired" =
+      base.itera.desktop.mango.commands.calculator == "gnome-calculator";
+    "gnome-calculator installed when calculator on" = calculatorPkg base != null;
+    "gnome-calculator not installed when calculator off" = calculatorPkg calculatorOff == null;
+    # Opting out must also clear the spawn command, or the compositor keeps a bind
+    # pointing at a binary that is no longer on PATH.
+    "calculator keybind command cleared when off" =
+      calculatorOff.itera.desktop.mango.commands.calculator == null;
+    # History and preferences live in ~/.config/dconf, covered by the curated
+    # `.config` home dir, so no calculator-gated persistence entry either.
 
     # --- Steam / gaming (opt-in): ~/.steam persisted, gated on Steam being on ---
     # The library, Proton prefixes and cloud saves live under ~/.local/share/Steam
