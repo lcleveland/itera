@@ -31,6 +31,23 @@ let
   # ── gaming ───────────────────────────────────────────────────────────────
   gaming = mkConfig [ { itera.gaming.enable = true; } ];
 
+  # A gaming host that would rather keep `joydev` disabled, to assert the
+  # carve-out below is a `mkDefault` a host can still force back off.
+  gamingJoydevForced = mkConfig [
+    {
+      itera.gaming.enable = true;
+      nix-mineral.kernel-modules.disable.joydev = lib.mkForce true;
+    }
+  ];
+
+  # nix-mineral renders its disable list as modprobe `install <module> <helper>`
+  # lines; a module is disabled iff it has such a line.
+  kmoduleDisabled =
+    c: module:
+    lib.any (line: lib.hasPrefix "install ${module} " line) (
+      lib.splitString "\n" c.environment.etc."modprobe.d/nix-mineral_disable-kmodules.conf".text
+    );
+
   # ── local AI: CPU path (nvidia off) ───────────────────────────────────────
   aiCpu = mkConfig [
     {
@@ -74,6 +91,15 @@ let
     "gaming ships Proton-GE" = hasPkgName "proton-ge-bin" gaming.programs.steam.extraCompatPackages;
     "gaming enables gamescope" = gaming.programs.gamescope.enable;
     "gaming enables gamemode" = gaming.programs.gamemode.enable;
+    # nix-mineral's `joystick-drivers` combo sweeps up `joydev`, killing the
+    # legacy /dev/input/js* API that SDL1-era titles still read. Gaming carves
+    # out exactly that one module — the rest of the combo (gameport/serial
+    # adapters) stays disabled, and a host can force it back off.
+    "joydev disabled without gaming" = kmoduleDisabled (mkConfig [ ]) "joydev";
+    "gaming re-enables joydev" = !(kmoduleDisabled gaming "joydev");
+    "gaming leaves the rest of the joystick combo disabled" =
+      kmoduleDisabled gaming "analog" && kmoduleDisabled gaming "sidewinder";
+    "joydev carve-out is overridable" = kmoduleDisabled gamingJoydevForced "joydev";
 
     # ── local AI ───────────────────────────────────────────────────────────
     "ai off by default" = !(mkConfig [ ]).services.ollama.enable;

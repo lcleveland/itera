@@ -84,7 +84,23 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
+  # The rendered geoclue config. Read the text (not just the option) so the
+  # `mkAfter` append is actually forced, and read it off a config with the shell
+  # off too — nixpkgs only defines the entry when geoclue2 is on, so the append
+  # must not conjure an orphan /etc/geoclue/geoclue.conf on a host without it.
+  geoclueConf = cfg.environment.etc."geoclue/geoclue.conf".text;
+
   checks = {
+    # DMS turns geoclue on for location, but nixpkgs' geoclue2 module emits no
+    # `[ip]` section, so geoclue reads a null method and disables IP geolocation
+    # ("Unknown IP source method '(null)'"). itera appends the section upstream
+    # geoclue ships by default.
+    "geoclue is enabled with the shell" = cfg.services.geoclue2.enable;
+    "geoclue config declares an [ip] section" = lib.hasInfix "[ip]" geoclueConf;
+    "geoclue IP source has a known method" = lib.hasInfix "method=ichnaea" geoclueConf;
+    "geoclue config has no orphan entry without geoclue" =
+      !(cfgNoDesktop.environment.etc ? "geoclue/geoclue.conf");
+
     # Shell battery pulls in the compositor.
     "mango compositor is enabled" = cfg.programs.mango.enable;
     "DankMaterialShell is enabled" = cfg.programs.dank-material-shell.enable;

@@ -109,13 +109,28 @@ in
       # Known benign boot-log noise from this layer — left as-is on purpose:
       #
       #   • `udev-worker: Error running install command
-      #     '/usr/bin/disabled-*-by-security-misc' … retcode 127` (thunderbolt,
-      #     intel_wmi_thunderbolt, pmt_class). Kicksecure's module blacklist
-      #     (`settings.etc.kicksecure-module-blacklist`) disables modules via a
-      #     `/usr/bin/…` path that doesn't exist on NixOS. It still fails CLOSED —
-      #     the module never loads — so the hardening intent holds; the error is
-      #     cosmetic. Flip that toggle off if you ever want to re-implement the
-      #     blacklist natively via `boot.blacklistedKernelModules`.
+      #     '…-nm-disabled-module-alert/bin/nm-disabled-module-alert' for module
+      #     <name>: retcode 1`. nix-mineral's `kernel-modules.disable` list (~750
+      #     modules, mostly secureblue's) points each module's modprobe `install`
+      #     line at a helper that logs and exits 1, so the load always fails
+      #     CLOSED — that non-zero exit IS the mechanism, not a bug, and udev
+      #     reports it as an error every time something tries to autoload one of
+      #     them. Cosmetic, and the only real fix is to stop disabling a module
+      #     the host actually wants: re-enable individual ones with
+      #     `nix-mineral.kernel-modules.disable.<module> = false` (that freeform
+      #     knob overrides the combo it came from), which is exactly what
+      #     `itera.gaming` does for `joydev` — see modules/nixos/desktop/gaming.nix.
+      #     (This replaced an older Kicksecure blacklist that shelled out to a
+      #     `/usr/bin/…` path absent on NixOS and failed with retcode 127.)
+      #   • `kernel: coredump: <pid>(<comm>): |/bin/false pipe failed` (only when
+      #     something actually crashes). `settings.debug.coredump = false` sets
+      #     `kernel.core_pattern = "|/bin/false"`, and NixOS has no /bin/false —
+      #     so the kernel can't spawn the handler and writes no dump, which is the
+      #     intended outcome reached by accident. The other three layers of that
+      #     setting (fs.suid_dumpable=0, the PAM `core` hard limit, systemd-coredump
+      #     Storage=none) are unaffected. Left alone deliberately: pointing it at a
+      #     real `false` in the store would only trade the log line for forking a
+      #     process per crash, and failing closed is the stronger behaviour.
       #   • `jitterentropy.service.d/overrides.conf: Failed to parse LimitMEMLOCK=`.
       #     A nixpkgs/systemd double-definition (an empty reset line followed by
       #     the real `LimitMEMLOCK=2M`, which does apply). Report upstream rather
