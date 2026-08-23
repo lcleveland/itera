@@ -154,6 +154,36 @@ in
         nssmdns4 = mkDefault true;
         nssmdns6 = mkDefault true;
       };
+
+      # …and give that geoclue an IP source. nixpkgs' `services.geoclue2` module
+      # generates /etc/geoclue/geoclue.conf from scratch and emits no `[ip]`
+      # section at all — no `enable`, no `method` — so geoclue reads a null method,
+      # logs `Unknown IP source method '(null)', disabling source`, and drops IP
+      # geolocation for the whole session. There is no module option for it, so
+      # append the section: `environment.etc.<name>.text` is `types.lines`, which
+      # merges by concatenation, and INI sections are order-independent — so
+      # `mkAfter` adds a section without re-deriving upstream's generator.
+      #
+      # `method=ichnaea` re-instates upstream geoclue's OWN default (see the
+      # `[ip]` block in the package's stock geoclue.conf) and reuses the Ichnaea
+      # URL from the wifi source, i.e. the api.beacondb.net endpoint the
+      # already-enabled wifi source queries — so this adds a location source, not
+      # a network peer. It matters on the machines least able to do without it:
+      # with no wifi hardware the wifi source can never get a fix, leaving DMS
+      # auto-location (weather, night-light) permanently unresolved.
+      #
+      # `enable=false` here silences the warning just as well if you would rather
+      # have no IP geolocation — geoclue checks `enable` before parsing `method`,
+      # so it short-circuits before the null. That is the knob to flip; overriding
+      # this whole entry is not required.
+      environment.etc."geoclue/geoclue.conf".text = mkIf config.services.geoclue2.enable (
+        lib.mkAfter ''
+
+          [ip]
+          enable=true
+          method=ichnaea
+        ''
+      );
     }
 
     (mkIf cfg.greeter.enable {

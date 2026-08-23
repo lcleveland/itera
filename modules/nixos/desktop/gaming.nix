@@ -71,6 +71,33 @@ in
           itera.hardening.preset) if you hit that.
         '';
 
+    # nix-mineral disables the whole `joystick-drivers` combo (secureblue's list),
+    # which sweeps up `joydev` — the driver behind the legacy `/dev/input/js*`
+    # joystick API. udev tries to autoload it for any input device whose modalias
+    # matches, so on a host with ordinary HID peripherals it also emits a handful
+    # of `udev-worker: Error running install command '…/nm-disabled-module-alert'
+    # for module joydev: retcode 1` errors every boot.
+    #
+    # Modern controllers reach games over evdev (SDL2, Steam Input) and are NOT
+    # affected — `xpad` and every `hid-*` gamepad driver (hid-nintendo,
+    # hid-playstation, hid-sony, hid-steam) are absent from that combo, so they
+    # keep loading. What breaks is anything still reading `js*`: SDL1-era titles
+    # and older native Linux ports simply see no controller at all.
+    #
+    # Re-enable just `joydev` rather than the whole combo: the rest of it is
+    # gameport/parallel-port/serial adapters (db9, gamecon, turbografx, sidewinder,
+    # …) that a modern gaming host has no use for, and leaving them disabled keeps
+    # the attack surface tight. `disable.<module>` is a freeform per-module knob
+    # that takes priority over the combo, so this is a targeted carve-out and not
+    # a blanket relaxation of the hardening layer. Unlike the yama case above this
+    # IS flipped for you: it is narrow, and a gaming battery that silently drops
+    # legacy joystick support isn't delivering what it advertises. mkDefault so a
+    # host that would rather keep `joydev` off can force it back. Not gated on
+    # `itera.hardening.enable`: nix-mineral's own module already no-ops the whole
+    # disable list when it is off, and gating here would miss a host that turns
+    # nix-mineral on directly.
+    nix-mineral.kernel-modules.disable.joydev = mkDefault false;
+
     programs = {
       steam = {
         enable = mkDefault true;
