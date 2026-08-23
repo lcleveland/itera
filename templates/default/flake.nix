@@ -153,6 +153,8 @@
               #     network (virbr0) is started + autostarted; turn it off with
               #     virtualisation.defaultNetwork.enable = false;
               #   desktop.fileManager   Nemo file manager
+              #   desktop.calculator    GNOME Calculator (SUPER+c, and the
+              #                         XF86Calculator key)
               #   desktop.theme         dark mode for GTK/Flatpak apps
               #                         (theme.dark = false for a light session)
               #

@@ -96,6 +96,19 @@ in
           drop the bind.
         '';
       };
+
+      calculator = mkOption {
+        type = nullOr str;
+        default = null;
+        example = "qalculate-gtk";
+        description = ''
+          Command SUPER+c — and the `XF86Calculator` key, which most keyboards
+          carry — spawns. `null` (default) adds no calculator keybinds; the
+          calculator battery ({option}`itera.desktop.calculator`, on by default)
+          sets this to `gnome-calculator`. Name a different command here to
+          override, or `null` to drop the binds.
+        '';
+      };
     };
   };
 

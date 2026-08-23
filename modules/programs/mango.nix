@@ -466,6 +466,20 @@ iteraLib.programs.mkCuratedProgram {
       editorBind = lib.optionalAttrs (cfg.commands.editor != null) {
         editor = spawnBind cfg.commands.editor "e";
       };
+      # Two binds for one command: SUPER+c matches the other app binds, and
+      # `XF86Calculator` is the dedicated calculator key most keyboards ship —
+      # a dead key until something claims it, like the media keys above. That one
+      # takes NO modifier (`modifierKeys = [ ]`, rendered as `none`), same as the
+      # media/brightness binds, so pressing the key by itself fires it.
+      calculatorBind = lib.optionalAttrs (cfg.commands.calculator != null) {
+        calculator = spawnBind cfg.commands.calculator "c";
+        calculatorKey = {
+          flagModifiers = [ "s" ];
+          keySymbol = "XF86Calculator";
+          mangoCommand = "spawn";
+          commandArguments = cfg.commands.calculator;
+        };
+      };
     in
     {
       keybinds = mkDefault (
@@ -478,6 +492,7 @@ iteraLib.programs.mkCuratedProgram {
         // fileBrowserBind
         // browserBind
         // editorBind
+        // calculatorBind
       );
     };
 }

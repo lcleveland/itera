@@ -116,6 +116,16 @@ let
     "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
     "SUPER+f spawns nemo" = cfg.itera.desktop.mango.commands.fileBrowser == "nemo";
 
+    # Calculator battery ships GNOME Calculator (default ON) and wires SUPER+c
+    # (plus the XF86Calculator key) to it. dconf has to be on or the app forgets
+    # its history and preferences on every launch.
+    "calculator battery is enabled" = cfg.itera.desktop.calculator.enable;
+    "SUPER+c spawns gnome-calculator" =
+      cfg.itera.desktop.mango.commands.calculator == "gnome-calculator";
+    "gnome-calculator package is installed" =
+      hasPkgInfix "gnome-calculator" cfg.environment.systemPackages;
+    "dconf is enabled for the calculator's settings" = cfg.programs.dconf.enable;
+
     # Editor battery ships Zed (default ON), claims the text handler, and wires
     # SUPER+e to it. It deliberately does NOT set EDITOR/VISUAL (GUI-default only).
     "editor battery is enabled" = cfg.itera.desktop.editor.enable;
