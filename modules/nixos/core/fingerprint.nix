@@ -9,17 +9,22 @@
 # the lock screen, but they authenticate through different paths:
 #
 #   - The initial login goes through the SYSTEM PAM stacks — `/etc/pam.d/greetd`
-#     (greeter) and `/etc/pam.d/login` (TTY, and the lock screen's *password*
-#     fallback). nixpkgs defaults `security.pam.services.<svc>.fprintAuth` to
-#     `services.fprintd.enable`, so enabling fprintd would otherwise add fingerprint
-#     to EVERY service, including these. We explicitly set `fprintAuth = false` on
-#     the login-surface services (`loginServices`) to keep it off the real login.
+#     (greeter) and `/etc/pam.d/login` (TTY). nixpkgs defaults
+#     `security.pam.services.<svc>.fprintAuth` to `services.fprintd.enable`, so
+#     enabling fprintd would otherwise add fingerprint to EVERY service, including
+#     these. We explicitly set `fprintAuth = false` on the login-surface services
+#     (`loginServices`) to keep it off the real login. The lock screen's *password*
+#     path is a third, separate stack — `/etc/pam.d/dankshell`, declared by the
+#     DankMaterialShell battery — which is also `fprintAuth = false`, for a
+#     different reason: see the next bullet.
 #   - The lock screen's *fingerprint* path does NOT use /etc/pam.d at all: DMS ships
 #     its own self-contained pam_fprintd stack inside the package
 #     (`<dms>/share/quickshell/dms/assets/pam/fprint`) and gates it purely on its
 #     `enableFprint` setting plus a running fprintd. So enabling fprintd + DMS's
 #     `enableFprint` gives fingerprint unlock on the lock screen while the login
-#     stacks above stay password/key-only.
+#     stacks above stay password/key-only. That is why `dankshell` keeps
+#     `fprintAuth = false`: a pam_fprintd inline there would be a SECOND
+#     fingerprint prompt racing DMS's own context, not the one you want.
 #
 # Everything NOT in `loginServices` keeps fprintd's default (fingerprint allowed),
 # so `sudo` and `polkit-1` get in-session fingerprint for privilege prompts for
