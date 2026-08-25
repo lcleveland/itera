@@ -9,21 +9,38 @@
 # the lock screen, but they authenticate through different paths:
 #
 #   - The initial login goes through the SYSTEM PAM stacks — `/etc/pam.d/greetd`
-#     (greeter) and `/etc/pam.d/login` (TTY, and the lock screen's *password*
-#     fallback). nixpkgs defaults `security.pam.services.<svc>.fprintAuth` to
-#     `services.fprintd.enable`, so enabling fprintd would otherwise add fingerprint
-#     to EVERY service, including these. We explicitly set `fprintAuth = false` on
-#     the login-surface services (`loginServices`) to keep it off the real login.
+#     (greeter) and `/etc/pam.d/login` (TTY). nixpkgs defaults
+#     `security.pam.services.<svc>.fprintAuth` to `services.fprintd.enable`, so
+#     enabling fprintd would otherwise add fingerprint to EVERY service, including
+#     these. We explicitly set `fprintAuth = false` on the login-surface services
+#     (`loginServices`) to keep it off the real login. The lock screen's *password*
+#     path is a third, separate stack — `/etc/pam.d/dankshell`, declared by the
+#     DankMaterialShell battery — which is also `fprintAuth = false`, for a
+#     different reason: see the next bullet.
 #   - The lock screen's *fingerprint* path does NOT use /etc/pam.d at all: DMS ships
 #     its own self-contained pam_fprintd stack inside the package
 #     (`<dms>/share/quickshell/dms/assets/pam/fprint`) and gates it purely on its
 #     `enableFprint` setting plus a running fprintd. So enabling fprintd + DMS's
 #     `enableFprint` gives fingerprint unlock on the lock screen while the login
-#     stacks above stay password/key-only.
+#     stacks above stay password/key-only. That is why `dankshell` keeps
+#     `fprintAuth = false`: a pam_fprintd inline there would be a SECOND
+#     fingerprint prompt racing DMS's own context, not the one you want.
 #
 # Everything NOT in `loginServices` keeps fprintd's default (fingerprint allowed),
 # so `sudo` and `polkit-1` get in-session fingerprint for privilege prompts for
 # free — matching "usable once you have logged in".
+#
+# Why fprintd is kept resident. fprintd is a D-Bus-activated daemon that exits
+# once it has gone unused for a while (~30s). That idle exit races the lock screen:
+# DMS brings up its bundled `fprint` stack the instant the screen locks, and if
+# fprintd is mid-shutdown at that moment pam_fprintd fails the whole attempt with
+# `GetDevices failed: Remote peer disconnected`. DMS reads that as a PAM *error*
+# rather than a rejected finger, and retries with an exponential backoff that tops
+# out at 30s — so a single lost race leaves the lock screen effectively
+# password-only for as long as you are standing in front of it. fprintd's own
+# `--no-timeout` flag exists for exactly this: it keeps the daemon alive so there
+# is no shutdown window to race. The reader itself is only claimed for the
+# duration of a verify, so the cost is one idle process.
 #
 # Enrollment is a one-time manual step per user (fprintd has no declarative print
 # store): run `fprintd-enroll`. Enrolled prints live in /var/lib/fprint, which
@@ -113,6 +130,14 @@ in
       # affect lock-screen unlock.
       security.pam.services = loginPamServices;
     }
+
+    # Keep fprintd resident instead of letting it idle out (see header).
+    (mkIf config.services.fprintd.enable {
+      systemd.services.fprintd.serviceConfig.ExecStart = [
+        ""
+        "${config.services.fprintd.package}/libexec/fprintd --no-timeout"
+      ];
+    })
 
     # Tell the DMS lock screen to offer fingerprint unlock. DMS's settings are a
     # flat camelCase passthrough; `enableFprint`/`maxFprintTries` are real schema

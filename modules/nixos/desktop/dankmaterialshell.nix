@@ -133,6 +133,41 @@ in
 
       programs.dank-material-shell.enable = mkDefault true;
 
+      # The lock screen's PAM service.
+      #
+      # DMS authenticates its lock screen against `/etc/pam.d/dankshell` whenever
+      # that service exists. When it does NOT, DMS falls back to generating a
+      # stack imperatively at every shell start — `dms auth resolve-lock`, which
+      # flattens `/etc/pam.d/login` into `~/.local/state/DankMaterialShell/pam/`
+      # ("used by the shell as a fallback when /etc/pam.d/dankshell is not
+      # managed", per its own `--help`). Declaring the service here claims that
+      # surface: the stack lands in the closure, is covered by the eval checks,
+      # and — since itera persists `~/.local/state` — stops a generated file full
+      # of hardcoded store paths from outliving the generation that produced it,
+      # which would leave the lock screen unable to load `pam_unix.so` at all.
+      #
+      # Deliberately NOT derived from `login`: an unlock is not a login, so this
+      # stack authenticates and nothing else. nixpkgs defaults `startSession`
+      # (and `setLoginUid` with it) to false, so no pam_systemd/pam_loginuid
+      # registers a second session and no pam_securetty vets a tty that isn't
+      # there — all of which the flattened-`login` fallback dragged along.
+      #
+      # Fingerprint and security key stay OFF here even though both batteries are
+      # on by default, because nixpkgs would otherwise inherit them from
+      # `services.fprintd.enable` / `security.pam.u2f.enable`. DMS drives those
+      # two factors through its OWN PAM contexts (the `fprint` and `u2f` stacks
+      # bundled inside the package), so a second copy inline here would
+      # double-prompt — `dms auth validate` flags precisely that ("pam_fprintd is
+      # present in the resolved stack; may double-prompt with DMS's separate
+      # fingerprint context"). The factors reach the lock screen through DMS's
+      # `enableFprint`/`enableU2f` settings instead; see the fingerprint and
+      # security-keys batteries. Keyring unlock is wired the other way round, by
+      # `itera.keyring.pamServices`, which lists this service.
+      security.pam.services.dankshell = {
+        fprintAuth = mkDefault false;
+        u2f.enable = mkDefault false;
+      };
+
       # The IP Indicator widget shells out to `curl`, which itera does not
       # otherwise install.
       environment.systemPackages = [ pkgs.curl ];

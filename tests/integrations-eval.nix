@@ -109,6 +109,11 @@ let
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
+  # Desktop turned OFF, to assert the lock screen's PAM service goes with it
+  # rather than being left behind as an orphan stack nothing authenticates
+  # against — including via the keyring battery's service list.
+  desktopOff = mkEval { itera.desktop.dankMaterialShell.enable = false; };
+
   # sops battery (opt-in, OFF by default) merely turned ON, with no secrets
   # declared — the inert state. sops-nix gates all of its own config on
   # `sops.secrets != {}`, so this asserts itera's wiring without activating it.
@@ -430,6 +435,48 @@ let
     # DMS lock screen offers fingerprint unlock.
     "DMS lock screen enables fingerprint" =
       base.itera.programs.dankMaterialShell.settings.enableFprint == true;
+    # fprintd is kept resident, so its idle exit cannot race the lock screen's
+    # fingerprint attempt. The empty first entry is the systemd reset that has to
+    # precede overriding an ExecStart inherited from the packaged unit.
+    "fprintd ExecStart is reset before being overridden" =
+      builtins.elem "" base.systemd.services.fprintd.serviceConfig.ExecStart;
+    "fprintd runs with --no-timeout" = lib.any (
+      c: lib.hasSuffix "/libexec/fprintd --no-timeout" c
+    ) base.systemd.services.fprintd.serviceConfig.ExecStart;
+    # Opting out of the battery leaves the packaged unit untouched.
+    "fprintd ExecStart is not overridden when off" =
+      !(fingerprintOff.systemd.services ? fprintd)
+      || !(fingerprintOff.systemd.services.fprintd.serviceConfig ? ExecStart);
+    # --- The DMS lock screen's own PAM service (`/etc/pam.d/dankshell`) ---
+    # Declared, so DMS stops generating one imperatively into persisted user state.
+    "lock screen PAM service exists" = base.security.pam.services ? dankshell;
+    "lock screen PAM service authenticates" = base.security.pam.services.dankshell.unixAuth;
+    # An unlock is not a login: no second session registered, no tty vetting.
+    "lock screen PAM service starts no session" =
+      base.security.pam.services.dankshell.startSession == false;
+    "lock screen PAM service sets no login uid" =
+      base.security.pam.services.dankshell.setLoginUid == false;
+    "lock screen PAM stack has no pam_securetty" =
+      !lib.hasInfix "pam_securetty" base.security.pam.services.dankshell.text;
+    # Both second factors are DMS's own PAM contexts, so they must NOT also be
+    # inline here — that would double-prompt. These are the assertions that would
+    # catch nixpkgs' fprintd/u2f defaults leaking back in.
+    "lock screen PAM stack has no inline pam_fprintd" =
+      base.security.pam.services.dankshell.fprintAuth == false
+      && !lib.hasInfix "pam_fprintd" base.security.pam.services.dankshell.text;
+    "lock screen PAM stack has no inline pam_u2f" =
+      base.security.pam.services.dankshell.u2f.enable == false
+      && !lib.hasInfix "pam_u2f" base.security.pam.services.dankshell.text;
+    # ...but the keyring IS unlocked from it, so re-authenticating at the lock
+    # screen unlocks a keyring that got locked in the meantime.
+    "lock screen unlocks the keyring" = base.security.pam.services.dankshell.enableGnomeKeyring == true;
+    "keyring lists the lock screen service" = builtins.elem "dankshell" base.itera.keyring.pamServices;
+    # Dropping the desktop drops the service — no orphan stack, and the keyring
+    # battery must not conjure one back via its service list.
+    "lock screen PAM service is gone without the desktop" =
+      !(desktopOff.security.pam.services ? dankshell);
+    "keyring does not list the lock screen service without the desktop" =
+      !builtins.elem "dankshell" desktopOff.itera.keyring.pamServices;
     # Enrolled prints are persisted across the tmpfs root, gated on the battery.
     "fprint enrollments are persisted when on" = builtins.elem "/var/lib/fprint" (persistDirs base);
     "fprint enrollments are not persisted when off" =
