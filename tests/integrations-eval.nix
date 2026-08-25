@@ -430,6 +430,18 @@ let
     # DMS lock screen offers fingerprint unlock.
     "DMS lock screen enables fingerprint" =
       base.itera.programs.dankMaterialShell.settings.enableFprint == true;
+    # fprintd is kept resident, so its idle exit cannot race the lock screen's
+    # fingerprint attempt. The empty first entry is the systemd reset that has to
+    # precede overriding an ExecStart inherited from the packaged unit.
+    "fprintd ExecStart is reset before being overridden" =
+      builtins.elem "" base.systemd.services.fprintd.serviceConfig.ExecStart;
+    "fprintd runs with --no-timeout" = lib.any (
+      c: lib.hasSuffix "/libexec/fprintd --no-timeout" c
+    ) base.systemd.services.fprintd.serviceConfig.ExecStart;
+    # Opting out of the battery leaves the packaged unit untouched.
+    "fprintd ExecStart is not overridden when off" =
+      !(fingerprintOff.systemd.services ? fprintd)
+      || !(fingerprintOff.systemd.services.fprintd.serviceConfig ? ExecStart);
     # Enrolled prints are persisted across the tmpfs root, gated on the battery.
     "fprint enrollments are persisted when on" = builtins.elem "/var/lib/fprint" (persistDirs base);
     "fprint enrollments are not persisted when off" =

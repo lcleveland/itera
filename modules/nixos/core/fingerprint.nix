@@ -25,6 +25,18 @@
 # so `sudo` and `polkit-1` get in-session fingerprint for privilege prompts for
 # free — matching "usable once you have logged in".
 #
+# Why fprintd is kept resident. fprintd is a D-Bus-activated daemon that exits
+# once it has gone unused for a while (~30s). That idle exit races the lock screen:
+# DMS brings up its bundled `fprint` stack the instant the screen locks, and if
+# fprintd is mid-shutdown at that moment pam_fprintd fails the whole attempt with
+# `GetDevices failed: Remote peer disconnected`. DMS reads that as a PAM *error*
+# rather than a rejected finger, and retries with an exponential backoff that tops
+# out at 30s — so a single lost race leaves the lock screen effectively
+# password-only for as long as you are standing in front of it. fprintd's own
+# `--no-timeout` flag exists for exactly this: it keeps the daemon alive so there
+# is no shutdown window to race. The reader itself is only claimed for the
+# duration of a verify, so the cost is one idle process.
+#
 # Enrollment is a one-time manual step per user (fprintd has no declarative print
 # store): run `fprintd-enroll`. Enrolled prints live in /var/lib/fprint, which
 # itera's impermanence layer persists (gated on this battery) so they survive the
@@ -113,6 +125,14 @@ in
       # affect lock-screen unlock.
       security.pam.services = loginPamServices;
     }
+
+    # Keep fprintd resident instead of letting it idle out (see header).
+    (mkIf config.services.fprintd.enable {
+      systemd.services.fprintd.serviceConfig.ExecStart = [
+        ""
+        "${config.services.fprintd.package}/libexec/fprintd --no-timeout"
+      ];
+    })
 
     # Tell the DMS lock screen to offer fingerprint unlock. DMS's settings are a
     # flat camelCase passthrough; `enableFprint`/`maxFprintTries` are real schema
