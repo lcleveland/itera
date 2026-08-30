@@ -25,6 +25,7 @@ let
     mkConfig
     mkCheckDrv
     hasPkgInfix
+    hasPkgName
     ;
 
   # itera.enable alone brings up the desktop (opt-out): it defaults the shell
@@ -150,6 +151,25 @@ let
     "zed is the default text/plain handler" =
       cfg.xdg.mime.defaultApplications."text/plain" == "dev.zed.Zed.desktop";
 
+    # Video-player battery ships mpv (default ON), claims the common video types
+    # plus the stream schemes nothing else on the desktop claimed, and ships the
+    # in-terminal `mpv-term` next to the GUI player. No mango bind on purpose: a
+    # player launched with no file is an empty window.
+    "video-player battery is enabled" = cfg.itera.desktop.videoPlayer.enable;
+    "mpv package is installed" = hasPkgInfix "mpv" cfg.environment.systemPackages;
+    "mpv-term is installed" = hasPkgName "mpv-term" cfg.environment.systemPackages;
+    "mpv is the default video/mp4 handler" =
+      cfg.xdg.mime.defaultApplications."video/mp4" == "mpv.desktop";
+    "mpv is the default matroska handler" =
+      cfg.xdg.mime.defaultApplications."video/x-matroska" == "mpv.desktop";
+    "mpv claims the rtsp stream scheme" =
+      cfg.xdg.mime.defaultApplications."x-scheme-handler/rtsp" == "mpv.desktop";
+    # mpv's own hwdec default is `no` — every frame on the CPU — so the system
+    # config file is what makes the battery's hardware decoding real.
+    "system mpv.conf turns hardware decoding on" =
+      lib.hasInfix "hwdec=auto-safe"
+        cfg.environment.etc."mpv/mpv.conf".text;
+
     # Home layer: the WezTerm user config renders. Probing the key forces the hjem
     # battery's Lua `configText` (settings + font serialization) to evaluate.
     "wezterm user config is generated" = mangoUserFiles ? "wezterm/wezterm.lua";
@@ -158,6 +178,11 @@ let
         mangoUserFiles."wezterm/wezterm.lua".text;
     "wezterm config sets font_size" =
       lib.hasInfix "config.font_size = 12"
+        mangoUserFiles."wezterm/wezterm.lua".text;
+    # What lets `mpv-term` draw actual pixels rather than half-block text in the
+    # session's own terminal.
+    "wezterm enables the kitty graphics protocol" =
+      lib.hasInfix "config.enable_kitty_graphics = true"
         mangoUserFiles."wezterm/wezterm.lua".text;
 
     # Home layer: the Zed user config renders. Probing the key forces the hjem

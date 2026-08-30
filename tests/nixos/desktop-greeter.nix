@@ -51,5 +51,22 @@
     script = machine.succeed(f"cat {script_match.group(1)}")
     assert "mango" in script, script
     assert "quickshell" in script, script
+
+    # The video battery, on the booted system rather than only in the evaluated
+    # config. The system mpv.conf is the interesting half: mpv REJECTS a config
+    # file with an option it does not know, so a bad key here would break every
+    # launch for every user — and nothing but a real run would catch it.
+    machine.succeed("test -e /etc/mpv/mpv.conf")
+    machine.succeed("grep -q '^hwdec=auto-safe$' /etc/mpv/mpv.conf")
+
+    # `mpv-term` picks its video output from the terminal it finds, and
+    # `machine.succeed` hands it no tty, so pin one: what this proves is that the
+    # wrapper runs mpv end to end and decodes frames on a headless machine. The
+    # detection itself is the script's own concern (see cli/mpv-term.sh); the
+    # wiring is covered statically by tests/desktop-eval.nix.
+    machine.succeed(
+        "MPV_TERM_VO=tct mpv-term --no-audio --frames=2 "
+        "'av://lavfi:testsrc=size=64x48:rate=5:duration=1' >/dev/null"
+    )
   '';
 }

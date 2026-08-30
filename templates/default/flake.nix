@@ -155,6 +155,13 @@
               #   desktop.fileManager   Nemo file manager
               #   desktop.calculator    GNOME Calculator (SUPER+c, and the
               #                         XF86Calculator key)
+              #   desktop.videoPlayer   mpv, the default handler for video files
+              #                         and stream URLs, with GPU decoding. Plus
+              #                         `mpv-term`, which plays video INSIDE the
+              #                         terminal (real pixels in WezTerm and any
+              #                         other kitty-graphics terminal, half-block
+              #                         text elsewhere); turn that half off with
+              #                         desktop.videoPlayer.terminal.enable = false;
               #   desktop.theme         dark mode for GTK/Flatpak apps
               #                         (theme.dark = false for a light session)
               #
