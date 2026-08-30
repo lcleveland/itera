@@ -106,11 +106,10 @@ let
   # Calculator opted out, to assert the package and its keybind command go with it.
   calculatorOff = mkEval { itera.desktop.calculator.enable = false; };
 
-  # Video player opted out entirely, the terminal half opted out on its own, and
-  # the opt-in hardware decoding turned on, to assert each gate is real: no
-  # player, no in-terminal wrapper, and no system mpv.conf unless asked for.
+  # Video player opted out entirely, and the opt-in hardware decoding turned on,
+  # to assert both gates are real: no player and no handler when off, and no
+  # system mpv.conf unless something asks for one.
   videoPlayerOff = mkEval { itera.desktop.videoPlayer.enable = false; };
-  videoTerminalOff = mkEval { itera.desktop.videoPlayer.terminal.enable = false; };
   videoHwdecOn = mkEval { itera.desktop.videoPlayer.hardwareDecoding = true; };
 
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
@@ -153,12 +152,10 @@ let
       p: lib.hasInfix "gnome-calculator" (p.name or "")
     ) null cfg.environment.systemPackages;
 
-  # Identity rather than a name match: the in-terminal wrapper `mpv-term` is a
-  # separate entry in the same list whose name also begins with `mpv`, and the
-  # player's actual derivation name (`mpv-with-scripts-<ver>`) is a nixpkgs
-  # wrapper detail this check has no reason to bake in.
+  # Identity rather than a name match: the player's actual derivation name
+  # (`mpv-with-scripts-<ver>`) is a nixpkgs wrapper detail this check has no
+  # reason to bake in.
   hasMpv = cfg: lib.elem cfg.itera.desktop.videoPlayer.package cfg.environment.systemPackages;
-  hasMpvTerm = cfg: hasPkgName "mpv-term" cfg.environment.systemPackages;
 
   # `wsdd-` (with the dash) so this matches the wsdd package itself and not some
   # other member of the closure whose name merely contains "wsdd".
@@ -319,16 +316,13 @@ let
     "no video handler when the video player is off" =
       !(videoPlayerOff.xdg.mime.defaultApplications ? "video/mp4");
 
-    # In-terminal playback is its own gate: dropping it must leave the GUI player
-    # (and vice versa — dropping the package drops the wrapper, which is nothing
-    # without it).
-    "mpv-term ships with the video player" = hasMpvTerm base;
-    "mpv-term dropped when terminal playback is off" = !hasMpvTerm videoTerminalOff;
-    "GUI player survives terminal playback being off" = hasMpv videoTerminalOff;
-    "mpv-term dropped when the player package is dropped" =
-      !hasMpvTerm (mkEval {
-        itera.desktop.videoPlayer.package = null;
-      });
+    # `package = null` is for bringing your own mpv build, so it must drop the
+    # package while KEEPING the handler wiring — the opposite of opting the
+    # battery out. (An identity check on a null package would pass vacuously, so
+    # this asserts the handler, which is the part with something to get wrong.)
+    "handler survives dropping the player package" =
+      (mkEval { itera.desktop.videoPlayer.package = null; }).xdg.mime.defaultApplications."video/mp4"
+      == "mpv.desktop";
 
     # Hardware decoding is opt-in, and its OFF state must leave no file at all
     # rather than an empty one: mpv reads /etc/mpv/mpv.conf before the user's own,
