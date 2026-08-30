@@ -25,7 +25,6 @@ let
     mkConfig
     mkCheckDrv
     hasPkgInfix
-    hasPkgName
     ;
 
   # itera.enable alone brings up the desktop (opt-out): it defaults the shell
@@ -151,13 +150,11 @@ let
     "zed is the default text/plain handler" =
       cfg.xdg.mime.defaultApplications."text/plain" == "dev.zed.Zed.desktop";
 
-    # Video-player battery ships mpv (default ON), claims the common video types
-    # plus the stream schemes nothing else on the desktop claimed, and ships the
-    # in-terminal `mpv-term` next to the GUI player. No mango bind on purpose: a
-    # player launched with no file is an empty window.
+    # Video-player battery ships mpv (default ON) and claims the common video
+    # types plus the stream schemes nothing else on the desktop claimed. No mango
+    # bind on purpose: a player launched with no file is an empty window.
     "video-player battery is enabled" = cfg.itera.desktop.videoPlayer.enable;
     "mpv package is installed" = hasPkgInfix "mpv" cfg.environment.systemPackages;
-    "mpv-term is installed" = hasPkgName "mpv-term" cfg.environment.systemPackages;
     "mpv is the default video/mp4 handler" =
       cfg.xdg.mime.defaultApplications."video/mp4" == "mpv.desktop";
     "mpv is the default matroska handler" =
@@ -179,11 +176,6 @@ let
         mangoUserFiles."wezterm/wezterm.lua".text;
     "wezterm config sets font_size" =
       lib.hasInfix "config.font_size = 12"
-        mangoUserFiles."wezterm/wezterm.lua".text;
-    # What lets `mpv-term` draw actual pixels rather than half-block text in the
-    # session's own terminal.
-    "wezterm enables the kitty graphics protocol" =
-      lib.hasInfix "config.enable_kitty_graphics = true"
         mangoUserFiles."wezterm/wezterm.lua".text;
 
     # Home layer: the Zed user config renders. Probing the key forces the hjem

@@ -64,13 +64,11 @@
     machine.succeed("test -e /etc/mpv/mpv.conf")
     machine.succeed("grep -q '^hwdec=auto$' /etc/mpv/mpv.conf")
 
-    # `mpv-term` picks its video output from the terminal it finds, and
-    # `machine.succeed` hands it no tty, so pin one: what this proves is that the
-    # wrapper runs mpv end to end and decodes frames on a headless machine. The
-    # detection itself is the script's own concern (see cli/mpv-term.sh); the
-    # wiring is covered statically by tests/desktop-eval.nix.
+    # And mpv actually runs, reading that config file as it starts. `--vo=null`
+    # because the test VM is headless; the point is that mpv accepts its own
+    # generated config and decodes frames, not what it draws them on.
     machine.succeed(
-        "MPV_TERM_VO=tct mpv-term --no-audio --frames=2 "
+        "mpv --no-audio --vo=null --frames=2 "
         "'av://lavfi:testsrc=size=64x48:rate=5:duration=1' >/dev/null"
     )
   '';

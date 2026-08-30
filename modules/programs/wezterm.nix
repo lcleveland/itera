@@ -65,12 +65,6 @@ iteraLib.programs.mkCuratedProgram {
   systemConfig = _: {
     settings = {
       font_size = mkDefault 12;
-      # In-terminal video (`mpv-term`, from `itera.desktop.videoPlayer`) renders
-      # through the kitty graphics protocol, and this is the switch that makes
-      # WezTerm accept it. Upstream already defaults it on — pinned here so the
-      # feature depends on a value itera states rather than on an upstream
-      # default that could flip, and so it survives a consumer's own `settings`.
-      enable_kitty_graphics = mkDefault true;
       default_cursor_style = mkDefault "SteadyBlock";
       window_padding = mkDefault {
         left = 8;

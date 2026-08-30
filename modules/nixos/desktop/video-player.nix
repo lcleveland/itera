@@ -1,4 +1,4 @@
-# itera's video-player battery (mpv) — on the desktop AND inside the terminal.
+# itera's video-player battery (mpv).
 #
 # Native NixOS/nixpkgs feature (no flake input): itera shipped no way to play a
 # video at all. Double-clicking a `.mkv` in Nemo found no handler, and a stream
@@ -32,21 +32,16 @@
 # on it: mpv binds Ctrl+h to toggle hwdec at runtime, which answers "is this host
 # one of the good ones?" in one keystroke.
 #
-# The IN-TERMINAL half ({option}`terminal.enable`) ships `mpv-term`
-# (cli/mpv-term.sh): the same mpv, rendering into the terminal you are sitting
-# in. itera's terminal battery ships WezTerm, which implements the kitty graphics
-# protocol — real pixels, not ASCII art — so `mpv-term clip.mkv` plays properly
-# in the session's own terminal. The wrapper detects that per-terminal at run
-# time (environment allow-list, then the protocol's own capability query) and
-# falls back to mpv's true-colour text output anywhere else, so it always plays
-# something.
-#
-# What makes it PLAY rather than stop on the first frame is shared-memory
-# transfer: the protocol's default is base64 escape codes through the pty, and a
-# video is a new image every frame — measured at ~67 MB/s for a 720p clip in a
-# 1600x800 window, which no terminal emulator can absorb. See the script header
-# for that, for the SSH case where shm is unavailable, and for why sixel is not
-# an option here (nixpkgs builds mpv with `sixelSupport = false`).
+# There is NO in-terminal playback here, and that is a decision rather than an
+# omission. This battery shipped an `mpv-term` wrapper over mpv's kitty-graphics
+# output and it never worked in a real terminal: the protocol's default transport
+# is base64 escape codes down the pty, which for video is a new image every frame
+# (~67 MB/s for a 720p clip in a 1600x800 window) and stops on frame one, while
+# the shared-memory transport that fixes the throughput displayed nothing at all
+# in WezTerm despite being nominally supported. Two rounds of fixes did not
+# produce a picture, so it was removed. Anyone wanting to try it needs no support
+# from itera: `mpv --vo=kitty` (or `--vo=tct` for half-block text) is built into
+# the mpv installed here.
 #
 # {option}`settings` writes {file}`/etc/mpv/mpv.conf` (mpv is built with
 # `sysconfdir = /etc`), which mpv reads BEFORE `~/.config/mpv/mpv.conf` — so
@@ -100,21 +95,6 @@ let
   # modules/nixos/core/facter.nix, which reads 4318 (0x10de) from the same list.
   gpus = config.facter.report.hardware.graphics_card or [ ];
   hasIntelGpu = builtins.any (c: (c.vendor.value or null) == 32902) gpus;
-
-  # The in-terminal wrapper. `runtimeInputs` carries the configured player rather
-  # than trusting the ambient PATH, so `mpv-term` works from a shell that has no
-  # mpv on it (and follows a consumer's `package` override). stty, which the
-  # capability query drives the tty with, comes from coreutils.
-  #
-  # Lazily bound: never forced when `package = null` drops the wrapper below.
-  mpvTerm = pkgs.writeShellApplication {
-    name = "mpv-term";
-    runtimeInputs = [
-      cfg.package
-      pkgs.coreutils
-    ];
-    text = builtins.readFile ../../../cli/mpv-term.sh;
-  };
 in
 {
   options.itera.desktop.videoPlayer = {
@@ -122,16 +102,15 @@ in
       type = bool;
       default = true;
       description = ''
-        Install the mpv video player, make it the session's default handler for
-        common video types and stream schemes, and ship the in-terminal
-        {command}`mpv-term` wrapper. On by default whenever {option}`itera.enable`
-        is set; set to `false` to opt out (or to ship your own player).
+        Install the mpv video player and make it the session's default handler
+        for common video types and stream schemes. On by default whenever
+        {option}`itera.enable` is set; set to `false` to opt out (or to ship your
+        own player).
       '';
     };
 
     # `nullable = true` lets a consumer drop the package (e.g. to supply their own
-    # mpv build) while keeping the handler wiring below. It also drops
-    # `mpv-term`, which is a wrapper around this package and nothing without it.
+    # mpv build) while keeping the handler wiring below.
     package = mkPackageOption pkgs "mpv" { nullable = true; };
 
     hardwareDecoding = mkOption {
@@ -174,28 +153,10 @@ in
         written at all while this is empty.
       '';
     };
-
-    terminal.enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Ship {command}`mpv-term`, which plays video inside the terminal instead of
-        in a window. It uses the kitty graphics protocol — real pixels — in
-        terminals that implement it, including the WezTerm that
-        {option}`itera.desktop.terminal` installs, and falls back to mpv's
-        true-colour text output everywhere else. In a terminal it recognises by
-        name it also transfers frames through shared memory, without which the
-        base64-over-pty default stops the video on its first frame.
-        `MPV_TERM_VO=<vo>` overrides the choice for a single run. Set to `false`
-        to install the GUI player only.
-      '';
-    };
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    environment.systemPackages =
-      lib.optional (cfg.package != null) cfg.package
-      ++ lib.optional (cfg.terminal.enable && cfg.package != null) mpvTerm;
+    environment.systemPackages = mkIf (cfg.package != null) [ cfg.package ];
 
     # `mkDefault` so `settings.hwdec = "vaapi"` pins a known-good method for a
     # host without having to turn the switch off and hand-write the line.
