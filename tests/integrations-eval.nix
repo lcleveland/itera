@@ -106,12 +106,12 @@ let
   # Calculator opted out, to assert the package and its keybind command go with it.
   calculatorOff = mkEval { itera.desktop.calculator.enable = false; };
 
-  # Video player opted out entirely, and the two halves opted out one at a time,
-  # to assert each gate is real: no player, no in-terminal wrapper, no system
-  # mpv.conf left behind.
+  # Video player opted out entirely, the terminal half opted out on its own, and
+  # the opt-in hardware decoding turned on, to assert each gate is real: no
+  # player, no in-terminal wrapper, and no system mpv.conf unless asked for.
   videoPlayerOff = mkEval { itera.desktop.videoPlayer.enable = false; };
   videoTerminalOff = mkEval { itera.desktop.videoPlayer.terminal.enable = false; };
-  videoHwdecOff = mkEval { itera.desktop.videoPlayer.hardwareDecoding = false; };
+  videoHwdecOn = mkEval { itera.desktop.videoPlayer.hardwareDecoding = true; };
 
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
@@ -174,6 +174,9 @@ let
   # 32902 (0x8086), the one vendor whose VA-API driver nothing else in itera
   # installs (mesa covers AMD, itera.nvidia covers NVIDIA).
   intelHost = mkGpuEval (gpuReport 32902);
+  intelHwdecOn = mkGpuEval (
+    gpuReport 32902 // { itera.desktop.videoPlayer.hardwareDecoding = true; }
+  );
   nvidiaOptOut = mkGpuEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
 
   # nvidia-container-toolkit driver-assertion defusing: force the toolkit on while
@@ -327,39 +330,44 @@ let
         itera.desktop.videoPlayer.package = null;
       });
 
-    # Hardware decoding writes exactly one line into the system mpv.conf, and
-    # opting out must leave NO file rather than an empty one — mpv reads
-    # /etc/mpv/mpv.conf before the user's own, so an orphan here is a default
-    # every user inherits.
-    "system mpv.conf sets hwdec" =
-      lib.hasInfix "hwdec=auto-safe"
-        base.environment.etc."mpv/mpv.conf".text;
-    "no system mpv.conf when hardware decoding is off" =
-      !(videoHwdecOff.environment.etc ? "mpv/mpv.conf");
+    # Hardware decoding is opt-in, and its OFF state must leave no file at all
+    # rather than an empty one: mpv reads /etc/mpv/mpv.conf before the user's own,
+    # so anything orphaned here is a default every user on the host inherits.
+    "no system mpv.conf by default" = !(base.environment.etc ? "mpv/mpv.conf");
     "no system mpv.conf when the video player is off" =
       !(videoPlayerOff.environment.etc ? "mpv/mpv.conf");
-    # settings is per-key overridable rather than all-or-nothing: pinning hwdec
-    # must win over the battery's own default without turning the battery off.
-    "settings.hwdec overrides the curated default" =
+    "opting in writes hwdec into the system mpv.conf" =
+      lib.hasInfix "hwdec=auto"
+        videoHwdecOn.environment.etc."mpv/mpv.conf".text;
+    # settings is per-key overridable rather than all-or-nothing: pinning a
+    # known-good method for a host must win over the switch's own default.
+    "settings.hwdec overrides the opt-in default" =
       lib.hasInfix "hwdec=vaapi"
-        (mkEval { itera.desktop.videoPlayer.settings.hwdec = "vaapi"; })
-        .environment.etc."mpv/mpv.conf".text;
+        (mkEval {
+          itera.desktop.videoPlayer.hardwareDecoding = true;
+          itera.desktop.videoPlayer.settings.hwdec = "vaapi";
+        }).environment.etc."mpv/mpv.conf".text;
 
     # Intel is the one vendor whose VA-API driver nothing else installs, so
-    # hardware decoding there is only real if the battery supplies it. It must
-    # NOT be handed to hosts that don't need it, and must survive alongside the
-    # NVIDIA module's own (normal-priority) extraPackages on a hybrid laptop.
-    "intel VA-API driver added on an Intel host" =
-      hasPkgName "intel-media-driver" intelHost.hardware.graphics.extraPackages;
+    # hardware decoding there is only real if the battery supplies it. It follows
+    # the opt-in switch (no driver dragged in for a feature nobody asked for),
+    # must NOT be handed to hosts that don't need it, and must survive alongside
+    # the NVIDIA module's own (normal-priority) extraPackages on a hybrid laptop.
+    "intel VA-API driver added on an Intel host that opted in" =
+      hasPkgName "intel-media-driver" intelHwdecOn.hardware.graphics.extraPackages;
+    "no intel VA-API driver until hardware decoding is asked for" =
+      !hasPkgName "intel-media-driver" intelHost.hardware.graphics.extraPackages;
     "no intel VA-API driver on an AMD host" =
       !hasPkgName "intel-media-driver" amdHost.hardware.graphics.extraPackages;
-    "no intel VA-API driver when hardware decoding is off" =
-      !hasPkgName "intel-media-driver"
-        (mkGpuEval (gpuReport 32902 // { itera.desktop.videoPlayer.hardwareDecoding = false; }))
-        .hardware.graphics.extraPackages;
     "intel VA-API driver survives the nvidia module's extraPackages" =
       hasPkgName "intel-media-driver"
-        (mkGpuEval (gpuReport 32902 // { itera.nvidia.enable = true; })).hardware.graphics.extraPackages;
+        (mkGpuEval (
+          gpuReport 32902
+          // {
+            itera.nvidia.enable = true;
+            itera.desktop.videoPlayer.hardwareDecoding = true;
+          }
+        )).hardware.graphics.extraPackages;
     # mpv's own state (watch-later, ~/.config/mpv) lives in the curated `.config`
     # / `.local/state` home dirs, so there is no video-gated persistence entry.
 

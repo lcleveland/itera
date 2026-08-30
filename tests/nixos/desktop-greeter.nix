@@ -19,6 +19,9 @@
     { lib, ... }:
     {
       itera.enable = true;
+      # Not a default — turned on so /etc/mpv/mpv.conf is generated and mpv is
+      # made to parse it below.
+      itera.desktop.videoPlayer.hardwareDecoding = true;
       networking.hostName = lib.mkForce "machine";
     };
 
@@ -55,9 +58,11 @@
     # The video battery, on the booted system rather than only in the evaluated
     # config. The system mpv.conf is the interesting half: mpv REJECTS a config
     # file with an option it does not know, so a bad key here would break every
-    # launch for every user — and nothing but a real run would catch it.
+    # launch for every user — and nothing but a real run would catch it. The node
+    # opts into hardware decoding purely to make that file exist (it is off by
+    # default, and in a VM with no GPU mpv just falls back to software).
     machine.succeed("test -e /etc/mpv/mpv.conf")
-    machine.succeed("grep -q '^hwdec=auto-safe$' /etc/mpv/mpv.conf")
+    machine.succeed("grep -q '^hwdec=auto$' /etc/mpv/mpv.conf")
 
     # `mpv-term` picks its video output from the terminal it finds, and
     # `machine.succeed` hands it no tty, so pin one: what this proves is that the

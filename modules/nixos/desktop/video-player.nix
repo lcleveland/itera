@@ -11,17 +11,26 @@
 # `youtubeSupport = true`, which bakes yt-dlp into mpv's own PATH, so
 # `mpv <url>` resolves streams out of the box.
 #
-# Hardware decoding ({option}`hardwareDecoding`, on by default) writes
-# `hwdec=auto-safe` into the system mpv config — mpv's own default is `no`, which
-# means a 4K stream is decoded on the CPU, dropping frames on a laptop and
-# burning battery to do it. `auto-safe` only picks a decoder from the known-good
-# list, so it degrades to software rather than to a broken picture. AMD gets
-# VA-API from mesa and NVIDIA gets `nvidia-vaapi-driver` from the NVIDIA battery,
-# but Intel needs a driver nothing else installs — so when the facter report
-# shows an Intel GPU, this battery adds `intel-media-driver` rather than
-# advertising hardware decoding with nothing behind it. With no facter report
-# there is no detection, and hwdec quietly falls back to software; add
-# `hardware.graphics.extraPackages` yourself on such a host.
+# Hardware decoding ({option}`hardwareDecoding`) is OPT-IN, and that is the whole
+# point of the option. mpv's manual is explicit: "Hardware decoding is not enabled
+# by default, to keep the out-of-the-box configuration as reliable as possible" —
+# and it goes on to name distributions that ship an /etc/mpv/mpv.conf forcing it
+# on as getting this wrong. This battery shipped exactly that mistake
+# (`hwdec=auto-safe`) and it produced visibly corrupt video on a hybrid
+# AMD+NVIDIA desktop: `auto` takes the first whitelisted method that initialises,
+# which there was Vulkan video decode on the discrete GPU. The DECODE was fine —
+# frames copied back with `vulkan-copy` and `vaapi-copy` came out bit-identical
+# to software — so what breaks is the zero-copy interop between the decoding and
+# the displaying device. That is exactly the host-specific minefield mpv is
+# warning about, and it is not something a framework can decide for a host it
+# cannot see.
+#
+# Turning it on writes `hwdec=auto` and, on a host whose facter report shows an
+# Intel GPU, installs `intel-media-driver` — the VA-API driver nothing else in
+# itera provides (mesa covers AMD, the NVIDIA battery covers NVIDIA) — rather
+# than advertising hardware decoding with nothing behind it. Test before relying
+# on it: mpv binds Ctrl+h to toggle hwdec at runtime, which answers "is this host
+# one of the good ones?" in one keystroke.
 #
 # The IN-TERMINAL half ({option}`terminal.enable`) ships `mpv-term`
 # (cli/mpv-term.sh): the same mpv, rendering into the terminal you are sitting
@@ -30,15 +39,23 @@
 # in the session's own terminal. The wrapper detects that per-terminal at run
 # time (environment allow-list, then the protocol's own capability query) and
 # falls back to mpv's true-colour text output anywhere else, so it always plays
-# something. See the script header for the full story, including why sixel is not
+# something.
+#
+# What makes it PLAY rather than stop on the first frame is shared-memory
+# transfer: the protocol's default is base64 escape codes through the pty, and a
+# video is a new image every frame — measured at ~67 MB/s for a 720p clip in a
+# 1600x800 window, which no terminal emulator can absorb. See the script header
+# for that, for the SSH case where shm is unavailable, and for why sixel is not
 # an option here (nixpkgs builds mpv with `sixelSupport = false`).
 #
-# The system config lives at {file}`/etc/mpv/mpv.conf` (mpv is built with
-# `sysconfdir = /etc`). mpv reads it BEFORE `~/.config/mpv/mpv.conf`, so every
-# curated value stays overridable per-user with no itera wiring in $HOME — and
-# there is no system state to persist under impermanence, since mpv's own state
-# (watch-later positions, `~/.config/mpv`) lives in the curated `.config` /
-# `.local/state` home dirs the impermanence battery already persists.
+# {option}`settings` writes {file}`/etc/mpv/mpv.conf` (mpv is built with
+# `sysconfdir = /etc`), which mpv reads BEFORE `~/.config/mpv/mpv.conf` — so
+# anything set there is a default a user can still override, with no itera wiring
+# in $HOME. Nothing is set by default, so by default the file is not written at
+# all and mpv behaves exactly as it does out of the box, which is what its manual
+# recommends. There is no system state to persist under impermanence either:
+# mpv's own state (watch-later positions, `~/.config/mpv`) lives in the curated
+# `.config` / `.local/state` home dirs the impermanence battery already persists.
 #
 # Audio types are deliberately left unclaimed: mpv plays them fine when handed
 # one, but itera ships no audio-player battery, and quietly making the video
@@ -119,15 +136,20 @@ in
 
     hardwareDecoding = mkOption {
       type = bool;
-      default = true;
+      default = false;
       description = ''
-        Decode video on the GPU where the driver supports it, by defaulting
-        {option}`settings`.`hwdec` to `auto-safe` (mpv's own default is `no`,
-        i.e. always software). On a host whose facter report shows an Intel GPU
-        this also installs `intel-media-driver`, the VA-API driver nothing else
-        in itera provides — AMD gets VA-API from mesa and NVIDIA from
-        {option}`itera.nvidia`. Set to `false` for software decoding only; pin a
-        specific method with `settings.hwdec` instead of turning this off.
+        Decode video on the GPU, by defaulting {option}`settings`.`hwdec` to
+        `auto`. On a host whose facter report shows an Intel GPU this also
+        installs `intel-media-driver`, the VA-API driver nothing else in itera
+        provides — AMD gets VA-API from mesa and NVIDIA from
+        {option}`itera.nvidia`.
+
+        Off by default, matching mpv itself: whether the GPU decode path renders
+        correctly is a property of the host, and on a machine with two GPUs it
+        can produce visibly corrupt video even though the decoding is exact (the
+        breakage is in the zero-copy handoff to the display device). Turn it on
+        once you have checked this host — mpv's Ctrl+h toggles hwdec at runtime —
+        and pin a known-good method with `settings.hwdec` if `auto` picks badly.
       '';
     };
 
@@ -147,9 +169,9 @@ in
         Options written to {file}`/etc/mpv/mpv.conf` as `key=value` lines
         (booleans render as `yes`/`no`). mpv reads this file before the user's own
         {file}`~/.config/mpv/mpv.conf`, so anything here is a *default* a user can
-        still override. itera sets only `hwdec` (see
-        {option}`hardwareDecoding`); the file is not written at all when this ends
-        up empty.
+        still override. itera sets nothing by default — only
+        {option}`hardwareDecoding` adds a key (`hwdec`) — and the file is not
+        written at all while this is empty.
       '';
     };
 
@@ -161,8 +183,11 @@ in
         in a window. It uses the kitty graphics protocol — real pixels — in
         terminals that implement it, including the WezTerm that
         {option}`itera.desktop.terminal` installs, and falls back to mpv's
-        true-colour text output everywhere else. `MPV_TERM_VO=<vo>` overrides the
-        choice for a single run. Set to `false` to install the GUI player only.
+        true-colour text output everywhere else. In a terminal it recognises by
+        name it also transfers frames through shared memory, without which the
+        base64-over-pty default stops the video on its first frame.
+        `MPV_TERM_VO=<vo>` overrides the choice for a single run. Set to `false`
+        to install the GUI player only.
       '';
     };
   };
@@ -172,9 +197,9 @@ in
       lib.optional (cfg.package != null) cfg.package
       ++ lib.optional (cfg.terminal.enable && cfg.package != null) mpvTerm;
 
-    # The one curated mpv option. `mkDefault` so `settings.hwdec = "vaapi"` (or
-    # anything else) wins without having to turn the battery switch off.
-    itera.desktop.videoPlayer.settings.hwdec = mkIf cfg.hardwareDecoding (mkDefault "auto-safe");
+    # `mkDefault` so `settings.hwdec = "vaapi"` pins a known-good method for a
+    # host without having to turn the switch off and hand-write the line.
+    itera.desktop.videoPlayer.settings.hwdec = mkIf cfg.hardwareDecoding (mkDefault "auto");
 
     # NOT `mkDefault`, deliberately. `extraPackages` is a list, so same-priority
     # definitions concatenate — but NixOS' own nvidia module defines it at NORMAL

@@ -22,6 +22,20 @@
 # protocol's own capability query for everything else. `MPV_TERM_VO=<vo>` skips
 # both, and an explicit `--vo` in the arguments is always left alone.
 #
+# Picking `kitty` is only half of it. A still image is one transfer; a video is a
+# new image EVERY FRAME, and the protocol's default medium is base64 escape codes
+# down the pty. Measured on a 1280x720 clip in a 1600x800 window, that is ~137 MB
+# of escape codes for two seconds of video — ~67 MB/s. mpv sustains it; the
+# terminal on the other end does not, which is what "it stops on the first frame"
+# actually is. `--vo-kitty-use-shm` hands over a shared-memory object instead and
+# takes the wire traffic to ~0, so it is on wherever it can be trusted (see the
+# gate below). The options this adds are PREPENDED, so anything the caller passes
+# still wins.
+#
+# Over SSH there is no shared memory to hand over and the escape-code path is all
+# there is. It is genuinely slow at a large window size — `MPV_TERM_VO=tct`, or
+# `--vo-kitty-width`/`--vo-kitty-height` to cap the image, are the ways out.
+#
 # writeShellApplication supplies `set -euo pipefail` and runs shellcheck, so this
 # file is plain bash with no preamble of its own. mpv and stty (coreutils) come
 # from the wrapper's runtimeInputs.
@@ -47,14 +61,39 @@ in_multiplexer() {
 
 # Terminals that implement the kitty graphics protocol and announce themselves in
 # the environment. Checked first so the common case costs no round-trip.
+#
+# Naming the terminal (rather than just answering yes/no) is what unlocks shared
+# memory transfer below: all three of these are known to implement it, whereas a
+# terminal that merely answers the capability query might not, and asking for it
+# there would draw nothing at all.
+kitty_terminal=""
 kitty_graphics_by_env() {
   case "${TERM:-}" in
-    xterm-kitty | xterm-ghostty) return 0 ;;
+    xterm-kitty)
+      kitty_terminal=kitty
+      return 0
+      ;;
+    xterm-ghostty)
+      kitty_terminal=ghostty
+      return 0
+      ;;
   esac
   case "${TERM_PROGRAM:-}" in
-    WezTerm | ghostty) return 0 ;;
+    WezTerm)
+      kitty_terminal=wezterm
+      return 0
+      ;;
+    ghostty)
+      kitty_terminal=ghostty
+      return 0
+      ;;
   esac
-  if [ -n "${KITTY_WINDOW_ID:-}" ] || [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
+  if [ -n "${KITTY_WINDOW_ID:-}" ]; then
+    kitty_terminal=kitty
+    return 0
+  fi
+  if [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
+    kitty_terminal=ghostty
     return 0
   fi
   return 1
@@ -129,6 +168,37 @@ if [ "$explicit_vo" -eq 0 ]; then
       *) set -- --vo-tct-256=yes "$@" ;;
     esac
   fi
+
+  if [ "$vo" = kitty ]; then
+    # WITHOUT this, in-terminal video does not work — it stops on the first
+    # frame. The protocol's default transmission medium is base64 escape codes
+    # through the pty, and a video is not one image but a new one every frame:
+    # measured on a 1280x720 clip in a 1600x800 window, mpv emits ~67 MB/s of
+    # escape codes. mpv keeps up; no terminal emulator does. Shared memory hands
+    # over a memfd instead and drops that to ~0 bytes on the wire.
+    #
+    # Gated on the terminal being one we NAMED above, not merely one that
+    # answered the capability query: shm is an optional part of the protocol
+    # (WezTerm implements it — wezterm#1810), and a terminal without it would
+    # display nothing rather than fall back. Gated on a local session too — a
+    # memfd means nothing to a terminal on the other end of an SSH connection,
+    # which is exactly when the slow-but-portable escape codes are the only
+    # option.
+    if [ -n "$kitty_terminal" ] && [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}${SSH_CLIENT:-}" ]; then
+      set -- --vo-kitty-use-shm=yes "$@"
+    fi
+
+    # mpv repaints its terminal status line under every frame, which WezTerm
+    # renders as a status message flashing at the top for the whole video
+    # (wezterm#4112, still open). The OSD is unaffected — this drops only the
+    # one-line status readout that the image is covering anyway.
+    set -- --term-status-msg= "$@"
+  fi
+
+  # Both terminal outputs scale every frame to the terminal's grid on the CPU,
+  # and mpv's default scaler is built for a real display, not for an image this
+  # small. mpv's own manual points at this profile for the terminal VOs.
+  set -- --profile=sw-fast "$@"
 
   set -- "--vo=$vo" "$@"
 fi
