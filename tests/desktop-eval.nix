@@ -164,11 +164,12 @@ let
       cfg.xdg.mime.defaultApplications."video/x-matroska" == "mpv.desktop";
     "mpv claims the rtsp stream scheme" =
       cfg.xdg.mime.defaultApplications."x-scheme-handler/rtsp" == "mpv.desktop";
-    # mpv's own hwdec default is `no` — every frame on the CPU — so the system
-    # config file is what makes the battery's hardware decoding real.
-    "system mpv.conf turns hardware decoding on" =
-      lib.hasInfix "hwdec=auto-safe"
-        cfg.environment.etc."mpv/mpv.conf".text;
+    # Hardware decoding is opt-in, so the default desktop writes NO system
+    # mpv.conf at all and mpv behaves exactly as it does out of the box — which
+    # is what mpv's own manual asks distributions to do. Forcing `hwdec` here
+    # produced visibly corrupt video on a two-GPU host.
+    "hardware decoding is off by default" = !cfg.itera.desktop.videoPlayer.hardwareDecoding;
+    "no system mpv.conf by default" = !(cfg.environment.etc ? "mpv/mpv.conf");
 
     # Home layer: the WezTerm user config renders. Probing the key forces the hjem
     # battery's Lua `configText` (settings + font serialization) to evaluate.
