@@ -106,6 +106,13 @@ let
   # Calculator opted out, to assert the package and its keybind command go with it.
   calculatorOff = mkEval { itera.desktop.calculator.enable = false; };
 
+  # Video player opted out entirely, and the two halves opted out one at a time,
+  # to assert each gate is real: no player, no in-terminal wrapper, no system
+  # mpv.conf left behind.
+  videoPlayerOff = mkEval { itera.desktop.videoPlayer.enable = false; };
+  videoTerminalOff = mkEval { itera.desktop.videoPlayer.terminal.enable = false; };
+  videoHwdecOff = mkEval { itera.desktop.videoPlayer.hardwareDecoding = false; };
+
   # Fingerprint battery turned OFF, to assert its persisted state is gated.
   fingerprintOff = mkEval { itera.fingerprint.enable = false; };
 
@@ -146,6 +153,13 @@ let
       p: lib.hasInfix "gnome-calculator" (p.name or "")
     ) null cfg.environment.systemPackages;
 
+  # Identity rather than a name match: the in-terminal wrapper `mpv-term` is a
+  # separate entry in the same list whose name also begins with `mpv`, and the
+  # player's actual derivation name (`mpv-with-scripts-<ver>`) is a nixpkgs
+  # wrapper detail this check has no reason to bake in.
+  hasMpv = cfg: lib.elem cfg.itera.desktop.videoPlayer.package cfg.environment.systemPackages;
+  hasMpvTerm = cfg: hasPkgName "mpv-term" cfg.environment.systemPackages;
+
   # `wsdd-` (with the dash) so this matches the wsdd package itself and not some
   # other member of the closure whose name merely contains "wsdd".
   hasWsdd = cfg: lib.any (p: lib.hasPrefix "wsdd-" (p.name or "")) cfg.environment.systemPackages;
@@ -156,6 +170,10 @@ let
   gpuReport = vendorId: { facter.report.hardware.graphics_card = [ { vendor.value = vendorId; } ]; };
   nvidiaHost = mkGpuEval (gpuReport 4318);
   amdHost = mkGpuEval (gpuReport 4098);
+  # Same synthetic-report trick for the video battery's own GPU branch: Intel is
+  # 32902 (0x8086), the one vendor whose VA-API driver nothing else in itera
+  # installs (mesa covers AMD, itera.nvidia covers NVIDIA).
+  intelHost = mkGpuEval (gpuReport 32902);
   nvidiaOptOut = mkGpuEval (gpuReport 4318 // { itera.hardware.facter.autoNvidia = false; });
 
   # nvidia-container-toolkit driver-assertion defusing: force the toolkit on while
@@ -286,6 +304,64 @@ let
       calculatorOff.itera.desktop.mango.commands.calculator == null;
     # History and preferences live in ~/.config/dconf, covered by the curated
     # `.config` home dir, so no calculator-gated persistence entry either.
+
+    # --- mpv video player (default on) ---
+    "mpv installed when the video player is on" = hasMpv base;
+    "mpv not installed when the video player is off" = !hasMpv videoPlayerOff;
+    "mpv is the default video/mp4 handler" =
+      base.xdg.mime.defaultApplications."video/mp4" == "mpv.desktop";
+    # The handler must go with the package. Leaving it behind points the session
+    # at a `.desktop` id no installed package provides, and opening a video then
+    # fails with no visible reason.
+    "no video handler when the video player is off" =
+      !(videoPlayerOff.xdg.mime.defaultApplications ? "video/mp4");
+
+    # In-terminal playback is its own gate: dropping it must leave the GUI player
+    # (and vice versa — dropping the package drops the wrapper, which is nothing
+    # without it).
+    "mpv-term ships with the video player" = hasMpvTerm base;
+    "mpv-term dropped when terminal playback is off" = !hasMpvTerm videoTerminalOff;
+    "GUI player survives terminal playback being off" = hasMpv videoTerminalOff;
+    "mpv-term dropped when the player package is dropped" =
+      !hasMpvTerm (mkEval {
+        itera.desktop.videoPlayer.package = null;
+      });
+
+    # Hardware decoding writes exactly one line into the system mpv.conf, and
+    # opting out must leave NO file rather than an empty one — mpv reads
+    # /etc/mpv/mpv.conf before the user's own, so an orphan here is a default
+    # every user inherits.
+    "system mpv.conf sets hwdec" =
+      lib.hasInfix "hwdec=auto-safe"
+        base.environment.etc."mpv/mpv.conf".text;
+    "no system mpv.conf when hardware decoding is off" =
+      !(videoHwdecOff.environment.etc ? "mpv/mpv.conf");
+    "no system mpv.conf when the video player is off" =
+      !(videoPlayerOff.environment.etc ? "mpv/mpv.conf");
+    # settings is per-key overridable rather than all-or-nothing: pinning hwdec
+    # must win over the battery's own default without turning the battery off.
+    "settings.hwdec overrides the curated default" =
+      lib.hasInfix "hwdec=vaapi"
+        (mkEval { itera.desktop.videoPlayer.settings.hwdec = "vaapi"; })
+        .environment.etc."mpv/mpv.conf".text;
+
+    # Intel is the one vendor whose VA-API driver nothing else installs, so
+    # hardware decoding there is only real if the battery supplies it. It must
+    # NOT be handed to hosts that don't need it, and must survive alongside the
+    # NVIDIA module's own (normal-priority) extraPackages on a hybrid laptop.
+    "intel VA-API driver added on an Intel host" =
+      hasPkgName "intel-media-driver" intelHost.hardware.graphics.extraPackages;
+    "no intel VA-API driver on an AMD host" =
+      !hasPkgName "intel-media-driver" amdHost.hardware.graphics.extraPackages;
+    "no intel VA-API driver when hardware decoding is off" =
+      !hasPkgName "intel-media-driver"
+        (mkGpuEval (gpuReport 32902 // { itera.desktop.videoPlayer.hardwareDecoding = false; }))
+        .hardware.graphics.extraPackages;
+    "intel VA-API driver survives the nvidia module's extraPackages" =
+      hasPkgName "intel-media-driver"
+        (mkGpuEval (gpuReport 32902 // { itera.nvidia.enable = true; })).hardware.graphics.extraPackages;
+    # mpv's own state (watch-later, ~/.config/mpv) lives in the curated `.config`
+    # / `.local/state` home dirs, so there is no video-gated persistence entry.
 
     # --- Steam / gaming (opt-in): ~/.steam persisted, gated on Steam being on ---
     # The library, Proton prefixes and cloud saves live under ~/.local/share/Steam
