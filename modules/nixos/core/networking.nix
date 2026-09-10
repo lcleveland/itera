@@ -175,5 +175,28 @@ in
       # on the daemon.
       systemd.services.nscd.environment.RES_OPTIONS = "no-aaaa";
     })
+
+    (mkIf config.services.avahi.enable {
+      # avahi ships a D-Bus policy (`share/dbus-1/system.d/avahi-dbus.conf`)
+      # whose last stanza grants `group="netdev"` full send access to
+      # org.freedesktop.Avahi, including `SetHostName`. No NixOS host creates a
+      # `netdev` group, so dbus-broker cannot resolve the name and logs `Invalid
+      # group-name in …/avahi-dbus.conf +24: group="netdev"` — once per copy of
+      # the file it parses, i.e. both the package output and the system path.
+      #
+      # This fails *closed*: an unresolvable policy is dropped, so the extra
+      # SetHostName privilege is withheld rather than granted. Declaring the
+      # group empty changes no access — an empty group has no members — and
+      # silences both lines. Membership is deliberately left empty: adding users
+      # would hand out avahi `SetHostName`, which is the one thing that stanza
+      # gates. Same reasoning as `users.groups.plugdev` in core/security-keys.nix.
+      #
+      # Keyed off `services.avahi.enable` rather than an itera option because two
+      # separate batteries turn avahi on (the DankMaterialShell desktop, for
+      # geoclue; the printing service, for `.local` printer discovery), and a
+      # host may enable it directly — this covers all three without either
+      # battery having to know about the others.
+      users.groups.netdev = { };
+    })
   ]);
 }
