@@ -155,8 +155,19 @@ let
   aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
   bobDms = builtins.fromJSON bobFiles."DankMaterialShell/settings.json".text;
 
-  alicePlugins = builtins.fromJSON aliceFiles."DankMaterialShell/plugin_settings.json".text;
-  bobPlugins = builtins.fromJSON bobFiles."DankMaterialShell/plugin_settings.json".text;
+  # plugin_settings.json carries string context: the update-indicator plugin's
+  # `checkCommand` is an absolute store path, which is what keeps its helper in
+  # the closure. `builtins.fromJSON` refuses a string with context, so discard it
+  # here — this is a read-only assertion on the rendered text, and nothing built
+  # from these values ends up in a derivation.
+  readPlugins =
+    files:
+    builtins.fromJSON (
+      builtins.unsafeDiscardStringContext files."DankMaterialShell/plugin_settings.json".text
+    );
+
+  alicePlugins = readPlugins aliceFiles;
+  bobPlugins = readPlugins bobFiles;
 
   # Zed renders via pkgs.formats.json (a store-path `source`, not inline `text`).
   aliceZed = builtins.fromJSON (builtins.readFile aliceFiles."zed/settings.json".source);
@@ -266,6 +277,16 @@ let
     # a bar config, so assert the shipped default bar references it.
     "default bar places ipIndicator widget (bob)" =
       builtins.elem "ipIndicator" (builtins.head bobDms.barConfigs).rightWidgets;
+
+    # The update indicator ships the same way, but its settings are the whole
+    # point: the widget compares a revision baked in here at build time, so a
+    # dropped key leaves the pill with nothing to say.
+    "update indicator plugin dir shipped (bob)" = bobFiles ? "DankMaterialShell/plugins/iteraUpdate";
+    "update indicator enabled in plugin_settings (bob)" = bobPlugins.iteraUpdate.enabled == true;
+    "update indicator check command reaches the rendered settings (bob)" =
+      lib.hasInfix "itera-update-check" bobPlugins.iteraUpdate.checkCommand;
+    "default bar places iteraUpdate widget (bob)" =
+      builtins.elem "iteraUpdate" (builtins.head bobDms.barConfigs).rightWidgets;
 
     # ── DMS plugins: per-user add stays isolated ─────────────────────────
     "per-user plugin present (alice)" = aliceFiles ? "DankMaterialShell/plugins/Bar";

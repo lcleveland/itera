@@ -84,6 +84,13 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
+  # The update indicator's declarative settings — everything the widget knows is
+  # baked in here at build time, so the checks below read the option rather than
+  # the QML.
+  updateIndicatorSettings = cfg.itera.programs.dankMaterialShell.plugins.iteraUpdate.settings;
+
+  barConfigs = cfg.itera.programs.dankMaterialShell.settings.barConfigs;
+
   # The rendered geoclue config. Read the text (not just the option) so the
   # `mkAfter` append is actually forced, and read it off a config with the shell
   # off too — nixpkgs only defines the entry when geoclue2 is on, so the append
@@ -286,6 +293,31 @@ let
     # Gated off: nothing written to the portal config without a compositor.
     "screencast battery is inert without a compositor" =
       !(cfgNoDesktop.xdg.portal.wlr.settings ? screencast);
+
+    # Update indicator: a read-only dank-bar widget reporting when the itera
+    # repository has moved on from the revision this system was built with.
+    "update indicator battery is enabled" = cfg.itera.desktop.updateIndicator.enable;
+    "update indicator plugin is registered" =
+      cfg.itera.programs.dankMaterialShell.plugins ? iteraUpdate;
+    # The widget is inert without the helper: no command, no check, no signal.
+    "update indicator check command is wired" =
+      lib.hasInfix "itera-update-check" updateIndicatorSettings.checkCommand;
+    # Same reasoning as the screencast chooser: a status indicator you cannot
+    # interrogate by hand is miserable to debug.
+    "update indicator check tool is on PATH" =
+      hasPkgInfix "itera-update-check" cfg.environment.systemPackages;
+    # Registering only installs the plugin — a dank-bar widget renders solely
+    # when its id appears in a bar config's widget list.
+    "default bar places iteraUpdate widget" = builtins.elem "iteraUpdate" (builtins.head barConfigs)
+    .rightWidgets;
+    # `lockedRev` is the whole local half of the comparison. It must always be a
+    # string: empty when itera came from a dirty checkout (as it does in this
+    # eval), a commit sha otherwise — never null, which the QML cannot render.
+    "update indicator locked revision is a string" =
+      builtins.isString updateIndicatorSettings.lockedRev;
+    # Nothing polls github.com on a host with no desktop to render the pill.
+    "update indicator is inert without the shell" =
+      !(cfgNoDesktop.itera.programs.dankMaterialShell.plugins ? iteraUpdate);
   };
 
 in

@@ -1,0 +1,12 @@
+{
+  "id": "iteraUpdate",
+  "name": "itera Update",
+  "description": "Show when the itera repository has moved on from the revision this system was built with",
+  "version": "1.0.0",
+  "author": "itera",
+  "icon": "deployed_code_update",
+  "type": "widget",
+  "capabilities": ["dankbar-widget", "monitoring"],
+  "component": "./IteraUpdate.qml",
+  "permissions": ["settings_read", "process"]
+}
