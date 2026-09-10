@@ -93,8 +93,9 @@ in
           # settings.json declaratively (clobber = true, so DMS GUI edits do not
           # survive a rebuild), so the bar layout must be declared here too. Ship
           # DMS's default bar (schema matches the pinned `configVersion`) with
-          # `ipIndicator` added to the right widgets. mkDefault so a consumer
-          # replaces the whole bar via
+          # `ipIndicator` and `iteraUpdate` (the update-indicator battery,
+          # modules/nixos/desktop/update-indicator.nix) added to the right
+          # widgets. mkDefault so a consumer replaces the whole bar via
           # `itera.programs.dankMaterialShell.settings.barConfigs`. (Disabling the
           # plugin leaves a harmless dangling id here — DMS finds no component and
           # skips it.)
@@ -122,6 +123,7 @@ in
                 "cpuUsage"
                 "memUsage"
                 "ipIndicator"
+                "iteraUpdate"
                 "notificationButton"
                 "battery"
                 "controlCenterButton"
