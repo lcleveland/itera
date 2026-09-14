@@ -8,10 +8,18 @@
 # with a small, curated set of system-wide tooling.
 #
 # Deliberately lean: the default is `git` (the one thing you cannot bootstrap a
-# config workflow without) plus the GitHub CLI `gh` (open/manage PRs against your
-# flake without leaving the shell). `packages` is the extension point — append
-# your own editors/CLIs, or drop the battery entirely and install per-user via
-# `itera.users.<name>.packages`.
+# config workflow without), the GitHub CLI `gh` (open/manage PRs against your
+# flake without leaving the shell), and `nodejs`. `packages` is the extension
+# point — append your own editors/CLIs, or drop the battery entirely and install
+# per-user via `itera.users.<name>.packages`.
+#
+# `nodejs` is in that set as a runtime, not as dev-preference tooling. The agentic
+# CLIs itera ships — `itera.ai.claude`, and the ACP adapter the editor battery
+# registers with Zed — load plugins whose hooks are plain Node scripts invoked as
+# bare `node`. nixpkgs' `claude-code` is now a self-contained native binary that
+# carries no nodejs in its closure and does not put one on PATH, so without this
+# entry every such hook fails with `node: command not found` and the plugin
+# silently does nothing. Nothing else in itera provides a system-wide node.
 #
 # Opt-OUT (default ON with `itera.enable`), following the core-battery shape.
 {
@@ -47,9 +55,9 @@ in
       default = true;
       description = ''
         Install a small curated set of developer tooling system-wide (by default
-        {command}`git` and the GitHub CLI {command}`gh`), so a freshly installed
-        host can work on a Nix configuration. On by default whenever
-        {option}`itera.enable` is set; set to `false` to omit it.
+        {command}`git`, the GitHub CLI {command}`gh`, and {command}`node`), so a
+        freshly installed host can work on a Nix configuration. On by default
+        whenever {option}`itera.enable` is set; set to `false` to omit it.
       '';
     };
 
@@ -58,13 +66,16 @@ in
       default = [
         pkgs.git
         pkgs.gh
+        pkgs.nodejs
       ];
-      defaultText = lib.literalExpression "[ pkgs.git pkgs.gh ]";
-      example = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.gnumake pkgs.jq ]";
+      defaultText = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs ]";
+      example = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs pkgs.gnumake pkgs.jq ]";
       description = ''
         System-wide developer tooling installed when {option}`itera.dev.enable`
-        is set. Defaults to {command}`git` and the GitHub CLI {command}`gh`; append
-        your own tools here, or install per-user via
+        is set. Defaults to {command}`git`, the GitHub CLI {command}`gh`, and
+        {command}`node` (the runtime the agentic CLIs itera ships need to run
+        their plugin hooks — see the note at the top of this module); append your
+        own tools here, or install per-user via
         {option}`itera.users.<name>.packages` instead.
       '';
     };
