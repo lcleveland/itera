@@ -274,7 +274,12 @@ let
     # so a fresh host can work on a Nix config; gated off with the battery.
     "git is installed by default" = hasPkg cfg "git";
     "gh is installed by default" = hasPkg cfg "gh";
+    # node ships as a runtime, not dev preference: the agentic CLIs itera offers
+    # run their plugin hooks as bare `node`, and nixpkgs' standalone claude-code
+    # binary carries none in its closure. See modules/nixos/core/dev.nix.
+    "nodejs is installed by default" = hasPkg cfg "nodejs";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
+    "nodejs is gated off when disabled" = !(hasPkg devOff "nodejs");
     # gh is wired up as git's HTTPS credential helper whenever it ships in the
     # battery, so `gh auth login` transparently authenticates git too.
     # gh is wired up as git's HTTPS credential helper whenever it ships in the
