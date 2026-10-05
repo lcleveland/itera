@@ -216,13 +216,13 @@ let
       in
       if m == null then intPart else "${intPart}.${builtins.head m}";
 
-  # A MangoWC `monitorrule=` entry. The match fields (name/make/model/serial)
+  # A MangoWC `monitor_rule=` entry. The match fields (name/make/model/serial)
   # are regexes; if any are set, ALL set ones must match for the rule to apply.
   # The remaining fields configure the matched output. The attribute key defaults
   # into `name` (wired in modules/programs/mango.nix), so keying a monitor by its
   # connector name is enough for the common case.
   #
-  #   monitorrule=name:VAL,width:VAL,height:VAL,refresh:VAL,x:VAL,y:VAL,...
+  #   monitor_rule=name:VAL,width:VAL,height:VAL,refresh:VAL,x:VAL,y:VAL,...
   monitorRuleType = lib.types.submodule (
     { name, ... }:
     {
@@ -335,7 +335,7 @@ let
     }
   );
 
-  # Render a single monitor into its `monitorrule=` line. Optional fields fall
+  # Render a single monitor into its `monitor_rule=` line. Optional fields fall
   # back with `or` so the helper also works on plain (non-submodule) attrs, which
   # keeps it directly unit-testable. Only set (non-null) fields are emitted; a
   # disabled output emits its match fields plus `disable:1` and nothing else.
@@ -362,20 +362,20 @@ let
         ++ lib.optional ((m.transform or null) != null) "rr:${toString monitorTransforms.${m.transform}}";
       parts = matchParts ++ (if enabled then setParts else [ "disable:1" ]);
     in
-    "monitorrule=${concatStringsSep "," parts}";
+    "monitor_rule=${concatStringsSep "," parts}";
 
   # Render a name-keyed attrset of monitor rules into config.conf lines (one
-  # `monitorrule=` per output). A bare `monitorrule=` (no fields at all) is
+  # `monitor_rule=` per output). A bare `monitor_rule=` (no fields at all) is
   # dropped defensively — a real submodule value always carries its key-derived
   # `name`, so this only guards degenerate plain-attrs input.
   renderMonitorRules =
     monitors:
     concatStringsSep "\n" (
-      lib.filter (l: l != "monitorrule=") (mapAttrsToList (_: mkMonitorRuleLine) monitors)
+      lib.filter (l: l != "monitor_rule=") (mapAttrsToList (_: mkMonitorRuleLine) monitors)
     );
 
   # MangoWC has no single "default layout" key — the startup layout is set per
-  # tag via `tagrule=id:N,layout_name:<layout>`. Render one such line per tag to
+  # tag via `tag_rule=id:N,layout_name:<layout>`. Render one such line per tag to
   # give every tag the same default. `tagCount` defaults to 9 to match itera's
   # `SUPER+1..9` tag binds (see `tags` in modules/nixos/desktop/mango.nix); keep
   # the two in sync.
@@ -385,7 +385,7 @@ let
       tagCount ? 9,
     }:
     concatStringsSep "\n" (
-      map (id: "tagrule=id:${toString id},layout_name:${layout}") (lib.range 1 tagCount)
+      map (id: "tag_rule=id:${toString id},layout_name:${layout}") (lib.range 1 tagCount)
     );
 
   # Render the `circle_layout=` line that `switch_layout` cycles through. An

@@ -16,7 +16,7 @@
 # keeps portals — file pickers, screencast, the color-scheme preference — alive.
 #
 # `dms` is still spawned directly rather than through DMS's systemd user service:
-# it is on the system PATH and starting it from `exec-once=` keeps the shell's
+# it is on the system PATH and starting it from `exec_once=` keeps the shell's
 # lifetime tied to the compositor without depending on unit ordering.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`), so sinks
@@ -85,11 +85,11 @@ let
   # start the removable-storage automount agent (when the storage battery is on
   # — udisks2 has no automount of its own), then launch the shell.
   #
-  # The session bring-up is one script rather than three `exec-once=` lines
-  # because mango spawns each `exec-once` asynchronously: the environment must
+  # The session bring-up is one script rather than three `exec_once=` lines
+  # because mango spawns each `exec_once` asynchronously: the environment must
   # be in place *before* the target activates, or the units it pulls in inherit
   # an empty one. mango does export the session variables itself these days
-  # (`set_activation_env()` in mango.c, issued just before the exec-once list),
+  # (`set_activation_env()` in mango.c, issued just before the exec_once list),
   # but it too is an async spawn and its fixed variable list omits NixOS's
   # `NIXOS_OZONE_WL`, so doing it here keeps the ordering deterministic.
   #
@@ -108,9 +108,9 @@ let
 
   autostartUdiskie = (osConfig.itera.storage.enable or false) && (osConfig.itera.enable or false);
   autostartConfig = lib.concatStringsSep "\n" (
-    [ "exec-once=${sessionSetup}" ]
-    ++ lib.optional autostartUdiskie "exec-once=${pkgs.udiskie}/bin/udiskie --automount --tray"
-    ++ [ "exec-once=dms run" ]
+    [ "exec_once=${sessionSetup}" ]
+    ++ lib.optional autostartUdiskie "exec_once=${pkgs.udiskie}/bin/udiskie --automount --tray"
+    ++ [ "exec_once=dms run" ]
   );
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
@@ -122,7 +122,7 @@ let
     options = xkb.options or "";
   };
 
-  # Tiling layout: the per-tag default (`tagrule` lines) plus the `circle_layout`
+  # Tiling layout: the per-tag default (`tag_rule` lines) plus the `circle_layout`
   # cycle list.
   layoutConfig = lib.concatStringsSep "\n" (
     lib.filter (line: line != "") [
@@ -131,7 +131,7 @@ let
     ]
   );
 
-  # Order: autostart (exec-once) → monitors → xkb → layout → keybinds → gestures
+  # Order: autostart (exec_once) → monitors → xkb → layout → keybinds → gestures
   # → freeform extraConfig. (mango matches monitor rules by name, so their
   # position in the file is not significant — placed early for readability.)
   configText = lib.concatStringsSep "\n" (

@@ -78,7 +78,7 @@ iteraLib.programs.mkCuratedProgram {
       default = "scroller";
       example = "tile";
       description = ''
-        Default tiling layout, applied to every tag via `tagrule` lines. Defaults
+        Default tiling layout, applied to every tag via `tag_rule` lines. Defaults
         to `scroller` (a PaperWM-style scrollable strip).
       '';
     };
@@ -103,7 +103,7 @@ iteraLib.programs.mkCuratedProgram {
       attrs = true;
       description = ''
         MangoWC output configuration (position, resolution, scale, refresh,
-        rotation, VRR/HDR, enable), rendered as `monitorrule=` lines in
+        rotation, VRR/HDR, enable), rendered as `monitor_rule=` lines in
         {file}`mango/config.conf`. Keyed by a friendly name that defaults into the
         `name` match regex, so keying by connector name (e.g. `"eDP-1"`) is usually
         enough.
@@ -146,7 +146,7 @@ iteraLib.programs.mkCuratedProgram {
       type = bool;
       default = true;
       description = ''
-        Inject itera's default `exec-once` autostart into {file}`mango/config.conf`:
+        Inject itera's default `exec_once` autostart into {file}`mango/config.conf`:
         refresh the D-Bus/systemd user environment and launch DankMaterialShell
         (`dms run`). Turn off to manage startup yourself via `extraConfig`.
       '';
@@ -171,7 +171,7 @@ iteraLib.programs.mkCuratedProgram {
       '';
       description = ''
         Extra lines appended verbatim to {file}`$XDG_CONFIG_HOME/mango/config.conf`
-        (keybinds, window rules, `env=` lines, further `exec-once=`, …).
+        (keybinds, window rules, `env=` lines, further `exec_once=`, …).
       '';
     };
   };

@@ -176,10 +176,10 @@ let
   aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
   bobMango = builtins.readFile bobFiles."mango/config.conf".source;
 
-  # The session bring-up is an `exec-once=` pointing at a generated script, so
+  # The session bring-up is an `exec_once=` pointing at a generated script, so
   # reach through the rendered config to the script itself and assert on its
   # contents — that is where the ordering guarantee actually lives.
-  bobSessionSetup = lib.removePrefix "exec-once=" (
+  bobSessionSetup = lib.removePrefix "exec_once=" (
     lib.findFirst (l: lib.hasInfix "itera-mango-session-setup" l) "" (lib.splitString "\n" bobMango)
   );
 
@@ -329,13 +329,13 @@ let
       lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
     "calculator key needs no modifier" =
       lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
-    "autostart still present" = lib.hasInfix "exec-once=dms run" bobMango;
+    "autostart still present" = lib.hasInfix "exec_once=dms run" bobMango;
     # The session bring-up must be the FIRST autostart entry and a single script:
-    # mango spawns each exec-once asynchronously, so splitting the environment
+    # mango spawns each exec_once asynchronously, so splitting the environment
     # export from the target start would race and hand the portal an empty
     # environment. Assert the rendered script, not just that a line exists.
     "session setup autostarts before the shell" = lib.hasInfix "itera-mango-session-setup" (
-      builtins.head (lib.splitString "exec-once=dms run" bobMango)
+      builtins.head (lib.splitString "exec_once=dms run" bobMango)
     );
     "session setup starts mango-session.target" =
       lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);
@@ -348,12 +348,12 @@ let
 
     # ── mango layout: default reaches bob, per-user override wins for alice ──
     "default layout rendered on tag 1 (bob)" =
-      lib.hasInfix "tagrule=id:1,layout_name:scroller" bobMango;
+      lib.hasInfix "tag_rule=id:1,layout_name:scroller" bobMango;
     "default layout rendered on tag 9 (bob)" =
-      lib.hasInfix "tagrule=id:9,layout_name:scroller" bobMango;
+      lib.hasInfix "tag_rule=id:9,layout_name:scroller" bobMango;
     "circle_layout cycle rendered (bob)" =
       lib.hasInfix "circle_layout=scroller,tile,monocle,grid" bobMango;
-    "per-user layout override wins (alice)" = lib.hasInfix "tagrule=id:1,layout_name:tile" aliceMango;
+    "per-user layout override wins (alice)" = lib.hasInfix "tag_rule=id:1,layout_name:tile" aliceMango;
     "switch-layout bind rendered (SUPER+SHIFT+n)" =
       lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
     # DMS notifications keeps SUPER+n — no collision with the layout bind.
@@ -362,25 +362,25 @@ let
     # ── mango monitors: system-wide default reaches every user ───────────
     # bob inherits both system rules; the key→name default renders `name:HDMI-1`.
     "monitor default reaches user (bob HDMI-1)" =
-      lib.hasInfix "monitorrule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
+      lib.hasInfix "monitor_rule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
     "monitor default reaches user (bob DP-2)" =
-      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" bobMango;
+      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" bobMango;
 
     # ── mango monitors: per-user override wins per KEY, sibling still inherits ──
     "per-user monitor override wins (alice HDMI-1)" =
-      lib.hasInfix "monitorrule=name:HDMI-1,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
+      lib.hasInfix "monitor_rule=name:HDMI-1,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
     "per-user override replaces the system rule (alice)" =
-      !(lib.hasInfix "monitorrule=name:HDMI-1,width:1920" aliceMango);
+      !(lib.hasInfix "monitor_rule=name:HDMI-1,width:1920" aliceMango);
     "sibling monitor still inherited (alice DP-2)" =
-      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" aliceMango;
+      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" aliceMango;
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
     "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
 
     # ── mango monitors: the login greeter gets the system-wide layout ────
     "greeter gets system-wide monitors (HDMI-1)" =
-      lib.hasInfix "monitorrule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
+      lib.hasInfix "monitor_rule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
     "greeter gets system-wide monitors (DP-2)" =
-      lib.hasInfix "monitorrule=name:DP-2,width:2560,height:1440,x:1920,y:0" greeterMonitors;
+      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" greeterMonitors;
 
     # ── mango gestures: system default reaches every user, per-user adds ──
     "gesture default reaches user (bob)" =
@@ -409,15 +409,15 @@ let
     "monitor renderer: transform maps to rr" = lib.hasInfix "rr:1" renderedMonitor;
     "monitor renderer: bool renders as 1" = lib.hasInfix "vrr:1" renderedMonitor;
     "monitor renderer: disabled emits disable:1" =
-      lib.hasInfix "monitorrule=name:HDMI-2,disable:1" renderedMonitor;
+      lib.hasInfix "monitor_rule=name:HDMI-2,disable:1" renderedMonitor;
     "monitor renderer: disabled omits setting fields" = !(lib.hasInfix "width:9999" renderedMonitor);
 
     # ── renderer unit ────────────────────────────────────────────────────
     "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;
     "renderer empty modifiers → none" =
       lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,true" renderedBind;
-    # Layout renderers: per-tag tagrule lines and the circle_layout line.
-    "tag-layout renderer emits per-tag rules" = lib.hasInfix "tagrule=id:1,layout_name:tile" (
+    # Layout renderers: per-tag tag_rule lines and the circle_layout line.
+    "tag-layout renderer emits per-tag rules" = lib.hasInfix "tag_rule=id:1,layout_name:tile" (
       self.lib.mango.mkTagLayoutLines { layout = "tile"; }
     );
     "circle-layout renderer joins with comma" =
