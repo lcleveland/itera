@@ -348,9 +348,9 @@ let
     # via the registry pin nixpkgs sets for flake-built systems.
     "nix channels are disabled under flakes" = cfg.nix.channel.enable == false;
     "channel dir is not on the nix search path" =
-      !(builtins.elem "/nix/var/nix/profiles/per-user/root/channels" cfg.nix.settings.nix-path);
+      !(builtins.elem "/nix/var/nix/profiles/per-user/root/channels" cfg.nix.nixPath);
     "nixpkgs still resolves via the flake registry" =
-      builtins.elem "nixpkgs=flake:nixpkgs" cfg.nix.settings.nix-path;
+      builtins.elem "nixpkgs=flake:nixpkgs" cfg.nix.nixPath;
     "channels return when flakes are opted out" = flakesOff.nix.channel.enable;
     "unfree is allowed" = cfg.nixpkgs.config.allowUnfree;
     "stateVersion is set" = cfg.system.stateVersion == "25.05";

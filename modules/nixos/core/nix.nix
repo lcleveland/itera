@@ -62,7 +62,7 @@ in
 
     # A flake-built system never subscribes root to a channel, so the channel
     # state directory is never created — but nixpkgs still appends it to
-    # `nix.settings.nix-path` (modules/misc/nixpkgs-flake.nix, gated on
+    # `nix.nixPath` (modules/misc/nixpkgs-flake.nix, gated on
     # `nix.channel.enable`), and every evaluation then warns:
     #
     #   warning: Nix search path entry
