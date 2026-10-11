@@ -26,4 +26,5 @@ The reason is that DMS already themes and live-reloads most of the desktop, and 
   - assertions keep `GTK_THEME` and a non-DMS Zed theme out.
 
   The files DMS writes at runtime are covered only by a later VM test.
+
 - **System-only surfaces ignore per-user overrides.** Console and Plymouth resolve the system look only.
