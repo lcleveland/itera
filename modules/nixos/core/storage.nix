@@ -17,7 +17,7 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types) bool;
+  inherit (lib.types) bool strMatching;
 
   cfg = config.itera.storage;
 in
@@ -27,6 +27,17 @@ in
       type = bool;
       default = true;
       description = "Enable removable-storage mounting (udisks2 + udiskie automount).";
+    };
+
+    trayIconColor = mkOption {
+      type = strMatching "#[0-9a-fA-F]{6}";
+      default = "#ffffff";
+      example = "#1a1c20";
+      description = ''
+        Fill color of udiskie's tray icon. White by default, matching the other
+        icons on itera's dark DankMaterialShell bar; change it if you switch to a
+        light theme. Qt does not recolor tray icons, so it is fixed at build time.
+      '';
     };
   };
 

@@ -88,6 +88,18 @@ in
           # it is `nix flake update dms-ipindicator` — no rev/hash in this file.
           plugins.ipIndicator.src = mkDefault iteraInputs.dms-ipindicator;
 
+          # Layout chooser: a `#layout` launcher plugin (SUPER+CTRL+n) that sets
+          # the focused tag's mango layout by name. The attribute name must match
+          # plugin.json's `id`. Lists every layout rather than `layoutCycle`, which
+          # only governs SUPER+SHIFT+n.
+          plugins.layoutChooser = mkIf config.itera.desktop.mango.enable {
+            src = mkDefault ../../../pkgs/dms-layout-chooser;
+            settings = mkDefault {
+              layouts = iteraLib.mango.supportedLayouts;
+              mmsg = lib.getExe' config.programs.mango.package "mmsg";
+            };
+          };
+
           # Enabling a plugin only REGISTERS it — a dank-bar widget renders only
           # when its id appears in a bar config's widget list. itera writes
           # settings.json declaratively (clobber = true, so DMS GUI edits do not
@@ -110,6 +122,8 @@ in
               leftWidgets = [
                 "launcherButton"
                 "workspaceSwitcher"
+                # DMS's built-in mango layout indicator; click to pick a layout.
+                "layout"
                 "focusedWindow"
               ];
               centerWidgets = [
