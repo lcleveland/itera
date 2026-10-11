@@ -10,7 +10,7 @@
 # regenerates the report on the target host as part of every rebuild and reads it
 # from a fixed host-local path:
 #
-#   1. `itera rebuild` / `update` / `boot` / `update-boot` run `nixos-facter -o
+#   1. `itera rebuild` / `update` / `boot` / `update on-reboot` run `nixos-facter -o
 #      <reportPath>` (as root) before building, then build with `--impure` so the
 #      just-written report is read at eval time (see cli/itera.sh). This module
 #      publishes the effective settings to {file}`/etc/itera/facter.env` for that
@@ -95,7 +95,7 @@ in
       default = true;
       description = ''
         Regenerate the {option}`reportPath` report on the target host before every
-        rebuild ({command}`itera rebuild`/`update`/`boot`/`update-boot`) and read
+        rebuild ({command}`itera rebuild`/`update`/`boot`/`update on-reboot`) and read
         it with an impure evaluation. On by default so hardware detection stays
         current with zero manual steps. Set to `false` to use a report you manage
         yourself (commit one and point {option}`reportPath` at it) and keep builds

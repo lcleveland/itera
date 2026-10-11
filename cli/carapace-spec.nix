@@ -40,14 +40,16 @@
     {
       name = "update";
       description = "fetch the newest config, then rebuild (nh os switch; --refresh for a remote flake, --update for a local one)";
+      commands = [
+        {
+          name = "on-reboot";
+          description = "fetch the newest config, apply on next reboot (nh os boot)";
+        }
+      ];
     }
     {
       name = "boot";
       description = "rebuild, but apply on next reboot (nh os boot)";
-    }
-    {
-      name = "update-boot";
-      description = "fetch the newest config, apply on next reboot (nh os boot; --refresh for a remote flake, --update for a local one)";
     }
     {
       name = "gc";
