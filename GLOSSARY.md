@@ -19,3 +19,7 @@ _Avoid_: colour scheme, theme
 **Mode**:
 Dark or light. Each mode has its own hand-authored token values; dark is the default.
 _Avoid_: variant, flavour
+
+**Delivery lane**:
+How a surface receives the itera look. There are three: the **DMS lane** (the surface uses DMS's generated output), the **inherited lane** (the surface follows the desktop's light/dark signal, the toolkit or the terminal's colours) and the **Nix lane** (the surface is rendered from colour tokens at build time and changes only on rebuild).
+_Avoid_: target, backend
