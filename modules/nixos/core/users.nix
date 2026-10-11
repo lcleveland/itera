@@ -61,7 +61,7 @@ in
           extraGroups = [ "wheel" "audio" "video" ];
           initialPassword = "changeme";
           programs.mango.layout = "tile";
-          programs.dankMaterialShell.settings.cornerRadius = 8;
+          programs.dankMaterialShell.settings.radiusStrength = 25;
         };
       }
     '';

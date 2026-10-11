@@ -5,7 +5,8 @@
 # the settings (system-wide `itera.programs.dankMaterialShell.*` + per-user
 # `itera.users.<name>.programs.dankMaterialShell.*`). THIS battery is the renderer:
 # it reads the merged result out of `osConfig` and writes the per-user
-# {file}`~/.config/DankMaterialShell/settings.json` (and plugin_settings.json), and
+# {file}`~/.config/DankMaterialShell/config.d/00-itera.json` (and
+# plugin_settings.json), and
 # links each enabled plugin's source into
 # {file}`~/.config/DankMaterialShell/plugins/<name>`, deriving its plugin_settings.json
 # entry (`{ enabled; } // settings`).
@@ -15,12 +16,18 @@
 # semantics. Nested values (`cursorSettings`, `barConfigs`, …) are replaced
 # wholesale by a per-user override, not deep-merged — expected for a flat schema.
 #
-# clobber tradeoff: with `clobber = true` (default) hjem symlinks settings.json
-# into the read-only Nix store, so the declarative value always wins — DMS GUI
-# changes reset on the next rebuild. A per-user `clobber = false` lets DMS own the
-# file after first write. The greeter is out of scope — it runs as the `greeter`
-# system user, configured via `programs.dms-greeter.*` (the standalone
-# dank-greeter module).
+# Why config.d and not settings.json: DMS layers every
+# {file}`config.d/*.json` over {file}`settings.json` (later files win) and saves
+# each key back to the highest file that defines it, sending keys no file defines
+# to settings.json. So itera's keys live in a read-only drop-in and settings.json
+# stays a plain file DMS owns: GUI changes to anything itera does not set persist,
+# while itera's keys still win (a GUI edit to one lasts until DMS restarts). The
+# drop-in carries the current `configVersion`, so DMS never migrates it.
+#
+# clobber tradeoff: with `clobber = true` (default) hjem symlinks the drop-in into
+# the read-only Nix store, so the declarative value always wins. A per-user
+# `clobber = false` lets DMS own it after first write. The greeter reads the same
+# merged settings via `programs.dms-greeter` (see the desktop battery).
 #
 # Runs inside the hjem user submodule: `xdg.config.files` is unprefixed and
 # `osConfig` / `name` are module args. Declares NO options (the schema lives in the
@@ -63,7 +70,7 @@ in
 {
   config = mkIf enable {
     xdg.config.files = {
-      "DankMaterialShell/settings.json" = mkIf (finalSettings != { }) {
+      "DankMaterialShell/config.d/00-itera.json" = mkIf (finalSettings != { }) {
         text = builtins.toJSON finalSettings;
         inherit clobber;
       };

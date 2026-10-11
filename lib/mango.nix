@@ -84,6 +84,13 @@ let
         example = [ "s" ];
         description = "MangoWC bind flags appended to the `bind` key: l (lock), r (release), s (keysym), p (pass), c (allow conflict — must be set on every bind sharing the key).";
       };
+
+      description = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "Open terminal";
+        description = "Label for DankMaterialShell's keybind cheatsheet, rendered as a `# comment` on the line above the bind (DMS reads labels only from there).";
+      };
     };
   });
 
@@ -98,8 +105,10 @@ let
       bindKey = "bind" + lib.concatStrings flags;
       modifiers = if modifierKeys == [ ] then "none" else concatStringsSep "+" modifierKeys;
       arguments = if commandArguments == null then "" else commandArguments;
+      description = kb.description or null;
     in
-    "${bindKey}=${modifiers},${kb.keySymbol},${kb.mangoCommand},${arguments}";
+    lib.optionalString (description != null) "# ${description}\n"
+    + "${bindKey}=${modifiers},${kb.keySymbol},${kb.mangoCommand},${arguments}";
 
   # Render a name-keyed attrset of keybinds into config.conf lines (one per
   # bind). The names are organisational only — they never reach the file.

@@ -34,6 +34,10 @@
     # The DMS greeter drives greetd; it must come up at boot.
     machine.wait_for_unit("greetd.service")
     machine.succeed("systemctl is-active greetd.service")
+    # preStart wrote the greeter's settings (itera's keys merged in), owned by
+    # the greeter so it can read them.
+    machine.succeed("grep -q '\"configVersion\":' /var/lib/dms-greeter/settings.json")
+    machine.succeed("test \"$(stat -c %U /var/lib/dms-greeter/settings.json)\" = greeter")
 
     # greetd is configured to launch the dms-greeter script.
     greetd_unit = machine.succeed("systemctl cat greetd.service")

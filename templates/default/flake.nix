@@ -197,7 +197,7 @@
               # Per-user curated-program overrides live right here — each wins
               # per key over the system-wide default (itera.programs.<app>.*):
               #   # Deviate from the system-wide DMS defaults for just this user:
-              #   programs.dankMaterialShell.settings.cornerRadius = 8;
+              #   programs.dankMaterialShell.settings.radiusStrength = 25;
               #   # Pick a per-user tiling layout:
               #   programs.mango.layout = "tile";
               #   # Add or override a single mango keybind:

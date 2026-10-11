@@ -34,7 +34,10 @@
 # file instead if you prefer a system-wide registry.
 #
 # Desktop integration: when DankMaterialShell is on, its lock screen is told to
-# accept the key (`enableU2f`). The greeter's key-auth UI is left OFF (the greeter
+# accept the key (`enableU2f`) and gets its own `dankshell-u2f` PAM service with
+# the same pam_u2f arguments as everywhere else (DMS's bundled fallback stack
+# passes no `authfile`, so it would never see a central `authFile`). The greeter's
+# key-auth UI is left OFF (the greeter
 # is a login surface), so the graphical login is password-only and submits on Enter.
 # Remove `greetd` from `loginServices` to opt the key back into the greeter — that
 # re-enables both the greetd pam_u2f factor and the greeter's key-auth UI.
@@ -101,16 +104,6 @@ let
   # off it avoids showing a key prompt the stack would reject.
   greeterU2fEnabled = !(builtins.elem "login" cfg.loginServices);
 
-  # A minimal greeter settings.json that drives the greeter's key-auth UI. The DMS
-  # greeter only surfaces key auth when its own settings enable it AND the greetd
-  # PAM stack carries pam_u2f. writeTextDir keeps the basename `settings.json` so
-  # the greeter's preStart copies it into /var/lib/dms-greeter under the name it
-  # reads.
-  greeterSettings = pkgs.writeTextDir "settings.json" (
-    builtins.toJSON {
-      greeterEnableU2f = greeterU2fEnabled;
-    }
-  );
 in
 {
   options.itera.securityKeys = {
@@ -238,16 +231,21 @@ in
       itera.programs.dankMaterialShell.settings = {
         enableU2f = mkDefault true;
         u2fMode = mkDefault u2fMode;
+        # The greeter's key-auth UI. Off by default (the greeter is a login
+        # surface); turns on only if `login` is removed from `loginServices`. The
+        # greeter only surfaces key auth when this is on AND the greetd PAM stack
+        # carries pam_u2f. Reaches the greeter through the desktop battery's
+        # settings merge.
+        greeterEnableU2f = mkDefault greeterU2fEnabled;
       };
-    })
 
-    # Publish the greeter's key-auth setting. Off by default (the greeter is a login
-    # surface); turns on only if `greetd` is removed from `loginServices`. Pushed
-    # explicitly either way so the greeter's stored settings.json tracks the intent.
-    (mkIf (dmsCfg.enable && dmsCfg.greeter.enable) {
-      programs.dms-greeter.configFiles = [
-        "${greeterSettings}/settings.json"
-      ];
+      programs.dank-material-shell.lockscreen.securityKey = {
+        enable = mkDefault true;
+        moduleArgs = mkDefault (
+          lib.optional (config.security.pam.u2f.settings.cue or false) "cue"
+          ++ lib.optional (cfg.authFile != null) "authfile=${cfg.authFile}"
+        );
+      };
     })
   ]);
 }

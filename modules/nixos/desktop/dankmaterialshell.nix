@@ -43,9 +43,35 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkMerge mkDefault;
-  inherit (lib.types) bool;
+  inherit (lib.types)
+    bool
+    nullOr
+    path
+    str
+    ;
 
   cfg = config.itera.desktop.dankMaterialShell;
+
+  # The settings schema version of the bundled DMS, read from its source (no
+  # IFD) so itera's settings never trigger a migration DMS cannot save back.
+  dmsConfigVersion = lib.toInt (
+    builtins.head (
+      builtins.match ".*settingsConfigVersion: ([0-9]+).*" (
+        lib.findFirst (lib.hasInfix "property int settingsConfigVersion:")
+          (throw "itera: DMS settingsConfigVersion not found")
+          (lib.splitString "\n" (builtins.readFile "${iteraInputs.dms}/quickshell/Common/SettingsData.qml"))
+      )
+    )
+  );
+
+  # itera's DMS settings for one user, merged exactly as the hjem renderer does.
+  userSettings =
+    name:
+    (config.itera.programs.dankMaterialShell.settings or { })
+    // (config.itera.users.${name}.programs.dankMaterialShell.settings or { });
+
+  # First itera user with a home, if any: the greeter's default theme source.
+  homeUsers = lib.attrNames (lib.filterAttrs (_: u: u.enableHome) config.itera.users);
 in
 {
   options.itera.desktop.dankMaterialShell = {
@@ -59,16 +85,42 @@ in
       '';
     };
 
-    greeter.enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Use the dank-greeter greetd greeter (rendered under mango) as the login
-        manager — the DankMaterialShell-styled greeter, split into its own upstream
-        project. On by default whenever the desktop is enabled; set this to `false`
-        to install the shell without a display manager (you then arrange login
-        yourself).
-      '';
+    greeter = {
+      enable = mkOption {
+        type = bool;
+        default = true;
+        description = ''
+          Use the dank-greeter greetd greeter (rendered under mango) as the login
+          manager — the DankMaterialShell-styled greeter, split into its own upstream
+          project. On by default whenever the desktop is enabled; set this to `false`
+          to install the shell without a display manager (you then arrange login
+          yourself).
+        '';
+      };
+
+      syncUser = mkOption {
+        type = nullOr str;
+        default = if homeUsers == [ ] then null else builtins.head homeUsers;
+        defaultText = lib.literalMD "the first `itera.users` entry with `enableHome`";
+        example = "alice";
+        description = ''
+          User whose DankMaterialShell theme, wallpaper and settings the greeter
+          copies at each greetd start (DMS GUI changes plus itera's settings for that
+          user). `null` leaves the greeter on itera's system-wide settings only.
+        '';
+      };
+
+      wallpaper = mkOption {
+        type = nullOr path;
+        default = null;
+        example = lib.literalExpression "./login-background.jpg";
+        description = ''
+          Wallpaper for the login screen only, independent of the synced user's
+          desktop and lock-screen wallpaper. `null` (default) follows the synced
+          user. A path inside your configuration is copied to the Nix store; an
+          absolute path outside it must be readable by the `greeter` user.
+        '';
+      };
     };
   };
 
@@ -79,6 +131,9 @@ in
         desktop.mango.enable = mkDefault true;
 
         programs.dankMaterialShell = {
+          # Pin the schema version DMS expects (see `dmsConfigVersion`).
+          settings.configVersion = mkDefault dmsConfigVersion;
+
           # IP Indicator: a default-on DMS dank-bar widget (public IP / ISP /
           # location). `enable` defaults to true in the plugins submodule, so this
           # alone ships it on; `mkDefault` lets a consumer re-pin `src` or drop it.
@@ -133,6 +188,8 @@ in
               ];
               rightWidgets = [
                 "systemTray"
+                "privacyIndicator"
+                "idleInhibitor"
                 "clipboard"
                 "cpuUsage"
                 "memUsage"
@@ -147,7 +204,31 @@ in
         };
       };
 
-      programs.dank-material-shell.enable = mkDefault true;
+      programs.dank-material-shell = {
+        enable = mkDefault true;
+
+        # Run the shell as a systemd user service bound to the mango session
+        # instead of a mango `exec_once`, so a crash restarts it rather than
+        # leaving the session without a bar, launcher or lock screen. The hjem
+        # mango battery drops its `exec_once` when this is on. No restart on
+        # rebuild: a fresh shell starts with an empty tray, and tray clients
+        # (udiskie, netskope's stagentui, …) don't all re-register.
+        systemd = {
+          enable = mkDefault true;
+          target = mkDefault "mango-session.target";
+          restartIfChanged = mkDefault false;
+        };
+      };
+
+      systemd.user.services.dms = mkIf config.programs.dank-material-shell.systemd.enable {
+        # The greeter's mango starts mango-session.target too; keep the shell out
+        # of system users' sessions (same guard as the clipboard bridges).
+        unitConfig.ConditionUser = "!@system";
+        # Apps started from the launcher would otherwise live in dms.service's
+        # cgroup and die whenever the shell is restarted. A scope per launch
+        # moves them out. DMS reads this when `launchPrefix` is unset.
+        environment.DMS_DEFAULT_LAUNCH_PREFIX = "systemd-run --user --scope --collect --quiet";
+      };
 
       # The lock screen's PAM service.
       #
@@ -237,6 +318,33 @@ in
       );
     }
 
+    {
+      # Tell the `dms` CLI the system is immutable: block the subcommands that
+      # rewrite files NixOS owns (`dms setup` replaces the mango config and moves
+      # binds into dms/; the greeter installers edit greetd and PAM in /etc).
+      # Same list as upstream's packaged policy for image-based distros.
+      environment.etc."dms/cli-policy.json".text = builtins.toJSON {
+        policy_version = 1;
+        immutable_system = true;
+        blocked_commands = [
+          "setup"
+          "greeter install"
+          "greeter enable"
+          "greeter uninstall"
+        ];
+        message = "This system is managed declaratively by itera (NixOS); change it in your configuration instead.";
+      };
+
+      # External-monitor brightness: DMS drives DDC/CI over /dev/i2c-*, which
+      # needs the i2c-dev module and the `i2c` group for every desktop user.
+      hardware.i2c.enable = mkDefault true;
+      # Membership via the group, not users.users.<n>.extraGroups, which would
+      # replace the itera users' mkDefault group list instead of adding to it.
+      users.groups.${config.hardware.i2c.group}.members = mkIf config.hardware.i2c.enable (
+        lib.attrNames (lib.filterAttrs (_: u: u.isNormalUser) config.itera.users)
+      );
+    }
+
     (mkIf cfg.greeter.enable {
       programs.dms-greeter = {
         enable = mkDefault true;
@@ -261,6 +369,13 @@ in
             ]
           )
         );
+        # Theme sync: greetd's preStart copies this user's DMS settings.json,
+        # session.json (wallpapers) and dms-colors.json (dynamic theme) into
+        # the greeter's cache at every start. itera's own keys live in a
+        # config.d drop-in the module does not copy; they are merged in below.
+        configHome = mkIf (cfg.greeter.syncUser != null) (
+          mkDefault config.users.users.${cfg.greeter.syncUser}.home
+        );
       };
 
       # Parse the greeter's mango config at build time, like the per-user one
@@ -280,8 +395,9 @@ in
             }
           );
 
-      # Default the post-login session picker to the mango session that the mango
-      # module registers with the display manager.
+      # The mango session the mango module registers. The greeter's own session
+      # picker ignores this (it offers the last-used session, else the first one
+      # found); it is what autologin and other display managers fall back on.
       services.displayManager.defaultSession = mkDefault "mango";
 
       # The nixpkgs greetd module runs the greeter as the `greeter` user with
@@ -313,6 +429,50 @@ in
       systemd.services.greetd = {
         serviceConfig.RestartSec = mkDefault "1s";
         startLimitIntervalSec = mkDefault 0;
+
+        preStart =
+          let
+            dir = "/var/lib/dms-greeter";
+            user = config.services.greetd.settings.default_session.user;
+            iteraSettings = pkgs.writeText "itera-dms-greeter-settings.json" (
+              builtins.toJSON (
+                (
+                  if cfg.greeter.syncUser != null then
+                    userSettings cfg.greeter.syncUser
+                  else
+                    config.itera.programs.dankMaterialShell.settings
+                )
+                # The greeter prefers `lockScreenWallpaperPath` over the session
+                # wallpaper; set only in the greeter's copy, so the session's lock
+                # screen is unaffected.
+                // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
+                  lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
+                }
+              )
+            );
+          in
+          mkMerge [
+            # The cache is persisted and the module's copy only adds files, so a
+            # source that went away (sync user removed, file deleted) would leave
+            # its last copy behind forever. Start from a clean slate each time.
+            (lib.mkBefore ''
+              rm -f ${dir}/settings.json ${dir}/settings.orig.json ${dir}/session.json \
+                ${dir}/dms-colors.json ${dir}/colors.json
+            '')
+            # itera's keys win over the synced settings.json, as they do in the
+            # session (config.d layers over settings.json). Shallow merge, matching
+            # DMS's per-key layering.
+            (lib.mkAfter ''
+              if [ -f ${dir}/settings.json ]; then
+                ${lib.getExe pkgs.jq} -s '.[0] + .[1]' ${dir}/settings.json ${iteraSettings} > ${dir}/settings.tmp
+                mv ${dir}/settings.tmp ${dir}/settings.json
+              else
+                cp ${iteraSettings} ${dir}/settings.json
+              fi
+              chmod 0640 ${dir}/settings.json
+              chown ${user}: ${dir}/settings.json
+            '')
+          ];
       };
     })
   ]);
