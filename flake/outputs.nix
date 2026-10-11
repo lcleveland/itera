@@ -32,4 +32,11 @@
       description = "A downstream NixOS flake preconfigured to consume itera + hjem.";
     };
   };
+
+  # itera's own packages (empty until custom packages land).
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages = import ../pkgs { inherit pkgs; };
+    };
 }

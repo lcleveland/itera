@@ -227,23 +227,11 @@ let
     # the wiped root rather than needing a re-pair every boot.
     "bluetooth pairings are persisted" = builtins.elem "/var/lib/bluetooth" dirNames;
 
-    # power-profiles-daemon (on via the default DMS desktop) does not persist its
-    # active profile, so itera's power battery saves it under /var/lib and this
-    # persists that across the tmpfs root — otherwise the bar's profile choice
-    # resets to `balanced` every boot. Service and persist entry are both gated on
-    # the daemon: present with the desktop on, gone with it off.
-    "power profile state is persisted" = builtins.elem "/var/lib/itera-power-profile" dirNames;
-    "power profile persist service present" = cfg.systemd.services ? "itera-power-profile-persist";
-    # It must be a companion of the daemon, never wanted by multi-user.target: the
-    # upstream PPD unit is `After=multi-user.target`, so a multi-user.target tie +
-    # `After=power-profiles-daemon.service` is an ordering cycle that makes systemd
-    # delete the start job (the unit then never runs on boot or shutdown).
-    "power profile persist service is wanted by the daemon (no ordering cycle)" =
-      cfg.systemd.services."itera-power-profile-persist".wantedBy == [ "power-profiles-daemon.service" ];
-    "power profile persist service gated off without the daemon" =
-      !(desktopOff.systemd.services ? "itera-power-profile-persist");
+    # power-profiles-daemon (on via the default DMS desktop) keeps the bar's
+    # profile choice in its own state.ini; persist it with the daemon on only.
+    "power profile state is persisted" = builtins.elem "/var/lib/power-profiles-daemon" dirNames;
     "power profile state not persisted without the daemon" =
-      !(builtins.elem "/var/lib/itera-power-profile" desktopOffDirNames);
+      !(builtins.elem "/var/lib/power-profiles-daemon" desktopOffDirNames);
     # Bluetooth powers the adapter on at boot by default — the Kicksecure
     # AutoEnable=false default is overridden so the radio isn't dark despite
     # powerOnBoot.
@@ -452,8 +440,8 @@ let
     "tpm2 unlock wires tpm2-device=auto onto the swap container" =
       builtins.elem "tpm2-device=auto" tpm2On.boot.initrd.luks.devices.cryptswap.crypttabExtraOpts;
     # The TPM kernel modules must be in the initrd for the device node in stage 1.
-    "tpm2 unlock pulls the tpm_tis module into the initrd" =
-      builtins.elem "tpm_tis" tpm2On.boot.initrd.availableKernelModules;
+    "tpm2 unlock pulls the tpm-tis module into the initrd" =
+      builtins.elem "tpm-tis" tpm2On.boot.initrd.availableKernelModules;
     # USB-in-initrd stays force-on even with TPM2: the happy path types nothing, but
     # the recovery-passphrase fallback (fired on a PCR change) still needs a keyboard
     # in early boot, so dropping it would risk a lockout on USB-keyboard machines.

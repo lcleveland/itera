@@ -110,7 +110,8 @@ let
   autostartConfig = lib.concatStringsSep "\n" (
     [ "exec_once=${sessionSetup}" ]
     ++ lib.optional autostartUdiskie "exec_once=${pkgs.udiskie}/bin/udiskie --automount --tray"
-    ++ [ "exec_once=dms run" ]
+    # systemd-cat so the shell's output lands in the journal (`journalctl --user -t dms`).
+    ++ [ "exec_once=${pkgs.systemd}/bin/systemd-cat -t dms dms run" ]
   );
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;

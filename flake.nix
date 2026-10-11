@@ -7,7 +7,10 @@
     # Stable channel, kept available so downstream can follow whichever they run.
     nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
 
     # $HOME / dotfile management. itera builds its own module layer on top of this.
     hjem = {
@@ -26,15 +29,20 @@
     impermanence = {
       url = "github:nix-community/impermanence";
       inputs.nixpkgs.follows = "nixpkgs";
+      # Only used by impermanence's own tests.
+      inputs.home-manager.follows = "";
     };
 
     # System hardening. itera bundles it (see modules/nixos) so a consumer
     # never has to add it as an input themselves. Powers `itera.hardening`.
     nix-mineral = {
       url = "github:cynicsketch/nix-mineral";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "flake-parts";
-      # nix-mineral's flake-compat has no itera counterpart, so it stays unfollowed.
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-parts.follows = "flake-parts";
+        # flake-compat only serves non-flake users; never fetch it.
+        flake-compat.follows = "";
+      };
     };
 
     # mango: a dwl-based wlroots Wayland compositor. itera bundles its NixOS
@@ -56,7 +64,7 @@
     dms = {
       url = "github:AvengeMedia/DankMaterialShell/stable";
       inputs.nixpkgs.follows = "nixpkgs";
-      # dms's `flake-compat` input has no itera counterpart; it stays unfollowed.
+      inputs.flake-compat.follows = "";
     };
 
     # DMS greeter: extracted from DankMaterialShell into its own repo upstream.
@@ -80,15 +88,8 @@
       flake = false;
     };
 
-    treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    git-hooks = {
-      url = "github:cachix/git-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # treefmt-nix and git-hooks are dev-only: they live in ./dev/flake.nix and
+    # load into the `dev` partition, so they stay out of consumers' lock files.
 
     # Secure Boot & measured boot for UEFI. itera bundles its NixOS module (see
     # modules/nixos) so a consumer never adds it as an input themselves. Powers
@@ -96,8 +97,10 @@
     lanzaboote = {
       url = "github:nix-community/lanzaboote";
       inputs.nixpkgs.follows = "nixpkgs";
-      # lanzaboote's rust toolchain inputs (crane, rust-overlay, pre-commit) have
-      # no itera counterpart, so they stay unfollowed. It has no flake-parts input.
+      # Only used for lanzaboote's own checks.
+      inputs.pre-commit.follows = "";
+      # Its rust toolchain inputs (crane, rust-overlay) build the tool itself, so
+      # they stay. It has no flake-parts input.
     };
 
     # Declarative age-encrypted secrets. itera bundles its NixOS module (see
@@ -150,15 +153,32 @@
       ];
 
       imports = [
-        inputs.treefmt-nix.flakeModule
-        inputs.git-hooks.flakeModule
-
+        flake-parts.flakeModules.partitions
         ./flake/outputs.nix
-        ./flake/devshell.nix
-        ./flake/checks.nix
         ./flake/cli.nix
         ./flake/vm.nix
         ./flake/test-host.nix
       ];
+
+      # Dev tooling (formatter, git hooks, dev shell, checks) evaluates in its
+      # own partition with ./dev's inputs, so consumers never lock them.
+      partitionedAttrs = {
+        checks = "dev";
+        devShells = "dev";
+        formatter = "dev";
+      };
+      partitions.dev = {
+        extraInputsFlake = ./dev;
+        module =
+          { inputs, ... }:
+          {
+            imports = [
+              inputs.treefmt-nix.flakeModule
+              inputs.git-hooks.flakeModule
+              ./flake/devshell.nix
+              ./flake/checks.nix
+            ];
+          };
+      };
     };
 }

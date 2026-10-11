@@ -210,8 +210,10 @@ let
 
   checks = {
     # --- agenix (default on, inert) ---
+    # Read from /persist directly: agenix decrypts before impermanence links
+    # persisted files into /etc at boot.
     "agenix identity is the persisted host key" =
-      builtins.elem "/etc/ssh/ssh_host_ed25519_key" base.age.identityPaths;
+      builtins.elem "/persist/etc/ssh/ssh_host_ed25519_key" base.age.identityPaths;
 
     # --- sops-nix (opt-in, OFF by default) ---
     # agenix stays the default engine, so a default host gets no sops wiring at
@@ -223,7 +225,7 @@ let
     "sops age identity is unwired by default" = base.sops.age.sshKeyPaths == [ ];
     # Turned on but inert: identity and CLI are wired, no secrets are declared.
     "sops age identity is the persisted host key when on" =
-      builtins.elem "/etc/ssh/ssh_host_ed25519_key" sopsOn.sops.age.sshKeyPaths;
+      builtins.elem "/persist/etc/ssh/ssh_host_ed25519_key" sopsOn.sops.age.sshKeyPaths;
     "sops declares no secrets when merely enabled" = sopsOn.sops.secrets == { };
     "sops default format is yaml" = sopsOn.sops.defaultSopsFormat == "yaml";
     "sops CLI is installed when on" = hasPkgName "sops" sopsOn.environment.systemPackages;
@@ -233,7 +235,7 @@ let
     "sops stays age-only (no GnuPG identity)" = sopsOn.sops.gnupg.sshKeyPaths == [ ];
     # The two engines are independent: enabling sops leaves agenix fully wired.
     "agenix is untouched when sops is enabled" =
-      builtins.elem "/etc/ssh/ssh_host_ed25519_key" sopsOn.age.identityPaths;
+      builtins.elem "/persist/etc/ssh/ssh_host_ed25519_key" sopsOn.age.identityPaths;
     # A declared secret reaches the native option tree untouched.
     "sops secret passes through to sops.secrets" = sopsSecret.sops.secrets ? wifi-psk;
     "sops secret keeps its declared mode" = sopsSecret.sops.secrets.wifi-psk.mode == "0400";
@@ -247,7 +249,8 @@ let
       sopsSecret.sops.secrets.wifi-psk.path == "/run/secrets/wifi-psk";
     # A dedicated age key file lives outside the store, so the ephemeral root
     # would eat it; itera.impermanence persists it, but only when it is in use.
-    "sops key file is wired when set" = sopsSecret.sops.age.keyFile == "/var/lib/sops-nix/key.txt";
+    "sops key file is wired when set" =
+      sopsSecret.sops.age.keyFile == "/persist/var/lib/sops-nix/key.txt";
     "sops key file is persisted when set" = builtins.elem "/var/lib/sops-nix/key.txt" (
       persistFiles sopsSecret
     );
@@ -492,8 +495,12 @@ let
     ) base.environment.systemPackages;
     # Like fingerprint: the key is explicitly OFF on the initial-login surfaces...
     "security key is disabled at TTY login" = base.security.pam.services.login.u2f.enable == false;
-    # (The greeter inherits `login`: nixpkgs' greetd PAM stack is a substack of it.)
-    "greetd PAM stack defers to login" = !base.security.pam.services.greetd.useDefaultRules;
+    # ...and off the greeter, whether greetd's stack is a substack of `login`
+    # (nixpkgs-unstable) or built from default rules (26.05).
+    "security key is disabled at the greeter" =
+      !lib.hasInfix "pam_u2f" base.security.pam.services.greetd.text;
+    "fingerprint is disabled at the greeter" =
+      !lib.hasInfix "pam_fprintd" base.security.pam.services.greetd.text;
     # ...but ON for in-session privilege prompts (pam_u2f's default from the global).
     "security key is enabled for sudo" = base.security.pam.services.sudo.u2f.enable == true;
     "security key is enabled for polkit" = base.security.pam.services.polkit-1.u2f.enable == true;

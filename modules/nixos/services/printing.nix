@@ -45,6 +45,10 @@ in
       printing = {
         enable = mkDefault true;
         inherit (cfg) drivers;
+        # cups-browsed defaults on whenever avahi is, but CUPS 2.4 already makes
+        # on-demand queues for driverless (IPP Everywhere) printers itself, and
+        # cups-browsed was the remote entry point of CVE-2024-47176.
+        browsed.enable = mkDefault false;
       };
 
       # mDNS discovery so `.local` network printers are found automatically. DMS

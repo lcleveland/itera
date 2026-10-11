@@ -110,5 +110,11 @@ in
       gamescope.enable = cfg.gamescope.enable;
       gamemode.enable = mkDefault cfg.gamemode.enable;
     };
+
+    # gamemode's polkit rule only lets `gamemode` group members switch the CPU
+    # governor/GPU clocks without a password prompt.
+    users.groups.gamemode.members = mkIf config.programs.gamemode.enable (
+      lib.attrNames config.itera.users
+    );
   };
 }

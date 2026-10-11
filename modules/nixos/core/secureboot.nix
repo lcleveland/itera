@@ -14,9 +14,9 @@
 # battery is fully wired but stays off until you opt in and enroll keys:
 #
 #   1. Enable it:            itera.secureBoot.enable = true;
-#   2. Create the keys:      sudo sbctl create-keys
-#   3. Enroll (setup mode):  sudo sbctl enroll-keys --microsoft
-#   4. Rebuild + reboot, then verify with:  bootctl status  /  sbctl verify
+#      (lanzaboote generates the keys on first boot — `autoGenerateKeys`)
+#   2. Enroll (setup mode):  sudo sbctl enroll-keys --microsoft
+#   3. Reboot, then verify with:  bootctl status  /  sbctl verify
 #
 # Under impermanence the key bundle lives on tmpfs unless persisted — see
 # `itera.impermanence`, which adds `pkiBundle` to the persisted set whenever this
@@ -51,8 +51,8 @@ in
       type = str;
       default = "/var/lib/sbctl";
       description = ''
-        Directory holding the Secure Boot signing keys (created by
-        {command}`sbctl create-keys`). Must survive reboots — {option}`itera.impermanence`
+        Directory holding the Secure Boot signing keys (generated on first boot
+        by lanzaboote's `autoGenerateKeys`). Must survive reboots — {option}`itera.impermanence`
         persists it automatically while this battery is enabled.
       '';
     };
@@ -62,6 +62,11 @@ in
     boot.lanzaboote = {
       enable = mkDefault true;
       pkiBundle = mkDefault cfg.pkiBundle;
+      # Replaces a manual `sbctl create-keys`. Enrollment stays manual: it needs
+      # the firmware in setup mode (opt in with `autoEnrollKeys.enable`).
+      autoGenerateKeys.enable = mkDefault true;
+      # Same automatic boot assessment itera.boot turns on for systemd-boot.
+      bootCounting.initialTries = mkDefault 3;
     };
 
     # lanzaboote replaces the bootloader, so the systemd-boot itera.boot installs

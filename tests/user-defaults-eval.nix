@@ -234,9 +234,9 @@ let
     "second (override-free) account created" = cfg.users.users.bob.isNormalUser;
 
     # ── DMS settings: system-wide default reaches an un-overridden user ───
-    "curated system default present (bob)" = bobDms.configVersion == 11;
+    "curated system default present (bob)" = bobDms.configVersion == 18;
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
-    "opinionated default present (bob)" = bobDms.use24HourClock == true;
+    "opinionated default present (bob)" = bobDms.clockFormat == "24h";
     "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
     "weather uses fahrenheit by default (bob)" = bobDms.useFahrenheit == true;
     "weather uses auto location by default (bob)" = bobDms.useAutoLocation == true;
@@ -265,7 +265,7 @@ let
 
     # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
     "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
-    "sibling key still inherited (alice)" = aliceDms.use24HourClock == true;
+    "sibling key still inherited (alice)" = aliceDms.clockFormat == "24h";
     "system-level override still inherited (alice)" = aliceDms.currentThemeName == "blue";
 
     # ── DMS plugins: default-on plugin ships for every user ──────────────
@@ -329,13 +329,13 @@ let
       lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
     "calculator key needs no modifier" =
       lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
-    "autostart still present" = lib.hasInfix "exec_once=dms run" bobMango;
+    "autostart still present" = lib.hasInfix "systemd-cat -t dms dms run" bobMango;
     # The session bring-up must be the FIRST autostart entry and a single script:
     # mango spawns each exec_once asynchronously, so splitting the environment
     # export from the target start would race and hand the portal an empty
     # environment. Assert the rendered script, not just that a line exists.
     "session setup autostarts before the shell" = lib.hasInfix "itera-mango-session-setup" (
-      builtins.head (lib.splitString "exec_once=dms run" bobMango)
+      builtins.head (lib.splitString "systemd-cat -t dms dms run" bobMango)
     );
     "session setup starts mango-session.target" =
       lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);

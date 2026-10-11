@@ -12,6 +12,7 @@
 # which gate on their own `enable` because they are destructive/foundational.)
 {
   config,
+  options,
   lib,
   pkgs,
   ...
@@ -30,6 +31,15 @@ let
   cfg = config.itera.boot;
 in
 {
+  # The systemd initrd is NixOS's own default since 26.05; set
+  # `boot.initrd.systemd.enable` directly.
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "itera" "boot" "initrd" "systemd" "enable" ]
+      [ "boot" "initrd" "systemd" "enable" ]
+    )
+  ];
+
   options.itera.boot = {
     loader = {
       systemd-boot = {
@@ -69,15 +79,6 @@ in
           to register itself as a boot entry on most machines).
         '';
       };
-    };
-
-    initrd.systemd.enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Use the modern systemd-based initrd instead of the legacy shell-script one.
-        Cleaner device/mount handling and the recommended path for LUKS setups.
-      '';
     };
 
     tmp = {
@@ -146,6 +147,12 @@ in
         systemd-boot = {
           enable = mkDefault cfg.loader.systemd-boot.enable;
           configurationLimit = mkDefault cfg.loader.systemd-boot.configurationLimit;
+        }
+        # Automatic boot assessment: a generation that never reaches
+        # boot-complete.target is skipped for the previous one, so a bad
+        # unattended update rolls itself back. nixpkgs 26.11+ only.
+        // lib.optionalAttrs (options.boot.loader.systemd-boot ? bootCounting) {
+          bootCounting.enable = mkDefault true;
         };
         efi.canTouchEfiVariables = mkDefault cfg.loader.efi.canTouchEfiVariables;
         timeout = mkDefault cfg.loader.systemd-boot.timeout;
@@ -155,8 +162,6 @@ in
       # take their last occurrence, so appending with mkAfter wins. See the
       # option description for the boot-time entropy stall this fixes.
       kernelParams = mkIf cfg.trustBootloaderEntropy (mkAfter [ "random.trust_bootloader=on" ]);
-
-      initrd.systemd.enable = mkDefault cfg.initrd.systemd.enable;
 
       tmp = {
         useTmpfs = mkDefault cfg.tmp.useTmpfs;
