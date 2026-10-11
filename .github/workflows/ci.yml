@@ -67,6 +67,11 @@ jobs:
           purge-created: 0
           purge-primary-key: never
 
+      # Restored caches have come back with DB entries for store paths missing
+      # on disk ("path ... does not exist"); this drops them so Nix refetches.
+      - name: Repair restored store
+        run: nix-store --verify
+
       # Runs everything: treefmt `formatting`, git-hooks `pre-commit`, and the
       # itera module tests for this system.
       - name: Flake check
