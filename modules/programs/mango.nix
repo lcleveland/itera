@@ -264,97 +264,97 @@ iteraLib.programs.mkCuratedProgram {
         ]) tags
       );
 
+      directions = [
+        "left"
+        "right"
+        "up"
+        "down"
+      ];
+
       # Directional focus / swap / move-to-monitor on h/j/k/l.
       directionalBinds = builtins.listToAttrs (
-        lib.concatMap
-          (
-            dir:
-            let
-              key =
-                {
-                  left = "h";
-                  right = "l";
-                  up = "k";
-                  down = "j";
-                }
-                .${dir};
-            in
-            [
+        lib.concatMap (
+          dir:
+          let
+            key =
               {
-                name = "focus${dir}";
-                value = {
-                  modifierKeys = [ "SUPER" ];
-                  flagModifiers = [ "s" ];
-                  keySymbol = key;
-                  mangoCommand = "focusdir";
-                  commandArguments = dir;
-                };
+                left = "h";
+                right = "l";
+                up = "k";
+                down = "j";
               }
-              {
-                name = "swap${dir}";
-                value = {
-                  modifierKeys = [
-                    "SUPER"
-                    "SHIFT"
-                  ];
-                  flagModifiers = [ "s" ];
-                  keySymbol = key;
-                  mangoCommand = "exchange_client";
-                  commandArguments = dir;
-                };
-              }
-              {
-                name = "focusMonitor${dir}";
-                value = {
-                  modifierKeys = [
-                    "SUPER"
-                    "CTRL"
-                  ];
-                  flagModifiers = [ "s" ];
-                  keySymbol = key;
-                  mangoCommand = "focusmon";
-                  commandArguments = dir;
-                };
-              }
-              # Needs SUPER: a bare CTRL+SHIFT+j/k would swallow app shortcuts
-              # (browser devtools consoles, terminal copy/paste variants).
-              {
-                name = "moveMonitor${dir}";
-                value = {
-                  modifierKeys = [
-                    "SUPER"
-                    "CTRL"
-                    "SHIFT"
-                  ];
-                  flagModifiers = [ "s" ];
-                  keySymbol = key;
-                  mangoCommand = "tagmon";
-                  commandArguments = "${dir},1";
-                };
-              }
-              # Scroller: pull the window into / push it out of the neighbouring
-              # column's stack.
-              {
-                name = "scrollerStack${dir}";
-                value = {
-                  modifierKeys = [
-                    "SUPER"
-                    "ALT"
-                  ];
-                  flagModifiers = [ "s" ];
-                  keySymbol = key;
-                  mangoCommand = "scroller_stack";
-                  commandArguments = dir;
-                };
-              }
-            ]
-          )
+              .${dir};
+          in
           [
-            "left"
-            "right"
-            "up"
-            "down"
+            {
+              name = "focus${dir}";
+              value = {
+                modifierKeys = [ "SUPER" ];
+                flagModifiers = [ "s" ];
+                keySymbol = key;
+                mangoCommand = "focusdir";
+                commandArguments = dir;
+              };
+            }
+            {
+              name = "swap${dir}";
+              value = {
+                modifierKeys = [
+                  "SUPER"
+                  "SHIFT"
+                ];
+                flagModifiers = [ "s" ];
+                keySymbol = key;
+                mangoCommand = "exchange_client";
+                commandArguments = dir;
+              };
+            }
+            {
+              name = "focusMonitor${dir}";
+              value = {
+                modifierKeys = [
+                  "SUPER"
+                  "CTRL"
+                ];
+                flagModifiers = [ "s" ];
+                keySymbol = key;
+                mangoCommand = "focusmon";
+                commandArguments = dir;
+              };
+            }
+            # Needs SUPER: a bare CTRL+SHIFT+j/k would swallow app shortcuts
+            # (browser devtools consoles, terminal copy/paste variants).
+            {
+              name = "moveMonitor${dir}";
+              value = {
+                modifierKeys = [
+                  "SUPER"
+                  "CTRL"
+                  "SHIFT"
+                ];
+                flagModifiers = [ "s" ];
+                keySymbol = key;
+                mangoCommand = "tagmon";
+                commandArguments = "${dir},1";
+              };
+            }
+            # Scroller: pull the window into / push it out of the neighbouring
+            # column's stack.
+            {
+              name = "scrollerStack${dir}";
+              value = {
+                modifierKeys = [
+                  "SUPER"
+                  "ALT"
+                ];
+                flagModifiers = [ "s" ];
+                keySymbol = key;
+                mangoCommand = "scroller_stack";
+                commandArguments = dir;
+              };
+            }
           ]
+        ) directions
       );
 
       staticBinds = {
@@ -486,124 +486,117 @@ iteraLib.programs.mkCuratedProgram {
         };
       };
 
+      # Media/volume/brightness keys. With DMS they go through its IPC, which
+      # shows the OSD and drives external monitors over DDC as well as the
+      # backlight; without it they fall back to wpctl/playerctl/brightnessctl.
+      # `l` keeps them working on the lock screen.
+      #
+      # Fallback volume goes through wpctl (WirePlumber), NOT pactl. `pactl`
+      # ships in `pkgs.pulseaudio`, which a PipeWire system never installs — the
+      # PipeWire module only puts `pkgs.pipewire` (the `pw-*` tools) on PATH, so
+      # a `pactl` bind is a silent no-op. `wpctl` is always there: the
+      # WirePlumber module installs its own package and defaults to on whenever
+      # PipeWire is, which is exactly where these binds live. `-l 1.0` caps the
+      # raise at 100% so holding the key cannot push the sink into software
+      # boost and clip.
+      mediaBind = modifierKeys: keySymbol: dmsCall: fallback: {
+        inherit modifierKeys keySymbol;
+        flagModifiers = [
+          "s"
+          "l"
+        ];
+        mangoCommand = "spawn_shell";
+        commandArguments = if dmsEnabled then "dms ipc call ${dmsCall}" else fallback;
+      };
       mediaBinds = {
-        # Volume goes through wpctl (WirePlumber), NOT pactl. `pactl` ships in
-        # `pkgs.pulseaudio`, which a PipeWire system never installs — the
-        # PipeWire module only puts `pkgs.pipewire` (the `pw-*` tools) on PATH,
-        # so a `pactl` bind is a silent no-op. `wpctl` is always there: the
-        # WirePlumber module installs its own package and defaults to on
-        # whenever PipeWire is, which is exactly where these binds live.
-        #
-        # `-l 1.0` caps the raise at 100% so holding the key cannot push the
-        # sink into software boost and clip.
-        volumeUp = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioRaiseVolume";
-          mangoCommand = "spawn_shell";
-          commandArguments = "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+";
-        };
-        volumeDown = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioLowerVolume";
-          mangoCommand = "spawn_shell";
-          commandArguments = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
-        };
-        volumeMute = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioMute";
-          mangoCommand = "spawn_shell";
-          commandArguments = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
-        };
-        mediaPlay = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioPlay";
-          mangoCommand = "spawn_shell";
-          commandArguments = "playerctl play-pause";
-        };
-        mediaNext = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioNext";
-          mangoCommand = "spawn_shell";
-          commandArguments = "playerctl next";
-        };
-        mediaPrev = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86AudioPrev";
-          mangoCommand = "spawn_shell";
-          commandArguments = "playerctl previous";
-        };
-        brightnessUp = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86MonBrightnessUp";
-          mangoCommand = "spawn_shell";
-          commandArguments = "brightnessctl set +10%";
-        };
-        brightnessDown = {
-          flagModifiers = [ "s" ];
-          keySymbol = "XF86MonBrightnessDown";
-          mangoCommand = "spawn_shell";
-          commandArguments = "brightnessctl set 10%-";
-        };
+        volumeUp =
+          mediaBind [ ] "XF86AudioRaiseVolume" "audio increment 5"
+            "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+";
+        volumeDown =
+          mediaBind [ ] "XF86AudioLowerVolume" "audio decrement 5"
+            "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
+        volumeMute =
+          mediaBind [ ] "XF86AudioMute" "audio mute"
+            "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
+        micMute =
+          mediaBind [ ] "XF86AudioMicMute" "audio micmute"
+            "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle";
+        mediaPlay = mediaBind [ ] "XF86AudioPlay" "mpris playPause" "playerctl play-pause";
+        mediaPause = mediaBind [ ] "XF86AudioPause" "mpris playPause" "playerctl play-pause";
+        mediaNext = mediaBind [ ] "XF86AudioNext" "mpris next" "playerctl next";
+        mediaPrev = mediaBind [ ] "XF86AudioPrev" "mpris previous" "playerctl previous";
+        # `""` = every brightness device DMS knows (backlight and DDC monitors).
+        brightnessUp =
+          mediaBind [ ] "XF86MonBrightnessUp" ''brightness increment 10 ""''
+            "brightnessctl set +10%";
+        brightnessDown =
+          mediaBind [ ] "XF86MonBrightnessDown" ''brightness decrement 10 ""''
+            "brightnessctl set 10%-";
+      }
+      # CTRL+volume sets the player's own volume; DMS-only.
+      // lib.optionalAttrs dmsEnabled {
+        playerVolumeUp = mediaBind [ "CTRL" ] "XF86AudioRaiseVolume" "mpris increment 5" null;
+        playerVolumeDown = mediaBind [ "CTRL" ] "XF86AudioLowerVolume" "mpris decrement 5" null;
       };
 
       # DMS ipc actions — only meaningful when the shell is installed.
+      dmsBind = modifierKeys: keySymbol: commandArguments: {
+        inherit modifierKeys keySymbol commandArguments;
+        flagModifiers = [ "s" ];
+        mangoCommand = "spawn_shell";
+      };
       dmsBinds = lib.optionalAttrs dmsEnabled {
-        spotlight = {
-          modifierKeys = [ "SUPER" ];
-          flagModifiers = [ "s" ];
-          keySymbol = "d";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call spotlight toggle";
-        };
-        lockScreen = {
-          modifierKeys = [ "SUPER" ];
-          flagModifiers = [ "s" ];
-          keySymbol = "Escape";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call lock lock";
-        };
-        notifications = {
-          modifierKeys = [ "SUPER" ];
-          flagModifiers = [ "s" ];
-          keySymbol = "n";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call notifications toggle";
-        };
+        spotlight = dmsBind [ "SUPER" ] "d" "dms ipc call spotlight toggle";
+        lockScreen = dmsBind [ "SUPER" ] "Escape" "dms ipc call lock lock";
+        notifications = dmsBind [ "SUPER" ] "n" "dms ipc call notifications toggle";
         # Pick the tag's layout by name (the layoutChooser launcher plugin).
-        chooseLayout = {
-          modifierKeys = [
-            "SUPER"
-            "CTRL"
-          ];
-          flagModifiers = [ "s" ];
-          keySymbol = "n";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call spotlight openQuery '#layout '";
-        };
-        clipboard = {
-          modifierKeys = [ "SUPER" ];
-          flagModifiers = [ "s" ];
-          keySymbol = "v";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call clipboard toggle";
-        };
-        settings = {
-          modifierKeys = [ "SUPER" ];
-          flagModifiers = [ "s" ];
-          keySymbol = "comma";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms ipc call settings toggle";
-        };
-        screenshot = {
-          modifierKeys = [
+        chooseLayout = dmsBind [
+          "SUPER"
+          "CTRL"
+        ] "n" "dms ipc call spotlight openQuery '#layout '";
+        clipboard = dmsBind [ "SUPER" ] "v" "dms ipc call clipboard toggle";
+        settings = dmsBind [ "SUPER" ] "comma" "dms ipc call settings focusOrToggle";
+        powerMenu = dmsBind [ "SUPER" ] "x" "dms ipc call powermenu toggle";
+        controlCenter = dmsBind [ "SUPER" ] "a" "dms ipc call control-center toggle";
+        wallpapers = dmsBind [ "SUPER" ] "y" "dms ipc call dash toggle wallpaper";
+        displayProfile = dmsBind [ "SUPER" ] "p" "dms ipc outputs cycleProfile";
+        colorPicker = dmsBind [
+          "SUPER"
+          "SHIFT"
+        ] "c" "dms ipc call color-picker toggle";
+        windowRule = dmsBind [
+          "SUPER"
+          "SHIFT"
+        ] "w" "dms ipc call window-rules toggle";
+        nightMode = dmsBind [
+          "SUPER"
+          "ALT"
+        ] "n" "dms ipc call night toggle";
+        idleInhibit = dmsBind [
+          "SUPER"
+          "ALT"
+        ] "i" "dms ipc call inhibit toggle";
+        processList = dmsBind [
+          "CTRL"
+          "ALT"
+        ] "Delete" "dms ipc call processlist focusOrToggle";
+        # Keycode match (no `s`): SHIFT+slash emits `question`, so a keysym bind
+        # for `slash` would never fire.
+        cheatsheet =
+          dmsBind [
             "SUPER"
             "SHIFT"
-          ];
-          flagModifiers = [ "s" ];
-          keySymbol = "s";
-          mangoCommand = "spawn_shell";
-          commandArguments = "dms screenshot --no-file";
-        };
+          ] "slash" "dms ipc call keybinds toggle mangowc"
+          // {
+            flagModifiers = [ ];
+          };
+        screenshot = dmsBind [
+          "SUPER"
+          "SHIFT"
+        ] "s" "dms screenshot --no-file";
+        screenshotArea = dmsBind [ ] "Print" "dms screenshot";
+        screenshotFull = dmsBind [ "CTRL" ] "Print" "dms screenshot full";
+        screenshotWindow = dmsBind [ "ALT" ] "Print" "dms screenshot window";
       };
 
       # Spawn binds gated on their command being configured.
@@ -642,6 +635,79 @@ iteraLib.programs.mkCuratedProgram {
           commandArguments = cfg.commands.calculator;
         };
       };
+      # Labels for DMS's keybind cheatsheet (SUPER+SHIFT+/), keyed by bind name.
+      descriptions =
+        lib.listToAttrs (
+          lib.concatMap (tag: [
+            (lib.nameValuePair "viewTag${toString tag}" "View tag ${toString tag}")
+            (lib.nameValuePair "moveToTag${toString tag}" "Move window to tag ${toString tag}")
+          ]) tags
+        )
+        // lib.listToAttrs (
+          lib.concatMap (dir: [
+            (lib.nameValuePair "focus${dir}" "Focus ${dir}")
+            (lib.nameValuePair "swap${dir}" "Swap window ${dir}")
+            (lib.nameValuePair "focusMonitor${dir}" "Focus monitor ${dir}")
+            (lib.nameValuePair "moveMonitor${dir}" "Move window to monitor ${dir}")
+            (lib.nameValuePair "scrollerStack${dir}" "Stack window ${dir}")
+          ]) directions
+        )
+        // {
+          closeWindow = "Close window";
+          quit = "Exit mango";
+          toggleFloat = "Toggle floating";
+          toggleFullscreen = "Toggle fullscreen";
+          toggleMaximize = "Toggle maximize";
+          toggleOverview = "Overview";
+          switcherNext = "Window switcher";
+          switcherPrev = "Window switcher (reverse)";
+          previousTag = "Previous tag";
+          fullWidth = "Full-width column";
+          cycleProportion = "Cycle column width";
+          scratchpad = "Toggle scratchpad";
+          minimize = "Minimize window";
+          restoreMinimized = "Restore minimized window";
+          reloadConfig = "Reload mango config";
+          cycleLayout = "Cycle layout";
+          volumeUp = "Volume up";
+          volumeDown = "Volume down";
+          volumeMute = "Mute";
+          micMute = "Mute microphone";
+          mediaPlay = "Play/pause";
+          mediaPause = "Play/pause";
+          mediaNext = "Next track";
+          mediaPrev = "Previous track";
+          brightnessUp = "Brightness up";
+          brightnessDown = "Brightness down";
+          playerVolumeUp = "Player volume up";
+          playerVolumeDown = "Player volume down";
+          spotlight = "Application launcher";
+          lockScreen = "Lock screen";
+          notifications = "Notification center";
+          chooseLayout = "Choose layout";
+          clipboard = "Clipboard history";
+          settings = "Settings";
+          powerMenu = "Power menu";
+          controlCenter = "Control center";
+          wallpapers = "Browse wallpapers";
+          displayProfile = "Cycle display profile";
+          colorPicker = "Color picker";
+          windowRule = "Create window rule";
+          nightMode = "Night mode";
+          idleInhibit = "Idle inhibit";
+          processList = "Task manager";
+          cheatsheet = "Keyboard shortcuts";
+          screenshot = "Screenshot to clipboard";
+          screenshotArea = "Screenshot: area";
+          screenshotFull = "Screenshot: full screen";
+          screenshotWindow = "Screenshot: window";
+          terminal = "Terminal";
+          fileBrowser = "File browser";
+          browser = "Web browser";
+          editor = "Editor";
+          calculator = "Calculator";
+          calculatorKey = "Calculator";
+        };
     in
     {
       mousebinds = mkDefault {
@@ -694,16 +760,18 @@ iteraLib.programs.mkCuratedProgram {
       );
 
       keybinds = mkDefault (
-        tagBinds
-        // directionalBinds
-        // staticBinds
-        // mediaBinds
-        // dmsBinds
-        // terminalBind
-        // fileBrowserBind
-        // browserBind
-        // editorBind
-        // calculatorBind
+        lib.mapAttrs (name: bind: { description = descriptions.${name} or null; } // bind) (
+          tagBinds
+          // directionalBinds
+          // staticBinds
+          // mediaBinds
+          // dmsBinds
+          // terminalBind
+          // fileBrowserBind
+          // browserBind
+          // editorBind
+          // calculatorBind
+        )
       );
     };
 }

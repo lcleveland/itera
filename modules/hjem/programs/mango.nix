@@ -15,9 +15,10 @@
 # xdg-desktop-portal 1.22+ refuses to start without that target, so this is what
 # keeps portals — file pickers, screencast, the color-scheme preference — alive.
 #
-# `dms` is still spawned directly rather than through DMS's systemd user service:
-# it is on the system PATH and starting it from `exec_once=` keeps the shell's
-# lifetime tied to the compositor without depending on unit ordering.
+# `dms` itself runs as DMS's systemd user service, wanted by
+# `mango-session.target` (set up by the desktop battery), so starting the target
+# starts the shell and a crash restarts it. With that service turned off the shell
+# falls back to a plain `exec_once=`.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`), so sinks
 # like `xdg.config.files` are written unprefixed, `osConfig`/`pkgs`/`iteraLib` are
@@ -149,7 +150,9 @@ let
     [ "exec_once=${sessionSetup}" ]
     ++ lib.optional autostartUdiskie "exec_once=${pkgs.udiskie}/bin/udiskie --automount --tray -c ${udiskieConfig}"
     # systemd-cat so the shell's output lands in the journal (`journalctl --user -t dms`).
-    ++ [ "exec_once=${pkgs.systemd}/bin/systemd-cat -t dms dms run" ]
+    ++ lib.optional (
+      !(osConfig.programs.dank-material-shell.systemd.enable or false)
+    ) "exec_once=${pkgs.systemd}/bin/systemd-cat -t dms dms run"
   );
 
   # DankMaterialShell writes the look-and-feel it manages (theme colors, gaps,

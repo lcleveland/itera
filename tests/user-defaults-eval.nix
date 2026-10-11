@@ -89,7 +89,7 @@ let
             packages = [ pkgs.hello ];
             programs = {
               dankMaterialShell = {
-                settings.cornerRadius = 8;
+                settings.radiusStrength = 25;
                 # Per-user plugin: a new name adds only for alice.
                 plugins.Bar.src = pkgs.emptyDirectory;
                 # Per-user disable of the default-on ipIndicator. A per-user entry
@@ -163,11 +163,24 @@ let
     }
   ];
 
+  # Mango without DMS: the media keys must fall back to wpctl/playerctl.
+  noDmsMango =
+    builtins.readFile
+      (mkConfig [
+        {
+          itera = {
+            desktop.dankMaterialShell.enable = false;
+            desktop.mango.enable = true;
+            users.carol = { };
+          };
+        }
+      ]).hjem.users.carol.xdg.config.files."mango/config.conf".source;
+
   aliceFiles = cfg.hjem.users.alice.xdg.config.files;
   bobFiles = cfg.hjem.users.bob.xdg.config.files;
 
-  aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/settings.json".text;
-  bobDms = builtins.fromJSON bobFiles."DankMaterialShell/settings.json".text;
+  aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/config.d/00-itera.json".text;
+  bobDms = builtins.fromJSON bobFiles."DankMaterialShell/config.d/00-itera.json".text;
 
   # plugin_settings.json carries string context: the update-indicator plugin's
   # `checkCommand` is an absolute store path, which is what keeps its helper in
@@ -201,6 +214,22 @@ let
   # the SYSTEM-WIDE monitors via `compositor.customConfig`.
   greeterMonitors = cfg.programs.dms-greeter.compositor.customConfig;
 
+  # The greeter's merged settings file, as greetd's preStart writes it.
+  # lib.splitString keeps string context, so the path stays a build input.
+  greeterSettingsOf =
+    c:
+    builtins.fromJSON (
+      builtins.readFile (
+        lib.findFirst (lib.hasSuffix "-itera-dms-greeter-settings.json") null (
+          lib.splitString " " (lib.replaceStrings [ "\n" ] [ " " ] c.systemd.services.greetd.preStart)
+        )
+      )
+    );
+  greeterSettings = greeterSettingsOf cfg;
+  greeterWallpaperSettings = greeterSettingsOf (mkConfig [
+    { itera.desktop.dankMaterialShell.greeter.wallpaper = "/etc/login-wallpaper.jpg"; }
+  ]);
+
   # Unit-check the keybind renderer directly via the flake's lib output.
   renderedBind = self.lib.mango.renderKeybinds {
     demo = {
@@ -211,6 +240,7 @@ let
       keySymbol = "q";
       mangoCommand = "quit";
       flagModifiers = [ "s" ];
+      description = "Exit mango";
     };
     noMods = {
       keySymbol = "XF86AudioMute";
@@ -250,7 +280,11 @@ let
     "second (override-free) account created" = cfg.users.users.bob.isNormalUser;
 
     # ── DMS settings: system-wide default reaches an un-overridden user ───
-    "curated system default present (bob)" = bobDms.configVersion == 18;
+    # Pinned to the bundled DMS's schema version so it never migrates.
+    "curated system default present (bob)" =
+      builtins.isInt bobDms.configVersion && bobDms.configVersion >= 40;
+    "idle lock on by default (bob)" = bobDms.acLockTimeout > 0 && bobDms.lockBeforeSuspend;
+    "settings.json left to DMS (bob)" = !(bobFiles ? "DankMaterialShell/settings.json");
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
     "opinionated default present (bob)" = bobDms.clockFormat == "24h";
     "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
@@ -280,7 +314,7 @@ let
       bobZed.agent_servers.claude.command == "claude-agent-acp";
 
     # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
-    "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
+    "per-user override merges per key (alice)" = aliceDms.radiusStrength == 25;
     "sibling key still inherited (alice)" = aliceDms.clockFormat == "24h";
     "system-level override still inherited (alice)" = aliceDms.currentThemeName == "blue";
 
@@ -322,18 +356,24 @@ let
     # so a keysym bind (`binds=`) would never fire. Guard against regressing to `s`.
     "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" bobMango;
     "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" bobMango);
-    "media keybind rendered" = lib.hasInfix "binds=none,XF86AudioMute,spawn_shell," bobMango;
-    # The volume keys must call a tool the system actually ships. `pactl` lives
-    # in pkgs.pulseaudio, which a PipeWire host never installs, so a pactl bind
-    # is a silent no-op; `wpctl` comes with WirePlumber, which is on whenever
-    # PipeWire is. Guard both directions so a regression cannot slip back.
-    "volume up uses wpctl" =
-      lib.hasInfix "binds=none,XF86AudioRaiseVolume,spawn_shell,wpctl set-volume" bobMango;
-    "volume down uses wpctl" =
-      lib.hasInfix "binds=none,XF86AudioLowerVolume,spawn_shell,wpctl set-volume" bobMango;
-    "volume mute uses wpctl" =
-      lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,wpctl set-mute" bobMango;
-    "no keybind shells out to pactl" = !(lib.hasInfix "pactl" bobMango);
+    # With DMS the media keys go through its IPC (OSD, DDC brightness) and carry
+    # `l` so they work on the lock screen.
+    "volume keys go through DMS, also when locked" =
+      lib.hasInfix "bindsl=none,XF86AudioRaiseVolume,spawn_shell,dms ipc call audio increment" bobMango;
+    "mic mute key bound" = lib.hasInfix "bindsl=none,XF86AudioMicMute," bobMango;
+    "keybind cheatsheet label rendered" =
+      lib.hasInfix "# Keyboard shortcuts\nbind=SUPER+SHIFT,slash," bobMango;
+    # Without DMS the volume keys must call a tool the system actually ships.
+    # `pactl` lives in pkgs.pulseaudio, which a PipeWire host never installs, so
+    # a pactl bind is a silent no-op; `wpctl` comes with WirePlumber, which is on
+    # whenever PipeWire is. Guard both directions so a regression cannot slip back.
+    "volume up falls back to wpctl" =
+      lib.hasInfix "bindsl=none,XF86AudioRaiseVolume,spawn_shell,wpctl set-volume" noDmsMango;
+    "volume mute falls back to wpctl" =
+      lib.hasInfix "bindsl=none,XF86AudioMute,spawn_shell,wpctl set-mute" noDmsMango;
+    "no DMS binds without DMS" = !(lib.hasInfix "dms ipc" noDmsMango);
+    "no keybind shells out to pactl" =
+      !(lib.hasInfix "pactl" bobMango) && !(lib.hasInfix "pactl" noDmsMango);
     "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" bobMango;
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch vivaldi.
     "browser keybind launches vivaldi" = lib.hasInfix "binds=SUPER,b,spawn,vivaldi" bobMango;
@@ -345,14 +385,17 @@ let
       lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
     "calculator key needs no modifier" =
       lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
-    "autostart still present" = lib.hasInfix "systemd-cat -t dms dms run" bobMango;
-    # The session bring-up must be the FIRST autostart entry and a single script:
-    # mango spawns each exec_once asynchronously, so splitting the environment
-    # export from the target start would race and hand the portal an empty
-    # environment. Assert the rendered script, not just that a line exists.
-    "session setup autostarts before the shell" = lib.hasInfix "itera-mango-session-setup" (
-      builtins.head (lib.splitString "systemd-cat -t dms dms run" bobMango)
-    );
+    # The shell runs as DMS's systemd user service (wanted by mango-session.target),
+    # not an exec_once, and stays out of the greeter's session.
+    "dms not autostarted by mango" = !(lib.hasInfix "dms run" bobMango);
+    "dms user service bound to the mango session" =
+      cfg.systemd.user.services.dms.wantedBy == [ "mango-session.target" ];
+    "dms user service skips the greeter" =
+      cfg.systemd.user.services.dms.unitConfig.ConditionUser == "!@system";
+    # The session bring-up must be a single script: mango spawns each exec_once
+    # asynchronously, so splitting the environment export from the target start
+    # would race and hand the portal (and the shell) an empty environment.
+    "session setup autostarted" = lib.hasInfix "-itera-mango-session-setup" bobMango;
     "session setup starts mango-session.target" =
       lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);
     "session setup exports the environment first" =
@@ -413,6 +456,14 @@ let
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
     "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
 
+    # ── greeter: synced theme plus itera's settings ──────────────────────
+    "greeter syncs the first itera user's DMS config" =
+      cfg.programs.dms-greeter.configHome == cfg.users.users.alice.home;
+    "greeter gets that user's itera settings" = greeterSettings.radiusStrength == 25;
+    "greeter follows the user's wallpaper by default" = !(greeterSettings ? lockScreenWallpaperPath);
+    "greeter wallpaper option sets only the greeter's copy" =
+      greeterWallpaperSettings.lockScreenWallpaperPath == "/etc/login-wallpaper.jpg";
+
     # ── mango monitors: the login greeter gets the system-wide layout ────
     "greeter gets system-wide monitors (HDMI-1)" =
       lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
@@ -455,6 +506,9 @@ let
     "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;
     "renderer empty modifiers → none" =
       lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,true" renderedBind;
+    # DMS's cheatsheet reads a bind's label only from the comment line above it.
+    "renderer puts the description on the line above the bind" =
+      lib.hasInfix "# Exit mango\nbinds=SUPER+SHIFT,q,quit," renderedBind;
     # Layout renderers: per-tag tag_rule lines and the circle_layout line.
     "tag-layout renderer emits per-tag rules" = lib.hasInfix "tag_rule=id:1,layout_name:tile" (
       self.lib.mango.mkTagLayoutLines { layout = "tile"; }

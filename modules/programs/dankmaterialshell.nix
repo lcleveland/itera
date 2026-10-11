@@ -33,16 +33,18 @@ iteraLib.programs.mkCuratedProgram {
       attrs = true;
       example = {
         currentThemeName = "blue";
-        cornerRadius = 12;
+        radiusStrength = 50;
         clockFormat = "24h";
       };
       description = ''
         DankMaterialShell settings, written to
-        {file}`~/.config/DankMaterialShell/settings.json`. DMS's schema is a flat
-        camelCase object, so the system-wide default
-        ({option}`itera.programs.dankMaterialShell.settings`) and each per-user
-        override merge per key. Keys you do not set fall back to DMS's own runtime
-        defaults.
+        {file}`~/.config/DankMaterialShell/config.d/00-itera.json`, a drop-in DMS
+        layers over its own {file}`settings.json`. Keys set here win over the DMS
+        GUI (an edit lasts until DMS restarts); every other GUI change persists in
+        settings.json. DMS's schema is a flat camelCase object, so the system-wide
+        default ({option}`itera.programs.dankMaterialShell.settings`) and each
+        per-user override merge per key. Keys you do not set fall back to DMS's own
+        runtime defaults.
       '';
     };
 
@@ -118,9 +120,9 @@ iteraLib.programs.mkCuratedProgram {
       type = bool;
       default = true;
       description = ''
-        Whether hjem may overwrite an existing settings.json / plugin_settings.json.
-        `true` (default): the declarative value always wins (DMS GUI changes reset
-        on rebuild). `false`: DMS owns the file after first write and the declarative
+        Whether hjem may overwrite an existing config.d/00-itera.json /
+        plugin_settings.json. `true` (default): the declarative value always wins.
+        `false`: DMS owns the files after first write and the declarative
         `settings` no longer re-apply.
       '';
     };
@@ -133,7 +135,8 @@ iteraLib.programs.mkCuratedProgram {
   # `null`, which DMS may reject).
   systemConfig = _: {
     settings = {
-      configVersion = mkDefault 18;
+      # `configVersion` is pinned by the desktop battery to the bundled DMS's
+      # current schema version (read from its source), so DMS never migrates.
       clockFormat = mkDefault "24h";
       # Dark mode by default: don't follow the desktop portal's color-scheme
       # (which reports "no preference" on a fresh session and would flip DMS to
@@ -146,6 +149,17 @@ iteraLib.programs.mkCuratedProgram {
       # desktop battery already enables.
       useFahrenheit = mkDefault true;
       useAutoLocation = mkDefault true;
+      # Idle: DMS handles idle itself, and its defaults never lock, blank or
+      # suspend. Seconds, picked from the values DMS's Power settings offer. No
+      # suspend on AC (a desktop may be serving something).
+      acLockTimeout = mkDefault 600;
+      acMonitorTimeout = mkDefault 900;
+      batteryLockTimeout = mkDefault 300;
+      batteryMonitorTimeout = mkDefault 600;
+      batterySuspendTimeout = mkDefault 1800;
+      lockBeforeSuspend = mkDefault true;
+      # DMS already notifies at critical battery; also warn at low.
+      batteryNotifyLow = mkDefault true;
     };
   };
 }

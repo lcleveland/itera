@@ -75,6 +75,9 @@ let
   # Same account with the batteries left on, to assert they ARE present.
   batteriesOn = mkEval { itera.users.testuser = { }; };
 
+  # A central u2f mapping, which the lock screen's PAM service must also use.
+  centralU2f = mkEval { itera.securityKeys.authFile = "/etc/u2f-mappings"; };
+
   # Gaming battery (opt-in, OFF by default) turns Steam on, to assert ~/.steam is
   # persisted for the account. Steam pulls in hardware.graphics.enable32Bit, which
   # nixpkgs asserts is x86_64-only, so pin the platform like the nvidia evals do so
@@ -508,9 +511,14 @@ let
     "DMS lock screen enables u2f" = base.itera.programs.dankMaterialShell.settings.enableU2f == true;
     "DMS lock screen u2f mode is 'or' by default" =
       base.itera.programs.dankMaterialShell.settings.u2fMode == "or";
-    # The greeter's key-auth UI settings.json is still wired (it now carries
-    # greeterEnableU2f = false, since the greeter is a login surface).
-    "greeter u2f config file is wired" = base.programs.dms-greeter.configFiles != [ ];
+    # The greeter's key-auth UI stays off (the greeter is a login surface).
+    "greeter u2f UI is off" = base.itera.programs.dankMaterialShell.settings.greeterEnableU2f == false;
+    # The lock screen gets its own pam_u2f service (DMS's bundled fallback passes
+    # no authfile).
+    "DMS lock screen has a dankshell-u2f PAM service" =
+      lib.hasInfix "pam_u2f.so cue" base.security.pam.services.dankshell-u2f.text;
+    "DMS lock screen u2f follows a central authFile" =
+      lib.hasInfix "authfile=/etc/u2f-mappings" centralU2f.security.pam.services.dankshell-u2f.text;
 
     # --- Fingerprint (default on): after-login only, never initial login ---
     "fprintd is enabled by default" = base.services.fprintd.enable;
