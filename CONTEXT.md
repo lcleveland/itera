@@ -1,0 +1,21 @@
+# itera
+
+A hjem-based NixOS layer that ships an opinionated desktop with a consistent look out of the box.
+
+## Look
+
+**itera look**:
+The unified visual design every itera-shipped surface follows: colours, typography, icons, cursor and brand assets.
+_Avoid_: theme, rice, skin
+
+**Colour token**:
+A named semantic colour role in the itera look (such as `accent` or `surface.high`), defined once per mode. Surfaces consume colours only through these tokens.
+_Avoid_: colour variable, swatch
+
+**Palette**:
+The complete set of colour token values for both modes. itera ships exactly one, hand-curated.
+_Avoid_: colour scheme, theme
+
+**Mode**:
+Dark or light. Each mode has its own hand-authored token values; dark is the default.
+_Avoid_: variant, flavour
