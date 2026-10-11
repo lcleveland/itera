@@ -1,0 +1,364 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Lives on the prototype/palette branch only, never main.
+  Question (wayfinder ticket #188): what are the itera palette's actual colour values?
+  Four palette directions (?variant=A..D) x two modes (?mode=dark|light), each shown on
+  the same sample desktop, terminal and token table. Every token is editable in place
+  (OKLCH "L C H", "#hex" or "@otherToken"); Export dumps the current mode as hex.
+  Open by double-clicking the file. ←/→ cycle directions, M flips the mode.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>itera palette prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..800&family=Roboto+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 11pt "Roboto Flex", system-ui, sans-serif; background: var(--background); color: var(--text); padding: 16px 16px 96px; }
+  h2 { font-size: 13pt; font-weight: 600; margin: 28px 0 10px; color: var(--textMuted); letter-spacing: .02em; }
+  .mono { font-family: "Roboto Mono", monospace; font-size: 10.5pt; }
+  .muted { color: var(--textMuted); }
+
+  /* ---- desktop sample ---- */
+  .desk { background: var(--surface-lowest); border: 1px solid var(--border); border-radius: 14px; padding: 10px; position: relative; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 10px; background: var(--surface-base); border-radius: 12px; padding: 6px 10px; }
+  .ws { display: flex; gap: 6px; }
+  .ws span { width: 10px; height: 10px; border-radius: 99px; background: var(--surfaceVariant); }
+  .ws span.on { width: 28px; background: var(--accent); }
+  .ws span.busy { background: var(--borderStrong); }
+  .bar .clock { margin: 0 auto; font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; background: var(--surface-high); font-size: 10pt; }
+  .dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
+  .area { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 12px; }
+  @media (max-width: 900px) { .area { grid-template-columns: 1fr; } }
+  .win { background: var(--background); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow) 35%, transparent); }
+  .hdr { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface-low); border-bottom: 1px solid var(--border); }
+  .hdr .title { font-weight: 600; margin: 0 auto; }
+  .wbtn { width: 22px; height: 22px; border-radius: 99px; background: var(--surface-high); display: grid; place-items: center; font-size: 9pt; color: var(--textMuted); }
+  .body { display: grid; grid-template-columns: 180px minmax(0, 1fr); min-height: 300px; }
+  .side { background: var(--surface-low); padding: 8px; border-right: 1px solid var(--border); }
+  .side div { padding: 6px 10px; border-radius: 8px; margin-bottom: 2px; }
+  .side div.sel { background: var(--accentContainer); color: var(--textOnAccentContainer); font-weight: 600; }
+  .side div.hov { background: var(--surface-high); }
+  .side .group { color: var(--textMuted); font-size: 9pt; text-transform: uppercase; letter-spacing: .06em; padding-top: 12px; }
+  .main { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .main h3 { margin: 0; font-size: 15pt; }
+  .main p { margin: 0; line-height: 1.5; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .field { flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borderStrong); background: var(--surface-lowest); color: var(--text); }
+  .field.focus { border: 2px solid var(--accent); }
+  .btn { padding: 8px 16px; border-radius: 99px; border: 0; font: inherit; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: var(--textOnAccent); }
+  .btn.tonal { background: var(--accentContainer); color: var(--textOnAccentContainer); }
+  .btn.outline { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+  .btn.second { background: var(--surface-highest); color: var(--text); }
+  .switch { width: 40px; height: 22px; border-radius: 99px; background: var(--accent); position: relative; }
+  .switch::after { content: ""; position: absolute; right: 3px; top: 3px; width: 16px; height: 16px; border-radius: 99px; background: var(--textOnAccent); }
+  .switch.off { background: var(--surfaceVariant); border: 1px solid var(--borderStrong); }
+  .switch.off::after { left: 3px; right: auto; top: 2px; background: var(--borderStrong); }
+  a { color: var(--accent); }
+  .sel-text::selection, .sel-text { background: var(--selection); color: var(--selectionText); padding: 0 2px; }
+  .status { padding: 8px 12px; border-radius: 8px; border-left: 4px solid; background: var(--surface-base); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 9.5pt; font-weight: 600; background: var(--surface-high); }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .note { background: var(--surface-high); border-radius: 14px; padding: 12px; display: grid; grid-template-columns: 32px 1fr; gap: 10px; box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 30%, transparent); }
+  .note .ic { width: 32px; height: 32px; border-radius: 99px; background: var(--accentTertiary); }
+  .note b { display: block; }
+  .card { background: var(--surface-base); border-radius: 14px; padding: 12px; }
+  .slider { height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--accent) 60%, var(--surfaceVariant) 60%); margin: 10px 0; }
+  .dialog-wrap { position: relative; border-radius: 14px; overflow: hidden; min-height: 150px; background: var(--surface-low); }
+  .dialog-wrap::before { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--scrim) 45%, transparent); }
+  .dialog { position: absolute; inset: 18px; background: var(--surface-highest); border-radius: 16px; padding: 14px; }
+  .inverse { background: var(--inverseSurface); color: var(--inverseText); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; }
+  
+
+  /* ---- terminal sample ---- */
+  .term { background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.55; white-space: pre; overflow-x: auto; }
+  .ansi { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin-top: 10px; }
+  .ansi div { padding: 8px 4px; border-radius: 6px; text-align: center; font-size: 9pt; }
+
+  /* ---- token table ---- */
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+  td, th { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { color: var(--textMuted); font-weight: 600; }
+  .sw { width: 36px; height: 20px; border-radius: 5px; border: 1px solid var(--borderStrong); }
+  td input { width: 100%; min-width: 150px; font: inherit; font-family: "Roboto Mono", monospace; background: var(--surface-lowest); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; }
+  td input.edited { border-color: var(--warning); }
+  .ok { color: var(--success); } .meh { color: var(--warning); } .bad { color: var(--error); font-weight: 700; }
+  .tablewrap { overflow-x: auto; }
+  textarea { width: 100%; height: 260px; background: var(--surface-lowest); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+
+  /* ---- prototype switcher: deliberately NOT themed ---- */
+  #switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 99; display: flex; align-items: center; gap: 6px;
+    background: #111; color: #fff; border: 2px solid #ffe600; border-radius: 99px; padding: 6px 8px; box-shadow: 0 6px 20px #0008; font: 600 11pt system-ui, sans-serif; }
+  #switcher button { background: #333; color: #fff; border: 0; border-radius: 99px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  #switcher #label { min-width: 160px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="row" style="justify-content: space-between">
+  <div><b style="font-size: 16pt" id="heading"></b> <span class="muted" id="blurb"></span></div>
+  <span class="tag">PROTOTYPE · ticket #188</span>
+</header>
+
+<h2>Desktop (DMS bar, GTK-ish window, notification, dialog)</h2>
+<div class="desk">
+  <div class="bar">
+    <div class="ws"><span class="on"></span><span class="busy"></span><span class="busy"></span><span></span><span></span></div>
+    <span class="chip">zed — itera</span>
+    <span class="clock">Sun 11 Oct · 14:32</span>
+    <span class="chip"><span class="dot" style="background: var(--success)"></span>wifi</span>
+    <span class="chip"><span class="dot" style="background: var(--warning)"></span>18%</span>
+    <span class="chip" style="background: var(--accentContainer); color: var(--textOnAccentContainer)">2 updates</span>
+  </div>
+  <div class="area">
+    <div class="win">
+      <div class="hdr"><span class="wbtn">‹</span><span class="title">Settings</span><span class="wbtn">–</span><span class="wbtn">✕</span></div>
+      <div class="body">
+        <div class="side">
+          <div class="group">System</div>
+          <div class="sel">Appearance</div>
+          <div class="hov">Displays</div>
+          <div>Sound</div>
+          <div>Power</div>
+          <div class="group">Personal</div>
+          <div>Users</div>
+          <div>Privacy</div>
+        </div>
+        <div class="main">
+          <h3>Appearance</h3>
+          <p>itera ships one hand-curated palette. <span class="muted">Muted helper text sits here and should stay readable on every surface.</span> Read the <a href="#">theming contract</a>, or <span class="sel-text">select this text</span> to see the selection colours.</p>
+          <div class="row"><input class="field focus" value="Roboto Flex 11"><input class="field" placeholder="Placeholder text"></div>
+          <div class="row">
+            <button class="btn primary">Apply</button>
+            <button class="btn tonal">Preview</button>
+            <button class="btn outline">Reset</button>
+            <button class="btn second">Cancel</button>
+            <span class="switch"></span><span class="switch off"></span>
+          </div>
+          <div class="status" style="border-color: var(--error)"><b style="color: var(--error)">Error</b> — rebuild failed: option itera.look.accent is not a colour.</div>
+          <div class="status" style="border-color: var(--warning)"><b style="color: var(--warning)">Warning</b> — battery at 18%.</div>
+          <div class="status" style="border-color: var(--success)"><b style="color: var(--success)">Success</b> — generation 214 activated.</div>
+          <div class="status" style="border-color: var(--info)"><b style="color: var(--info)">Info</b> — a new flake input is available.</div>
+          <div class="row">
+            <span class="tag" style="color: var(--accent)">accent</span>
+            <span class="tag" style="color: var(--accentSecondary)">secondary</span>
+            <span class="tag" style="color: var(--accentTertiary)">tertiary</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="note"><div class="ic"></div><div><b>Rebuild finished</b><span class="muted">itera-testhost · 2 min ago</span></div></div>
+      <div class="card"><b>Now playing</b><div class="muted">mpv — lecture-04.mkv</div><div class="slider"></div><div class="row"><button class="btn tonal">⏮</button><button class="btn primary">⏸</button><button class="btn tonal">⏭</button></div></div>
+      <div class="dialog-wrap"><div class="dialog"><b>Log out?</b><p class="muted" style="margin: 6px 0 12px">Unsaved work will be lost.</p><div class="row" style="justify-content: flex-end"><button class="btn outline">Cancel</button><button class="btn primary">Log out</button></div></div></div>
+      <div class="inverse"><span style="color: inherit">Snackbar on inverse surface</span><b>UNDO</b></div>
+    </div>
+  </div>
+</div>
+
+<h2>Terminal (WezTerm + Nushell, 16-colour block)</h2>
+<div class="term mono" id="term"></div>
+<div class="ansi mono" id="ansi"></div>
+
+<h2>Contrast (WCAG 2 ratio against the surface it sits on)</h2>
+<div class="tablewrap"><table id="contrast"></table></div>
+
+<h2>Tokens — edit any value: <span class="mono">L C H</span> (OKLCH), <span class="mono">#hex</span> or <span class="mono">@token</span></h2>
+<div class="row" style="margin-bottom: 8px"><button class="btn second" id="reset">Reset this direction + mode</button><button class="btn tonal" id="export">Export this mode</button></div>
+<div class="tablewrap"><table id="tokens"></table></div>
+<textarea id="out" class="mono" hidden></textarea>
+
+<div id="switcher"><button id="prev" title="previous direction (←)">←</button><span id="label"></span><button id="next" title="next direction (→)">→</button><button id="mode" title="flip mode (M)"></button></div>
+
+<script>
+// ---------- palette directions ----------
+// nh/nc: neutral hue + chroma, ah/ac: accent hue + chroma, th: tertiary hue
+const DIRS = {
+  A: { name: 'Ember', blurb: 'amber accent on warm charcoal', nh: 60, nc: 0.012, ah: 55, ac: 0.13, th: 150 },
+  B: { name: 'Tide', blurb: 'teal accent on cool slate', nh: 235, nc: 0.018, ah: 200, ac: 0.11, th: 30 },
+  C: { name: 'Iris', blurb: 'violet accent on blue-black ink', nh: 285, nc: 0.014, ah: 292, ac: 0.14, th: 350 },
+  D: { name: 'Rose', blurb: 'pink accent on neutral graphite', nh: 0, nc: 0.004, ah: 352, ac: 0.13, th: 70 },
+};
+const KEYS = Object.keys(DIRS);
+const o = (l, c, h) => `${+l.toFixed(3)} ${+c.toFixed(3)} ${h}`;
+
+function build(d, mode) {
+  const N = (l, k = 1) => o(l, d.nc * k, d.nh);
+  const t = {};
+  if (mode === 'dark') Object.assign(t, {
+    background: N(0.18), 'surface.lowest': N(0.15), 'surface.low': N(0.205), 'surface.base': N(0.23),
+    'surface.high': N(0.27), 'surface.highest': N(0.31), surfaceVariant: N(0.34, 1.5),
+    inverseSurface: '@text', text: N(0.93, 0.5), textMuted: N(0.76, 0.8), inverseText: '@background',
+    accent: o(0.78, d.ac, d.ah), accentContainer: o(0.36, d.ac * 0.6, d.ah),
+    textOnAccent: o(0.25, d.ac * 0.45, d.ah), textOnAccentContainer: o(0.91, d.ac * 0.35, d.ah),
+    accentSecondary: o(0.78, 0.045, d.ah), accentTertiary: o(0.78, 0.09, d.th),
+    border: N(0.40), borderStrong: N(0.55),
+    error: o(0.72, 0.16, 25), warning: o(0.85, 0.13, 88), success: o(0.80, 0.13, 145), info: o(0.78, 0.10, 240),
+  });
+  else Object.assign(t, {
+    background: N(0.985, 0.5), 'surface.lowest': '#ffffff', 'surface.low': N(0.965), 'surface.base': N(0.945),
+    'surface.high': N(0.925), 'surface.highest': N(0.90), surfaceVariant: N(0.88, 1.5),
+    inverseSurface: '@text', text: N(0.22, 0.8), textMuted: N(0.46), inverseText: '@background',
+    accent: o(0.50, d.ac * 1.05, d.ah), accentContainer: o(0.90, d.ac * 0.45, d.ah),
+    textOnAccent: '#ffffff', textOnAccentContainer: o(0.28, d.ac * 0.6, d.ah),
+    accentSecondary: o(0.48, 0.05, d.ah), accentTertiary: o(0.50, 0.10, d.th),
+    border: N(0.84), borderStrong: N(0.62),
+    error: o(0.53, 0.19, 27), warning: o(0.55, 0.12, 70), success: o(0.52, 0.13, 145), info: o(0.52, 0.13, 245),
+  });
+  Object.assign(t, { selection: '@accentContainer', selectionText: '@textOnAccentContainer', scrim: '#000000', shadow: '#000000' });
+
+  // terminal: curated for legibility, not tinted with the accent (ADR 0001)
+  const hues = { red: 25, green: 140, yellow: 90, blue: 250, magenta: 330, cyan: 195 };
+  const base = mode === 'dark'
+    ? { red: [0.72, 0.15], green: [0.79, 0.14], yellow: [0.85, 0.13], blue: [0.74, 0.12], magenta: [0.74, 0.13], cyan: [0.80, 0.10] }
+    : { red: [0.53, 0.17], green: [0.52, 0.14], yellow: [0.55, 0.12], blue: [0.50, 0.15], magenta: [0.52, 0.16], cyan: [0.54, 0.10] };
+  for (const [k, [l, c]] of Object.entries(base)) {
+    t[`terminal.${k}`] = o(l, c, hues[k]);
+    t[`terminal.bright.${k}`] = mode === 'dark' ? o(Math.min(l + 0.07, 0.95), c * 0.9, hues[k]) : o(l - 0.07, c * 1.1, hues[k]); // light: bright = deeper
+  }
+  Object.assign(t, mode === 'dark'
+    ? { 'terminal.black': '@surface.highest', 'terminal.white': '@textMuted', 'terminal.bright.black': '@borderStrong', 'terminal.bright.white': '@text' }
+    : { 'terminal.black': '@text', 'terminal.white': '@borderStrong', 'terminal.bright.black': '@textMuted', 'terminal.bright.white': '@surface.highest' });
+  return t;
+}
+
+// ---------- colour maths (prototype only; the real palette stores hex) ----------
+function oklchToRgb(L, C, H) {
+  const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+          -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+          -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+}
+function oklchToHex(L, C, H) {
+  let rgb = oklchToRgb(L, C, H);
+  while (C > 0 && rgb.some(v => v < -1e-4 || v > 1 + 1e-4)) rgb = oklchToRgb(L, C = Math.max(0, C - 0.002), H); // gamut-map by chroma
+  return '#' + rgb.map(v => {
+    v = Math.min(1, Math.max(0, v));
+    v = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  }).join('');
+}
+function lum(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const ratio = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); };
+
+function resolve(t, key, seen = new Set()) {
+  const v = (t[key] ?? '').trim();
+  if (seen.has(key)) return '#ff00ff';
+  seen.add(key);
+  if (v.startsWith('@')) return resolve(t, v.slice(1), seen);
+  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+  const n = v.split(/\s+/).map(Number);
+  return n.length === 3 && n.every(Number.isFinite) ? oklchToHex(...n) : '#ff00ff';
+}
+
+// ---------- state ----------
+const params = new URLSearchParams(location.search);
+let variant = KEYS.includes(params.get('variant')) ? params.get('variant') : 'A';
+let mode = params.get('mode') === 'light' ? 'light' : 'dark';
+const edits = {}; // edits[variant+mode][token] = value, in memory only
+const current = () => ({ ...build(DIRS[variant], mode), ...(edits[variant + mode] || {}) });
+
+function render() {
+  const t = current(), hex = {};
+  for (const k of Object.keys(t)) hex[k] = resolve(t, k);
+  for (const [k, v] of Object.entries(hex)) document.documentElement.style.setProperty('--' + k.replace(/\./g, '-'), v);
+  document.documentElement.style.colorScheme = mode;
+
+  const d = DIRS[variant];
+  document.getElementById('heading').textContent = `${variant} · ${d.name}`;
+  document.getElementById('blurb').textContent = `— ${d.blurb}, ${mode}`;
+  document.getElementById('label').textContent = `${variant} (${d.name})`;
+  document.getElementById('mode').textContent = mode === 'dark' ? '☾ dark' : '☀ light';
+
+  // terminal sample
+  const c = (k, s, bold) => `<span style="color:${hex['terminal.' + k]}${bold ? ';font-weight:600' : ''}">${s}</span>`;
+  document.getElementById('term').innerHTML = [
+    `${c('green', 'lyle', 1)}${c('white', '@')}${c('cyan', 'itera')} ${c('blue', '~/projects/itera', 1)} ${c('magenta', '(prototype/palette)')}`,
+    `${c('bright.black', '❯')} ls modules`,
+    `╭───┬─────────────────┬──────┬────────╮`,
+    `│ ${c('bright.black', '#')} │ ${c('green', 'name', 1)}            │ ${c('green', 'type', 1)} │ ${c('green', 'size', 1)}   │`,
+    `├───┼─────────────────┼──────┼────────┤`,
+    `│ ${c('bright.black', '0')} │ ${c('cyan', 'modules/hjem')}    │ dir  │ ${c('yellow', '4.0 KB')} │`,
+    `│ ${c('bright.black', '1')} │ ${c('cyan', 'modules/nixos')}   │ dir  │ ${c('yellow', '4.0 KB')} │`,
+    `│ ${c('bright.black', '2')} │ ${c('cyan', 'modules/programs')}│ dir  │ ${c('yellow', '4.0 KB')} │`,
+    `╰───┴─────────────────┴──────┴────────╯`,
+    `${c('bright.black', '❯')} git diff --stat`,
+    `${c('red', '-  theme = "Adwaita-dark";')}`,
+    `${c('green', '+  theme = config.itera.look.gtkTheme;')}`,
+    `${c('bright.black', '❯')} nixos-rebuild switch --flake .#testhost`,
+    `${c('red', 'error:', 1)} attribute ${c('magenta', "'look'")} missing  ${c('bright.black', '# at modules/nixos/desktop/theme.nix:12')}`,
+    `${c('yellow', 'warning:', 1)} Git tree is dirty`,
+    `${c('bright.blue', 'info:')} ${c('bright.white', 'building 3 derivations')} ${c('bright.cyan', '…')} ${c('bright.green', 'done')} ${c('bright.red', '1 failed')} ${c('bright.yellow', 'retry?')} ${c('bright.magenta', 'skip?')}`,
+  ].join('\n');
+  const names = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+  document.getElementById('ansi').innerHTML = ['', 'bright.'].flatMap(p => names.map(n => {
+    const k = 'terminal.' + p + n;
+    return `<div style="background:${hex[k]};color:${lum(hex[k]) > 0.18 ? '#000' : '#fff'}">${p}${n}<br>${ratio(hex[k], hex.background).toFixed(1)}:1</div>`;
+  })).join('');
+
+  // contrast table
+  const pairs = [
+    ['text', 'background', 7], ['text', 'surface.highest', 4.5], ['textMuted', 'background', 4.5], ['textMuted', 'surface.high', 4.5],
+    ['textOnAccent', 'accent', 4.5], ['textOnAccentContainer', 'accentContainer', 4.5], ['selectionText', 'selection', 4.5],
+    ['inverseText', 'inverseSurface', 4.5], ['accent', 'background', 3], ['accent', 'surface.highest', 3],
+    ['accentSecondary', 'background', 3], ['accentTertiary', 'background', 3],
+    ['border', 'background', 1.3], ['borderStrong', 'background', 3],
+    ['error', 'background', 4.5], ['warning', 'background', 4.5], ['success', 'background', 4.5], ['info', 'background', 4.5],
+    ...names.slice(1, 7).flatMap(n => [[`terminal.${n}`, 'background', 4.5], [`terminal.bright.${n}`, 'background', 4.5]]),
+    ['terminal.bright.black', 'background', 3], ['terminal.white', 'background', 3],
+  ];
+  document.getElementById('contrast').innerHTML = '<tr><th>foreground</th><th>on</th><th>sample</th><th>ratio</th><th>target</th></tr>' +
+    pairs.map(([f, b, need]) => {
+      const r = ratio(hex[f], hex[b]), cls = r >= need ? 'ok' : r >= need * 0.8 ? 'meh' : 'bad';
+      return `<tr><td class="mono">${f}</td><td class="mono">${b}</td><td><span style="background:${hex[b]};color:${hex[f]};padding:2px 8px;border-radius:4px">Aa sample</span></td><td class="${cls}">${r.toFixed(2)}:1</td><td class="muted">≥ ${need}</td></tr>`;
+    }).join('');
+
+  // token table
+  const ed = edits[variant + mode] || {};
+  document.getElementById('tokens').innerHTML = '<tr><th>token</th><th></th><th>value</th><th>hex</th><th>vs background</th></tr>' +
+    Object.keys(t).map(k => `<tr><td class="mono">${k}</td><td><div class="sw" style="background:${hex[k]}"></div></td>` +
+      `<td><input data-k="${k}" value="${t[k]}" class="${k in ed ? 'edited' : ''}"></td><td class="mono">${hex[k]}</td>` +
+      `<td class="muted">${ratio(hex[k], hex.background).toFixed(2)}:1</td></tr>`).join('');
+
+  history.replaceState(null, '', `?variant=${variant}&mode=${mode}`);
+}
+
+document.getElementById('tokens').addEventListener('change', e => {
+  const k = e.target.dataset.k; if (!k) return;
+  (edits[variant + mode] ||= {})[k] = e.target.value;
+  render();
+});
+document.getElementById('reset').onclick = () => { delete edits[variant + mode]; render(); };
+document.getElementById('export').onclick = () => {
+  const t = current(), out = document.getElementById('out');
+  out.hidden = false;
+  out.value = `# itera palette — ${variant} (${DIRS[variant].name}), ${mode}\n${mode} = {\n` +
+    Object.keys(t).map(k => `  ${k.includes('.') ? k : k} = "${resolve(t, k)}";${t[k].startsWith('@') ? `  # defaults to ${t[k].slice(1)}` : ''}`).join('\n') + '\n};\n';
+  out.scrollIntoView({ behavior: 'smooth' });
+};
+const step = n => { variant = KEYS[(KEYS.indexOf(variant) + n + KEYS.length) % KEYS.length]; render(); };
+const flip = () => { mode = mode === 'dark' ? 'light' : 'dark'; render(); };
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+document.getElementById('mode').onclick = flip;
+addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') step(-1);
+  if (e.key === 'ArrowRight') step(1);
+  if (e.key === 'm' || e.key === 'M') flip();
+});
+render();
+</script>
+</body>
+</html>
