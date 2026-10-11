@@ -23,3 +23,7 @@ _Avoid_: variant, flavour
 **Delivery lane**:
 How a surface receives the itera look. There are three: the **DMS lane** (the surface uses DMS's generated output), the **inherited lane** (the surface follows the desktop's light/dark signal, the toolkit or the terminal's colours) and the **Nix lane** (the surface is rendered from colour tokens at build time and changes only on rebuild).
 _Avoid_: target, backend
+
+**Aspect class**:
+The width family of a display, taken from its aspect ratio: standard (around 16:9), ultrawide (around 21:9) or super-ultrawide (around 32:9). Layout and wallpaper defaults vary by aspect class, not by individual display.
+_Avoid_: monitor type, screen size
