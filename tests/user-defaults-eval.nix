@@ -329,13 +329,13 @@ let
       lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
     "calculator key needs no modifier" =
       lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
-    "autostart still present" = lib.hasInfix "exec_once=dms run" bobMango;
+    "autostart still present" = lib.hasInfix "systemd-cat -t dms dms run" bobMango;
     # The session bring-up must be the FIRST autostart entry and a single script:
     # mango spawns each exec_once asynchronously, so splitting the environment
     # export from the target start would race and hand the portal an empty
     # environment. Assert the rendered script, not just that a line exists.
     "session setup autostarts before the shell" = lib.hasInfix "itera-mango-session-setup" (
-      builtins.head (lib.splitString "exec_once=dms run" bobMango)
+      builtins.head (lib.splitString "systemd-cat -t dms dms run" bobMango)
     );
     "session setup starts mango-session.target" =
       lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);
