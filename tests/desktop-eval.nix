@@ -81,6 +81,7 @@ let
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
+  mangoConf = builtins.readFile mangoUserFiles."mango/config.conf".source;
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
@@ -127,6 +128,9 @@ let
     # Home layer: the mango user config is generated. Probing for the key forces
     # the hjem battery's gated config path (and its `configText`) to evaluate.
     "mango user config is generated" = mangoUserFiles ? "mango/config.conf";
+    # No gesture overrides on this host, so mango's default gesture set renders.
+    "default 3-finger focus gesture" = lib.hasInfix "gesturebind=none,left,3,focusdir,left" mangoConf;
+    "default 4-finger overview gesture" = lib.hasInfix "gesturebind=none,up,4,enteroverview," mangoConf;
 
     # Terminal battery ships WezTerm, wires SUPER+t to it, and installs the Nerd
     # Font WezTerm needs for the shell's glyphs.

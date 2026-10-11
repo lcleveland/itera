@@ -77,11 +77,12 @@ let
             "r"
             "s"
             "p"
+            "c"
           ]
         );
         default = [ ];
         example = [ "s" ];
-        description = "MangoWC bind flags appended to the `bind` key: l (lock), r (release), s (keysym), p (pass).";
+        description = "MangoWC bind flags appended to the `bind` key: l (lock), r (release), s (keysym), p (pass), c (allow conflict — must be set on every bind sharing the key).";
       };
     };
   });
@@ -103,6 +104,55 @@ let
   # Render a name-keyed attrset of keybinds into config.conf lines (one per
   # bind). The names are organisational only — they never reach the file.
   renderKeybinds = keybinds: concatStringsSep "\n" (mapAttrsToList (_: mkBindLine) keybinds);
+
+  # A MangoWC mouse button bind. Renders as
+  #
+  #   mousebind=<MOD+MOD>,<button>,<command>,<arguments>
+  #
+  # e.g. SUPER+left-drag moves a window:
+  #   mousebind=SUPER,btn_left,moveresize,curmove
+  mouseBindType = lib.types.submodule (_: {
+    options = {
+      modifierKeys = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "SUPER" ];
+        description = "Modifier keys joined with `+` (e.g. `[ \"SUPER\" ]`). Empty renders as `none`.";
+      };
+
+      button = lib.mkOption {
+        type = lib.types.str;
+        example = "btn_left";
+        description = "Mouse button: `btn_left`, `btn_right`, `btn_middle`, `btn_side`, `btn_extra`, `btn_forward`, `btn_back`, `btn_task`, or `code:<N>`.";
+      };
+
+      mangoCommand = lib.mkOption {
+        type = lib.types.str;
+        example = "moveresize";
+        description = "MangoWC command to run (e.g. `moveresize`, `killclient`).";
+      };
+
+      commandArguments = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "curmove";
+        description = "Optional command arguments. `null` renders as the empty string.";
+      };
+    };
+  });
+
+  mkMouseBindLine =
+    mb:
+    let
+      modifierKeys = mb.modifierKeys or [ ];
+      commandArguments = mb.commandArguments or null;
+      modifiers = if modifierKeys == [ ] then "none" else concatStringsSep "+" modifierKeys;
+      arguments = if commandArguments == null then "" else commandArguments;
+    in
+    "mousebind=${modifiers},${mb.button},${mb.mangoCommand},${arguments}";
+
+  renderMouseBinds =
+    mousebinds: concatStringsSep "\n" (mapAttrsToList (_: mkMouseBindLine) mousebinds);
 
   # A MangoWC touchpad gesture bind. Renders as
   #
@@ -216,11 +266,12 @@ let
       in
       if m == null then intPart else "${intPart}.${builtins.head m}";
 
-  # A MangoWC `monitor_rule=` entry. The match fields (name/make/model/serial)
-  # are regexes; if any are set, ALL set ones must match for the rule to apply.
-  # The remaining fields configure the matched output. The attribute key defaults
-  # into `name` (wired in modules/programs/mango.nix), so keying a monitor by its
-  # connector name is enough for the common case.
+  # A MangoWC `monitor_rule=` entry. `name` is a regex; make/model/serial are
+  # exact strings. If several are set, ALL must match for the rule to apply, and
+  # mango applies only the FIRST matching rule per output. The remaining fields
+  # configure the matched output. The attribute key defaults into `name` as an
+  # anchored regex (`^key$`), so keying a monitor by its connector name matches
+  # exactly that connector — `DP-1` never also catches `eDP-1`.
   #
   #   monitor_rule=name:VAL,width:VAL,height:VAL,refresh:VAL,x:VAL,y:VAL,...
   monitorRuleType = lib.types.submodule (
@@ -231,25 +282,25 @@ let
           type = lib.types.str;
           example = "^eDP-1$";
           description = ''
-            Output match regex (connector name). Defaults to the attribute key.
-            MangoWC treats this as a regular expression — anchor it (`^eDP-1$`)
-            for an exact match, otherwise `eDP-1` also matches e.g. `eDP-10`.
+            Output match regex (connector name). Defaults to the attribute key,
+            escaped and anchored (`^eDP-1$`) so it matches that connector exactly.
+            Set it to an unanchored pattern (e.g. `HDMI-A-.*`) to match several.
           '';
         };
         make = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
-          description = "Match the output's manufacturer (regex). Use `wlr-randr` to find it.";
+          description = "Match the output's manufacturer (exact string). Use `wlr-randr` to find it.";
         };
         model = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
-          description = "Match the output's model (regex). Use `wlr-randr` to find it.";
+          description = "Match the output's model (exact string). Use `wlr-randr` to find it.";
         };
         serial = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
-          description = "Match the output's serial number (regex). Use `wlr-randr` to find it.";
+          description = "Match the output's serial number (exact string). Use `wlr-randr` to find it.";
         };
 
         width = lib.mkOption {
@@ -304,7 +355,39 @@ let
         hdr = lib.mkOption {
           type = lib.types.nullOr lib.types.bool;
           default = null;
-          description = "High dynamic range (only supported on mango's wl-only branch).";
+          description = "High dynamic range. See also the `hdr*` luminance fields.";
+        };
+        hdrForce = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = "Enable HDR even when the EDID does not advertise BT.2020/PQ (MangoWC's `hdr_force`).";
+        };
+        hdrMinLum = lib.mkOption {
+          type = lib.types.nullOr (lib.types.either lib.types.int lib.types.float);
+          default = null;
+          example = 0.05;
+          description = "Mastering display minimum luminance in cd/m² (MangoWC's `hdr_min_lum`).";
+        };
+        hdrMaxLum = lib.mkOption {
+          type = lib.types.nullOr (lib.types.either lib.types.int lib.types.float);
+          default = null;
+          example = 616;
+          description = "Mastering display peak luminance in cd/m², also sent as max_cll (MangoWC's `hdr_max_lum`).";
+        };
+        hdrMaxAvgLum = lib.mkOption {
+          type = lib.types.nullOr (lib.types.either lib.types.int lib.types.float);
+          default = null;
+          example = 400;
+          description = "Max frame-average light level (max_fall) in cd/m² (MangoWC's `hdr_max_avg_lum`).";
+        };
+        primary = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = ''
+            Make this the X11 (RandR) primary output for XWayland — fullscreen
+            games use it as their coordinate origin. If several rules set it, the
+            first matching one wins.
+          '';
         };
         customMode = lib.mkOption {
           type = lib.types.nullOr lib.types.bool;
@@ -331,7 +414,7 @@ let
           description = "Whether the output is enabled. `false` renders `disable:1`.";
         };
       };
-      config.name = lib.mkDefault name;
+      config.name = lib.mkDefault "^${lib.escapeRegex name}$";
     }
   );
 
@@ -358,6 +441,11 @@ let
         ++ lib.optional ((m.scale or null) != null) "scale:${fmtNum m.scale}"
         ++ lib.optional ((m.vrr or null) != null) "vrr:${b m.vrr}"
         ++ lib.optional ((m.hdr or null) != null) "hdr:${b m.hdr}"
+        ++ lib.optional ((m.hdrForce or null) != null) "hdr_force:${b m.hdrForce}"
+        ++ lib.optional ((m.hdrMinLum or null) != null) "hdr_min_lum:${fmtNum m.hdrMinLum}"
+        ++ lib.optional ((m.hdrMaxLum or null) != null) "hdr_max_lum:${fmtNum m.hdrMaxLum}"
+        ++ lib.optional ((m.hdrMaxAvgLum or null) != null) "hdr_max_avg_lum:${fmtNum m.hdrMaxAvgLum}"
+        ++ lib.optional ((m.primary or null) != null) "primary:${b m.primary}"
         ++ lib.optional ((m.customMode or null) != null) "custom:${b m.customMode}"
         ++ lib.optional ((m.transform or null) != null) "rr:${toString monitorTransforms.${m.transform}}";
       parts = matchParts ++ (if enabled then setParts else [ "disable:1" ]);
@@ -388,6 +476,26 @@ let
       map (id: "tag_rule=id:${toString id},layout_name:${layout}") (lib.range 1 tagCount)
     );
 
+  # Write a config file and parse it with `mango -p`, failing the build on any
+  # error mango reports (unknown key, bad value, keybind conflict). `-p` only
+  # parses — no display or runtime dir needed, so it runs in the sandbox.
+  validateConfig =
+    {
+      pkgs,
+      mango,
+      text,
+      name ? "mango-config.conf",
+    }:
+    pkgs.runCommand name
+      {
+        inherit text;
+        passAsFile = [ "text" ];
+      }
+      ''
+        cp "$textPath" "$out"
+        HOME="$TMPDIR" ${mango}/bin/mango -p -c "$out"
+      '';
+
   # Render the `circle_layout=` line that `switch_layout` cycles through. An
   # empty list renders as "" so the line is omitted entirely (mango then cycles
   # all built-in layouts).
@@ -399,6 +507,9 @@ in
     keybindType
     mkBindLine
     renderKeybinds
+    mouseBindType
+    mkMouseBindLine
+    renderMouseBinds
     gestureType
     mkGestureLine
     renderGestures
@@ -409,5 +520,6 @@ in
     monitorRuleType
     mkMonitorRuleLine
     renderMonitorRules
+    validateConfig
     ;
 }
