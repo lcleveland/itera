@@ -149,6 +149,12 @@ in
     # as the DankMaterialShell battery exposes.
     hjem.clobberByDefault = mkDefault true;
 
+    # hjem's state step GC-roots every store path the manifest links, via
+    # `nix-store --add-root`, but upstream's unit leaves nix off its PATH, so
+    # it logs "nix-store is unavailable; skipping state GC roots" and a GC can
+    # collect files still linked into $HOME.
+    systemd.services."hjem-update-state@".path = [ config.nix.package ];
+
     warnings = lib.flatten (
       lib.mapAttrsToList (
         username: user:
