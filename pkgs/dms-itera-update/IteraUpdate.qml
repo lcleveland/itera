@@ -470,7 +470,7 @@ PluginComponent {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.margins: Theme.spacingS
-                                text: "itera update-boot"
+                                text: "itera update on-reboot"
                                 color: Theme.surfaceText
                                 font.pixelSize: Theme.fontSizeSmall
                                 font.family: "monospace"

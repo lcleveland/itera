@@ -61,7 +61,7 @@ itera_update_source() {
   return 0
 }
 
-# The fetch flag for the `update`/`update-boot` verbs: refresh a remote flake ref
+# The fetch flag for the `update`/`update on-reboot` verbs: refresh a remote flake ref
 # to its newest revision, or bump a local checkout's flake.lock. Call after
 # itera_update_source so ITERA_UPDATE_REMOTE is set.
 itera_update_fetch_flag() {
@@ -119,7 +119,7 @@ Commands:
                                --update for a local one).
   boot [nh args]               Rebuild from your flake, but apply on next reboot
                                instead of now (nh os boot).
-  update-boot [nh args]        Fetch the newest config, then apply on next reboot
+  update on-reboot [nh args]   Fetch the newest config, then apply on next reboot
                                (nh os boot; --refresh for a remote
                                itera.update.flake, --update for a local one).
   gc [nh args]                 Prune old generations to free space (nh clean all).
@@ -165,9 +165,15 @@ case "$cmd" in
     esac
     ;;
   rebuild) itera_rebuild switch 0 "$@" ;;
-  update) itera_rebuild switch 1 "$@" ;;
+  update)
+    if [ "${1:-}" = on-reboot ]; then
+      shift
+      itera_rebuild boot 1 "$@"
+    else
+      itera_rebuild switch 1 "$@"
+    fi
+    ;;
   boot) itera_rebuild boot 0 "$@" ;;
-  update-boot) itera_rebuild boot 1 "$@" ;;
   gc) exec nh clean all "$@" ;;
   disks)
     sub="${1:-list}"

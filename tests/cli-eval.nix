@@ -70,12 +70,14 @@ let
       "rebuild"
       "update"
       "boot"
-      "update-boot"
       "gc"
       "disks"
       "firmware"
       "help"
     ];
+    "update has the on-reboot subcommand" = builtins.elem "on-reboot" (
+      verbs (lib.findFirst (c: c.name == "update") { } (mkSpec false).commands)
+    );
     "consumer spec omits the dev-only testhost verbs" = !(builtins.elem "testhost" consumerVerbs);
     "full spec adds testhost and nothing else" =
       builtins.elem "testhost" fullVerbs
