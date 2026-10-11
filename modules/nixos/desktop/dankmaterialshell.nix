@@ -156,9 +156,10 @@ in
           };
 
           # Enabling a plugin only REGISTERS it — a dank-bar widget renders only
-          # when its id appears in a bar config's widget list. itera writes
-          # settings.json declaratively (clobber = true, so DMS GUI edits do not
-          # survive a rebuild), so the bar layout must be declared here too. Ship
+          # when its id appears in a bar config's widget list. itera's keys
+          # live in the read-only config.d/00-itera.json drop-in, which wins over
+          # DMS's own settings.json (a GUI edit to one lasts until DMS restarts),
+          # so the bar layout must be declared here too. Ship
           # DMS's default bar (schema matches the pinned `configVersion`) with
           # `ipIndicator` and `iteraUpdate` (the update-indicator battery,
           # modules/nixos/desktop/update-indicator.nix) added to the right
