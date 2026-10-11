@@ -85,9 +85,29 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
-  # udiskie's autostart line, and the config file it is pointed at with `-c`.
-  udiskieLine = lib.findFirst (lib.hasInfix "bin/udiskie") "" (lib.splitString "\n" mangoConf);
-  udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " udiskieLine));
+  # udiskie's tray icon SVG, reached through its autostart line and the config
+  # file that line points at with `-c`.
+  udiskieIconOf =
+    c:
+    let
+      conf = builtins.readFile c.hjem.users.alice.xdg.config.files."mango/config.conf".source;
+      line = lib.findFirst (lib.hasInfix "bin/udiskie") "" (lib.splitString "\n" conf);
+      udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " line));
+    in
+    builtins.readFile (
+      lib.head (builtins.match ".*- (/nix/store/[^\n]*udiskie-tray-icon\\.svg).*" udiskieConfig)
+    );
+
+  cfgTrayColor = mkConfig [
+    {
+      users.users.alice = {
+        isNormalUser = true;
+        home = "/home/alice";
+      };
+      hjem.users.alice.enable = true;
+      itera.storage.trayIconColor = "#1a1c20";
+    }
+  ];
 
   # The update indicator's declarative settings — everything the widget knows is
   # baked in here at build time, so the checks below read the option rather than
@@ -95,6 +115,8 @@ let
   updateIndicatorSettings = cfg.itera.programs.dankMaterialShell.plugins.iteraUpdate.settings;
 
   barConfigs = cfg.itera.programs.dankMaterialShell.settings.barConfigs;
+
+  layoutChooser = cfg.itera.programs.dankMaterialShell.plugins.layoutChooser;
 
   # The rendered geoclue config. Read the text (not just the option) so the
   # `mkAfter` append is actually forced, and read it off a config with the shell
@@ -303,12 +325,28 @@ let
       !(cfgNoDesktop.xdg.portal.wlr.settings ? screencast);
 
     # udiskie's tray icon is a Material Symbols glyph (the font DMS draws its own
-    # bar icons with) in the bar's text color, not the Adwaita drive icon.
-    "udiskie tray icon is itera's Material Symbols glyph" =
-      lib.hasInfix "udiskie-tray-icon.svg" udiskieConfig
-      && lib.hasInfix "#e0e2e8" (
-        builtins.readFile (lib.head (builtins.match ".*- (/nix/store/[^\n]*\\.svg).*" udiskieConfig))
-      );
+    # bar icons with) in `itera.storage.trayIconColor`, not the Adwaita drive icon.
+    "udiskie tray icon is itera's Material Symbols glyph" = lib.hasInfix "fill=\"#ffffff\"" (
+      udiskieIconOf cfg
+    );
+    "udiskie tray icon color is configurable" = lib.hasInfix "fill=\"#1a1c20\"" (
+      udiskieIconOf cfgTrayColor
+    );
+
+    # Layout chooser: DMS's built-in `layout` widget (current layout, click for a
+    # chooser) on the bar, plus a `#layout` launcher plugin and a key to open it.
+    "default bar places DMS layout widget" = builtins.elem "layout" (builtins.head barConfigs)
+    .leftWidgets;
+    # DMS keys plugin settings by plugin.json's id, itera by the attribute name.
+    "layout chooser plugin id matches its attribute" =
+      (builtins.fromJSON (builtins.readFile "${layoutChooser.src}/plugin.json")).id == "layoutChooser";
+    "layout chooser lists every mango layout" =
+      layoutChooser.settings.layouts == self.lib.mango.supportedLayouts;
+    "layout chooser dispatches through mmsg" = lib.hasSuffix "/bin/mmsg" layoutChooser.settings.mmsg;
+    "layout chooser keybind opens the launcher" =
+      lib.hasInfix "dms ipc call spotlight openQuery '#layout '" mangoConf;
+    "layout chooser is inert without the shell" =
+      !(cfgNoDesktop.itera.programs.dankMaterialShell.plugins ? layoutChooser);
 
     # Update indicator: a read-only dank-bar widget reporting when the itera
     # repository has moved on from the revision this system was built with.

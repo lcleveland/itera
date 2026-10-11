@@ -1,0 +1,13 @@
+{
+  "id": "layoutChooser",
+  "name": "Layout Chooser",
+  "description": "Pick the focused tag's MangoWC tiling layout",
+  "version": "1.0.0",
+  "author": "itera",
+  "icon": "view_quilt",
+  "type": "launcher",
+  "capabilities": ["launcher", "command-execution"],
+  "component": "./LayoutChooserLauncher.qml",
+  "trigger": "#layout",
+  "permissions": ["settings_read", "process"]
+}

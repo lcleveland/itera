@@ -569,6 +569,17 @@ iteraLib.programs.mkCuratedProgram {
           mangoCommand = "spawn_shell";
           commandArguments = "dms ipc call notifications toggle";
         };
+        # Pick the tag's layout by name (the layoutChooser launcher plugin).
+        chooseLayout = {
+          modifierKeys = [
+            "SUPER"
+            "CTRL"
+          ];
+          flagModifiers = [ "s" ];
+          keySymbol = "n";
+          mangoCommand = "spawn_shell";
+          commandArguments = "dms ipc call spotlight openQuery '#layout '";
+        };
         clipboard = {
           modifierKeys = [ "SUPER" ];
           flagModifiers = [ "s" ];
