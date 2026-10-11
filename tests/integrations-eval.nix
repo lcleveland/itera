@@ -164,7 +164,9 @@ let
   # facter auto-NVIDIA: feed a synthetic report directly (pure — no impure file
   # read) with a graphics_card carrying a PCI vendor id. NVIDIA is 4318 (0x10de),
   # AMD 4098 (0x1002). The battery auto-enables itera.nvidia only for NVIDIA.
-  gpuReport = vendorId: { facter.report.hardware.graphics_card = [ { vendor.value = vendorId; } ]; };
+  gpuReport = vendorId: {
+    hardware.facter.report.hardware.graphics_card = [ { vendor.value = vendorId; } ];
+  };
   nvidiaHost = mkGpuEval (gpuReport 4318);
   amdHost = mkGpuEval (gpuReport 4098);
   # Same synthetic-report trick for the video battery's own GPU branch: Intel is
@@ -415,7 +417,7 @@ let
     # In a PURE eval, the absolute report path is not present (pathExists is false
     # for absolute paths in pure mode), so the report stays unwired and detection
     # falls back to the curated module list — no impure read, no failure.
-    "facter reportPath is unwired when the report is absent" = base.facter.reportPath == null;
+    "facter reportPath is unwired when the report is absent" = base.hardware.facter.reportPath == null;
     # The auto-generated report's directory is persisted across the tmpfs root.
     "facter report dir is persisted" = builtins.elem "/var/lib/itera" (persistDirs base);
 
@@ -490,7 +492,8 @@ let
     ) base.environment.systemPackages;
     # Like fingerprint: the key is explicitly OFF on the initial-login surfaces...
     "security key is disabled at TTY login" = base.security.pam.services.login.u2f.enable == false;
-    "security key is disabled at the greeter" = base.security.pam.services.greetd.u2f.enable == false;
+    # (The greeter inherits `login`: nixpkgs' greetd PAM stack is a substack of it.)
+    "greetd PAM stack defers to login" = !base.security.pam.services.greetd.useDefaultRules;
     # ...but ON for in-session privilege prompts (pam_u2f's default from the global).
     "security key is enabled for sudo" = base.security.pam.services.sudo.u2f.enable == true;
     "security key is enabled for polkit" = base.security.pam.services.polkit-1.u2f.enable == true;
@@ -506,7 +509,6 @@ let
     "fprintd is enabled by default" = base.services.fprintd.enable;
     # Fingerprint is explicitly OFF on the initial-login surfaces...
     "fingerprint is disabled at TTY login" = base.security.pam.services.login.fprintAuth == false;
-    "fingerprint is disabled at the greeter" = base.security.pam.services.greetd.fprintAuth == false;
     # ...but ON for in-session privilege prompts (fprintd's default).
     "fingerprint is enabled for sudo" = base.security.pam.services.sudo.fprintAuth == true;
     "fingerprint is enabled for polkit" = base.security.pam.services.polkit-1.fprintAuth == true;

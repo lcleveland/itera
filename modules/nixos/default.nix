@@ -43,8 +43,6 @@ in
       # to agenix (powers `itera.sops`). Both are bundled; each is inert until
       # its battery declares a secret.
       inputs.sops-nix.nixosModules.sops
-      # nixos-facter: declarative hardware detection (powers `itera.hardware.facter`).
-      inputs.nixos-facter-modules.nixosModules.facter
       # nix-index-database: prebuilt nix-index DB + comma (powers `itera.nixIndex`).
       inputs.nix-index-database.nixosModules.nix-index
       # nix-flatpak: declarative Flatpak (powers `itera.desktop.flatpak`).

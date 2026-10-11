@@ -2,7 +2,7 @@
   description = "A NixOS configuration built on itera + hjem";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # hjem manages your $HOME. itera's home modules are class-`hjem` submodules,
     # so itera MUST share this exact hjem (see `follows` below) — otherwise
@@ -66,7 +66,7 @@
               # Pin the NixOS release your stateful data matches. Set this ONCE
               # at install time to the release you installed from, then never
               # change it.
-              nix.stateVersion = "25.05";
+              nix.stateVersion = "26.05";
 
               # Where `itera rebuild`/`update` build this host from, and which
               # configuration it is. Point `update.flake` at your config — a

@@ -279,6 +279,9 @@ let
     # deliberately exits when its display goes away. Neither should trip systemd's
     # start rate limit; PartOf= still bounds the retries to the session's lifetime.
     startLimitIntervalSec = 0;
+    # The dms-greeter's session reaches graphical-session.target too; skip system
+    # users so the bridges don't run there and fail ("Broken pipe") at login.
+    unitConfig.ConditionUser = "!@system";
     serviceConfig = {
       ExecStart = exec;
       # `always`, not `on-failure`: `wl-paste --watch` exits 0 when the compositor

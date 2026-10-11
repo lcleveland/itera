@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  actions: write # cache-nix-action purge deletes old caches
+
 jobs:
   check:
     strategy:
