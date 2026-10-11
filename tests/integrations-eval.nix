@@ -495,8 +495,12 @@ let
     ) base.environment.systemPackages;
     # Like fingerprint: the key is explicitly OFF on the initial-login surfaces...
     "security key is disabled at TTY login" = base.security.pam.services.login.u2f.enable == false;
-    # (The greeter inherits `login`: nixpkgs' greetd PAM stack is a substack of it.)
-    "greetd PAM stack defers to login" = !base.security.pam.services.greetd.useDefaultRules;
+    # ...and off the greeter, whether greetd's stack is a substack of `login`
+    # (nixpkgs-unstable) or built from default rules (26.05).
+    "security key is disabled at the greeter" =
+      !lib.hasInfix "pam_u2f" base.security.pam.services.greetd.text;
+    "fingerprint is disabled at the greeter" =
+      !lib.hasInfix "pam_fprintd" base.security.pam.services.greetd.text;
     # ...but ON for in-session privilege prompts (pam_u2f's default from the global).
     "security key is enabled for sudo" = base.security.pam.services.sudo.u2f.enable == true;
     "security key is enabled for polkit" = base.security.pam.services.polkit-1.u2f.enable == true;

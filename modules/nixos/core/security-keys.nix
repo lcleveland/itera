@@ -80,12 +80,19 @@ let
   # battery. nixpkgs defaults each service's `u2f.enable` to `security.pam.u2f.enable`
   # (true here), so these explicit `false`s are what keep the key off the initial
   # login — otherwise the greeter waits on / cues for a key before accepting the
-  # typed password.
+  # typed password. `login` implies `greetd`: on nixpkgs-unstable greetd's stack
+  # is a substack of `login` (so this toggle is inert there), but on 26.05 it is
+  # built from default rules and would otherwise carry pam_u2f itself.
   loginPamServices = builtins.listToAttrs (
-    map (name: {
-      inherit name;
-      value.u2f.enable = mkDefault false;
-    }) cfg.loginServices
+    map
+      (name: {
+        inherit name;
+        value.u2f.enable = mkDefault false;
+      })
+      (
+        cfg.loginServices
+        ++ lib.optional (config.services.greetd.enable && builtins.elem "login" cfg.loginServices) "greetd"
+      )
   );
 
   # The greeter surfaces its key-auth UI only when `login` is NOT a login surface.
@@ -125,8 +132,8 @@ in
         PAM services that are the *initial-login* surface, on which pam_u2f is
         explicitly disabled (so a security key can never log you in, and the greeter
         accepts the typed password immediately instead of waiting on / cueing for a
-        key). `login` covers both TTY/console login and the graphical greeter, whose
-        greetd PAM stack is a substack of `login`. Every other service keeps the key
+        key). `login` covers both TTY/console login and the graphical greeter
+        (`greetd` is disabled alongside it). Every other service keeps the key
         as an additional factor, so sudo/polkit still accept it in-session. Removing
         `login` from this list opts the key back into both logins (re-enabling the
         pam_u2f factor and the greeter's key-auth UI).

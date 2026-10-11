@@ -79,12 +79,20 @@ let
 
   # Disable fprintAuth on each login-surface service. fprintd's per-service default
   # is `true` (once fprintd is enabled), so these explicit `false`s are what keep
-  # fingerprint off the initial login.
+  # fingerprint off the initial login. `login` implies `greetd`: on
+  # nixpkgs-unstable greetd's stack is a substack of `login` (so this toggle is
+  # inert there), but on 26.05 it is built from default rules and would
+  # otherwise carry pam_fprintd itself.
   loginPamServices = builtins.listToAttrs (
-    map (name: {
-      inherit name;
-      value.fprintAuth = mkDefault false;
-    }) cfg.loginServices
+    map
+      (name: {
+        inherit name;
+        value.fprintAuth = mkDefault false;
+      })
+      (
+        cfg.loginServices
+        ++ lib.optional (config.services.greetd.enable && builtins.elem "login" cfg.loginServices) "greetd"
+      )
   );
 in
 {
@@ -107,8 +115,8 @@ in
       description = ''
         PAM services that are the *initial-login* surface, on which fingerprint auth
         is explicitly disabled (so a fingerprint can never log you in). The default
-        `login` covers TTY/console login and the graphical greeter (greetd's PAM
-        stack is a substack of `login`, so per-greetd toggles have no effect). Every other service
+        `login` covers TTY/console login and the graphical greeter (`greetd` is
+        disabled alongside it). Every other service
         keeps fprintd's default, so sudo/polkit still accept a fingerprint in-session.
       '';
     };
@@ -142,8 +150,7 @@ in
     # flat camelCase passthrough; `enableFprint`/`maxFprintTries` are real schema
     # keys. Gated on the desktop battery so we don't publish DMS settings when DMS
     # is off. Login-surface fingerprint stays off purely via
-    # `login.fprintAuth = false` above: the dank-greeter authenticates through
-    # `/etc/pam.d/greetd`, which nixpkgs builds as a substack of `login`.
+    # the `login`/`greetd` `fprintAuth = false` above.
     (mkIf dmsCfg.enable {
       itera.programs.dankMaterialShell.settings = {
         enableFprint = mkDefault true;
