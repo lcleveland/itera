@@ -234,9 +234,9 @@ let
     "second (override-free) account created" = cfg.users.users.bob.isNormalUser;
 
     # ── DMS settings: system-wide default reaches an un-overridden user ───
-    "curated system default present (bob)" = bobDms.configVersion == 11;
+    "curated system default present (bob)" = bobDms.configVersion == 18;
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
-    "opinionated default present (bob)" = bobDms.use24HourClock == true;
+    "opinionated default present (bob)" = bobDms.clockFormat == "24h";
     "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
     "weather uses fahrenheit by default (bob)" = bobDms.useFahrenheit == true;
     "weather uses auto location by default (bob)" = bobDms.useAutoLocation == true;
@@ -265,7 +265,7 @@ let
 
     # ── DMS settings: per-user override wins PER KEY, siblings still inherit ──
     "per-user override merges per key (alice)" = aliceDms.cornerRadius == 8;
-    "sibling key still inherited (alice)" = aliceDms.use24HourClock == true;
+    "sibling key still inherited (alice)" = aliceDms.clockFormat == "24h";
     "system-level override still inherited (alice)" = aliceDms.currentThemeName == "blue";
 
     # ── DMS plugins: default-on plugin ships for every user ──────────────

@@ -41,6 +41,13 @@ let
     ;
 
   cfg = config.itera.sops;
+
+  # Same boot-ordering fix as `itera.secrets`: sops-nix (setupSecretsForUsers
+  # in particular) runs before impermanence links persisted files into place,
+  # so read keys from their /persist source.
+  imp = config.itera.impermanence;
+  persisted =
+    p: if imp.enable && !lib.hasPrefix "${imp.persistRoot}/" p then imp.persistRoot + p else p;
 in
 {
   options.itera.sops = {
@@ -154,8 +161,8 @@ in
       defaultSopsFormat = mkDefault cfg.defaultSopsFormat;
 
       age = {
-        sshKeyPaths = mkDefault cfg.sshKeyPaths;
-        keyFile = mkDefault cfg.keyFile;
+        sshKeyPaths = mkDefault (map persisted cfg.sshKeyPaths);
+        keyFile = mkDefault (if cfg.keyFile == null then null else persisted cfg.keyFile);
         generateKey = mkDefault cfg.generateKey;
       };
 

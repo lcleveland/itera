@@ -8,9 +8,9 @@
 # and set to autostart (upstream defines it but leaves it down).
 #
 # Opt-OUT (default ON). Two things to know:
-#   - KVM acceleration needs the `kvm-*` module, which `itera.hardware` only loads
-#     when `itera.hardware.cpu` is "intel"/"amd" (not the "auto" default). This
-#     module warns if virtualization is on while cpu is "auto".
+#   - KVM acceleration needs the `kvm-*` module. A facter report loads it from
+#     the CPU flags; otherwise `itera.hardware.cpu` must be "intel"/"amd". This
+#     module warns if virtualization is on and neither did.
 #   - libvirt access is granted to every `itera.users` account via the libvirtd
 #     group (below). Users declared the plain NixOS way should add "libvirtd" to
 #     their own `extraGroups`.
@@ -67,11 +67,22 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    warnings = lib.optional (config.itera.hardware.enable && config.itera.hardware.cpu == "auto") ''
-      itera.virtualisation is enabled but itera.hardware.cpu = "auto", so no kvm-*
-      module is loaded and VMs will run without KVM acceleration. Set
-      itera.hardware.cpu = "intel" or "amd" for hardware acceleration.
-    '';
+    # facter (or a hand-picked cpu) loads kvm-* itself; only warn when nothing did.
+    warnings =
+      lib.optional
+        (
+          config.itera.hardware.enable
+          && !lib.any (m: lib.elem m config.boot.kernelModules) [
+            "kvm-intel"
+            "kvm-amd"
+          ]
+        )
+        ''
+          itera.virtualisation is enabled but no kvm-* module is loaded
+          (itera.hardware.cpu = "auto" and no facter report detected the CPU), so
+          VMs will run without KVM acceleration. Set
+          itera.hardware.cpu = "intel" or "amd" for hardware acceleration.
+        '';
 
     virtualisation.libvirtd = {
       enable = mkDefault true;

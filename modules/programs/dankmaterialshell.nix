@@ -34,7 +34,7 @@ iteraLib.programs.mkCuratedProgram {
       example = {
         currentThemeName = "blue";
         cornerRadius = 12;
-        use24HourClock = true;
+        clockFormat = "24h";
       };
       description = ''
         DankMaterialShell settings, written to
@@ -133,8 +133,8 @@ iteraLib.programs.mkCuratedProgram {
   # `null`, which DMS may reject).
   systemConfig = _: {
     settings = {
-      configVersion = mkDefault 11;
-      use24HourClock = mkDefault true;
+      configVersion = mkDefault 18;
+      clockFormat = mkDefault "24h";
       # Dark mode by default: don't follow the desktop portal's color-scheme
       # (which reports "no preference" on a fresh session and would flip DMS to
       # light). With portal sync off, DMS uses its stored isLightMode, which

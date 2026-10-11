@@ -51,7 +51,12 @@
 # TPM, so it runs on the target machine: itera's installer does it automatically at
 # install (needs `encryption.passwordFile`), else run `itera-tpm2-enroll` once. Its
 # real security depends on `itera.secureBoot` — without it, TPM unlock stops a pulled
-# disk being read but not a thief booting the machine. `usbSupport` stays force-on
+# disk being read but not a thief booting the machine. Even with Secure Boot,
+# PCR 7 alone does not stop a "filesystem confusion" attack (swap in an
+# attacker-controlled LUKS volume, boot into it, then unseal the real key — PCR 7
+# is unchanged): see https://oddlama.org/blog/bypassing-disk-encryption-with-tpm2-unlock/.
+# Closing that needs `tpm2-measure-pcr=yes` plus a PCR 15 policy, which itera
+# doesn't default because it breaks unlocking more than one container. `usbSupport` stays force-on
 # even under TPM2 so the recovery-passphrase fallback remains typable on a USB
 # keyboard (the happy path types nothing, but a PCR change drops you to the prompt).
 #
@@ -485,19 +490,13 @@ in
     # per container (root, swap, and each data drive); we augment every one with
     # `tpm2-device=auto` so the systemd initrd unseals the volume key from the TPM
     # (falling back to the passphrase prompt when the sealed PCR state no longer
-    # matches). The TPM kernel modules must be in the initrd for the device node to
-    # exist in stage 1 (`boot.initrd.systemd.tpm2.enable` — default true under
-    # systemd initrd — pulls in the tpm2-tss userspace). The enroll helper is shipped
+    # matches). The TPM kernel modules + tpm2-tss come from
+    # `boot.initrd.systemd.tpm2.enable` (default true under the systemd initrd). The enroll helper is shipped
     # for manual/rebind use. `luksContainers` already holds only the present
     # containers keyed by mapper name, so map over it directly.
     boot.initrd.luks.devices = mkIf (ec.enable && tpm.enable) (
       lib.mapAttrs (_: _: { crypttabExtraOpts = [ "tpm2-device=auto" ]; }) luksContainers
     );
-    boot.initrd.availableKernelModules = mkIf (ec.enable && tpm.enable) [
-      "tpm"
-      "tpm_tis"
-      "tpm_crb"
-    ];
     environment.systemPackages = mkIf (ec.enable && tpm.enable) [ enrollScript ];
 
     # The boot disk (`main`) plus one whole-disk GPT per data drive. disko happily

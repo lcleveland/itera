@@ -33,8 +33,5 @@ _: {
           gh # GitHub CLI: open/manage PRs from the dev shell
         ];
       };
-
-      # itera's own packages (empty until custom packages land).
-      packages = import ../pkgs { inherit pkgs; };
     };
 }

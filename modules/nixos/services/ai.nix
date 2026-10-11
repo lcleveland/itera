@@ -46,6 +46,7 @@ let
       cpu = pkgs.ollama;
       cuda = pkgs.ollama-cuda;
       rocm = pkgs.ollama-rocm;
+      vulkan = pkgs.ollama-vulkan;
     }
     .${accel};
 in
@@ -60,12 +61,14 @@ in
           "cpu"
           "cuda"
           "rocm"
+          "vulkan"
         ];
         default = "auto";
         description = ''
           Which ollama build to run. `auto` (the default) picks the `cuda` build
           when {option}`itera.nvidia.enable` is set and the plain `cpu` build
-          otherwise. Selects {option}`services.ollama.package`.
+          otherwise. `vulkan` is the generic GPU path for AMD/Intel GPUs without
+          ROCm. Selects {option}`services.ollama.package`.
         '';
       };
     };

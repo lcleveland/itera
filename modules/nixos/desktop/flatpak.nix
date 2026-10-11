@@ -13,19 +13,14 @@
 # ephemeral root.
 {
   config,
+  options,
   lib,
   ...
 }:
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types)
-    bool
-    listOf
-    attrs
-    either
-    str
-    ;
+  inherit (lib.types) bool;
 
   cfg = config.itera.desktop.flatpak;
 in
@@ -42,7 +37,8 @@ in
     };
 
     packages = mkOption {
-      type = listOf (either str attrs);
+      # nix-flatpak's own type, so a misspelled key fails at eval time.
+      inherit (options.services.flatpak.packages) type;
       default = [ ];
       example = [
         "com.brave.Browser"

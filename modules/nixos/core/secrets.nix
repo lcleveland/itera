@@ -40,6 +40,14 @@ let
     ;
 
   cfg = config.itera.secrets;
+
+  # agenix decrypts BEFORE the `users` activation step, but impermanence only
+  # links persisted files into /etc AFTER it — so on a tmpfs root the key at
+  # /etc/ssh/… doesn't exist yet at boot. Read it from its /persist source
+  # instead (mounted in the initrd via neededForBoot).
+  imp = config.itera.impermanence;
+  persisted =
+    p: if imp.enable && !lib.hasPrefix "${imp.persistRoot}/" p then imp.persistRoot + p else p;
 in
 {
   options.itera.secrets = {
@@ -59,7 +67,9 @@ in
       description = ''
         Private-key identities agenix uses to decrypt secrets at activation. The
         default is the host's ed25519 SSH key, which {option}`itera.impermanence`
-        already persists across reboots.
+        already persists across reboots. Under impermanence each path is read
+        from its {option}`itera.impermanence.persistRoot` copy, since agenix runs
+        before the persisted files are linked into place.
       '';
     };
 
@@ -85,7 +95,7 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    age.identityPaths = mkDefault cfg.identityPaths;
+    age.identityPaths = mkDefault (map persisted cfg.identityPaths);
     age.secrets = cfg.secrets;
 
     # The agenix CLI (edit/rekey `.age` files). It lives in the agenix flake

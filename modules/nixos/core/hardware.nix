@@ -72,8 +72,8 @@ let
     "usbhid"
   ];
 
-  # `kvm-*` for the selected vendor. "auto" loads neither (the module is only
-  # needed for virtualization, not to boot); pick a vendor to get it.
+  # `kvm-*` for the selected vendor. "auto" loads neither itself (facter adds
+  # it from the report's CPU flags when there is one).
   kvmModules =
     {
       intel = [ "kvm-intel" ];
@@ -104,9 +104,10 @@ in
       default = "auto";
       description = ''
         CPU vendor. Selects the microcode updates and the `kvm-*` module.
-        `"auto"` (the default) enables *both* Intel and AMD microcode — harmless
-        on the non-matching vendor — for a hardware-agnostic image, and loads no
-        `kvm-*` module. Set `"intel"` or `"amd"` to also load `kvm-intel`/`kvm-amd`.
+        `"auto"` (the default) defers to the facter report when one is loaded
+        (it picks the vendor's microcode and `kvm-*` module from the CPU);
+        without a report it enables *both* Intel and AMD microcode — harmless on
+        the non-matching vendor — and loads no `kvm-*` module. Set `"intel"` or `"amd"` to also load `kvm-intel`/`kvm-amd`.
       '';
     };
 
@@ -217,8 +218,12 @@ in
 
     hardware = {
       enableRedistributableFirmware = mkDefault cfg.redistributableFirmware;
-      cpu.intel.updateMicrocode = mkDefault (cfg.cpu == "intel" || cfg.cpu == "auto");
-      cpu.amd.updateMicrocode = mkDefault (cfg.cpu == "amd" || cfg.cpu == "auto");
+      # "auto" on a facter host defers to facter, which enables only the detected
+      # vendor's microcode; without a report it falls back to both.
+      cpu = mkIf (!(cfg.cpu == "auto" && config.hardware.facter.enable)) {
+        intel.updateMicrocode = mkDefault (cfg.cpu != "amd");
+        amd.updateMicrocode = mkDefault (cfg.cpu != "intel");
+      };
     };
 
     # Compressed in-RAM swap. itera's disko layouts ship no swap partition, so

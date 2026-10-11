@@ -33,7 +33,6 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 let
@@ -278,10 +277,8 @@ in
         graphics = {
           enable = mkDefault true;
           enable32Bit = mkDefault cfg.enable32Bit;
-          extraPackages = mkDefault [
-            pkgs.egl-wayland
-            pkgs.nvidia-vaapi-driver
-          ];
+          # VA-API (nvidia-vaapi-driver) and the EGL platform libs come from
+          # nixpkgs' own nvidia module (`hardware.nvidia.videoAcceleration`).
         };
 
         nvidia = {

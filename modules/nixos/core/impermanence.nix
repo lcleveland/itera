@@ -353,11 +353,9 @@ in
         # every finger must be re-enrolled after each boot. Gated on fprintd being
         # on (what the fingerprint battery enables and what creates the dir).
         ++ lib.optional config.services.fprintd.enable "/var/lib/fprint"
-        # itera's power battery saves the last-active power-profiles-daemon profile
-        # here (PPD itself does not persist it); without this the wiped root drops
-        # the file and the profile resets to `balanced` every boot. Gated on the
-        # same power-profiles-daemon switch the persist service is gated on.
-        ++ lib.optional config.services.power-profiles-daemon.enable "/var/lib/itera-power-profile"
+        # power-profiles-daemon's state.ini (the last-picked profile); without
+        # this the profile resets to `balanced` every boot.
+        ++ lib.optional config.services.power-profiles-daemon.enable "/var/lib/power-profiles-daemon"
         # The DMS greeter's cache dir holds .local/state/memory.json — the last
         # successful username/session the greeter pre-selects. Persist it so the
         # greeter remembers the last user across the wiped tmpfs root. Gated on

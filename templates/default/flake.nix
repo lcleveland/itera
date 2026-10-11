@@ -32,11 +32,9 @@
       #   sudo nix run github:me/myconfig#installer -- myhost /dev/nvme0n1
       #
       # Run a local clone with:  sudo ITERA_INSTALL_FLAKE=. nix run .#installer
-      packages.x86_64-linux.installer =
-        itera.lib.mkInstaller (import nixpkgs { system = "x86_64-linux"; })
-          {
-            flake = "github:me/myconfig"; # CHANGE ME — where `nix run <flake>#installer` fetches from
-          };
+      packages.x86_64-linux.installer = itera.lib.mkInstaller nixpkgs.legacyPackages.x86_64-linux {
+        flake = "github:me/myconfig"; # CHANGE ME — where `nix run <flake>#installer` fetches from
+      };
 
       nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
@@ -147,9 +145,9 @@
               #     # many-secrets-one-file alternative.
               #     secrets.secrets.wifi-psk.file = ./secrets/wifi-psk.age;
               #   nixIndex          command-not-found + `comma` (`,`)
-              #   virtualisation    QEMU/KVM via libvirt + virt-manager GUI (add
-              #     "libvirtd" to the user's extraGroups below; set hardware.cpu
-              #     to "intel"/"amd" for KVM acceleration). The `default` NAT
+              #   virtualisation    QEMU/KVM via libvirt + virt-manager GUI
+              #     (itera.users accounts get the libvirtd group; KVM comes from
+              #     the facter report, or set hardware.cpu = "intel"/"amd"). The `default` NAT
               #     network (virbr0) is started + autostarted; turn it off with
               #     virtualisation.defaultNetwork.enable = false;
               #   desktop.fileManager   Nemo file manager
@@ -173,7 +171,7 @@
               #     sops.secrets.wifi-psk = { mode = "0400"; };
               #     # get the age recipient for .sops.yaml with:
               #     #   ssh-keyscan localhost | ssh-to-age
-              #   secureBoot.enable = true;      # then: sbctl create-keys && sbctl enroll-keys
+              #   secureBoot.enable = true;      # keys auto-generate; then: sbctl enroll-keys --microsoft
               #   desktop.flatpak.enable = true; # declarative Flatpak (Flathub)
               #   desktop.flatpak.packages = [ "com.brave.Browser" ];
             };
