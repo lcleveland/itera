@@ -18,7 +18,7 @@ The reason is that DMS already themes and live-reloads most of the desktop, and 
 
 ## Consequences
 
-- **The DMS lane depends on DMS.** It relies on DMS internals (template ids, output paths, PATH detection) and only works while DMS is enabled. What the look does when DMS is disabled is a separate decision ([#191](https://github.com/lcleveland/itera/issues/191)).
+- **The DMS lane depends on DMS.** It relies on DMS internals (template ids, output paths, PATH detection) and only works while DMS is enabled. With DMS disabled, DMS-lane apps keep their stock colours, because each battery gates its DMS-lane wiring and assertions on DMS being enabled. Before DMS first writes, include points tolerate the missing file, and Nix never seeds it ([#191](https://github.com/lcleveland/itera/issues/191)).
 - **Compliance is checked, not structural:**
   - a lint rejects colour literals outside the palette;
   - a lint keeps reads of `itera.look` inside `lib/look.nix`;
