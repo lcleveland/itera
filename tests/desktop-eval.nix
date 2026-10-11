@@ -85,6 +85,10 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
+  # udiskie's autostart line, and the config file it is pointed at with `-c`.
+  udiskieLine = lib.findFirst (lib.hasInfix "bin/udiskie") "" (lib.splitString "\n" mangoConf);
+  udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " udiskieLine));
+
   # The update indicator's declarative settings — everything the widget knows is
   # baked in here at build time, so the checks below read the option rather than
   # the QML.
@@ -297,6 +301,14 @@ let
     # Gated off: nothing written to the portal config without a compositor.
     "screencast battery is inert without a compositor" =
       !(cfgNoDesktop.xdg.portal.wlr.settings ? screencast);
+
+    # udiskie's tray icon is a Material Symbols glyph (the font DMS draws its own
+    # bar icons with) in the bar's text color, not the Adwaita drive icon.
+    "udiskie tray icon is itera's Material Symbols glyph" =
+      lib.hasInfix "udiskie-tray-icon.svg" udiskieConfig
+      && lib.hasInfix "#e0e2e8" (
+        builtins.readFile (lib.head (builtins.match ".*- (/nix/store/[^\n]*\\.svg).*" udiskieConfig))
+      );
 
     # Update indicator: a read-only dank-bar widget reporting when the itera
     # repository has moved on from the revision this system was built with.

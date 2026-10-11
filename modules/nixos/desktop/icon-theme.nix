@@ -1,7 +1,8 @@
 # itera's icon-theme battery.
 #
 # The Wayland desktop is Quickshell/Qt-based (DankMaterialShell). Quickshell
-# resolves system-tray (SNI) icon *names* — udiskie's removable-drive glyph,
+# resolves system-tray (SNI) icon *names* — other apps' tray icons (udiskie ships its
+# own, see `modules/hjem/programs/mango.nix`),
 # DMS's own menu icons — through the Qt icon theme. itera otherwise installs no
 # icon theme, so those names fail to resolve and render as a magenta "missing
 # icon" placeholder. This battery ships a complete theme and names it for the
