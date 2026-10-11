@@ -113,6 +113,20 @@ let
               };
               mango = {
                 layout = "tile";
+                # A NEW name on a key a default holds (SUPER+SHIFT+f, fullscreen),
+                # modifiers in a different order: must displace the default
+                # rather than render both and trip mango's conflict check.
+                keybinds.browserFullscreen = {
+                  modifierKeys = [
+                    "SHIFT"
+                    "SUPER"
+                  ];
+                  keySymbol = "f";
+                  mangoCommand = "spawn";
+                  commandArguments = "firefox";
+                  flagModifiers = [ "s" ];
+                };
+                defaultMousebinds.enable = false;
                 # Per-user gesture: new name adds alongside the system default.
                 gestures.cycleLayout = {
                   modifierKeys = [ "SUPER" ];
@@ -217,6 +231,8 @@ let
       scale = 1.5;
       transform = "90";
       vrr = true;
+      primary = true;
+      hdrMaxLum = 616;
     };
     off = {
       name = "HDMI-2";
@@ -351,36 +367,57 @@ let
       lib.hasInfix "tag_rule=id:1,layout_name:scroller" bobMango;
     "default layout rendered on tag 9 (bob)" =
       lib.hasInfix "tag_rule=id:9,layout_name:scroller" bobMango;
-    "circle_layout cycle rendered (bob)" =
-      lib.hasInfix "circle_layout=scroller,tile,monocle,grid" bobMango;
+    # Empty default cycle: no circle_layout line, so switch_layout reaches every layout.
+    "no circle_layout by default (bob)" = !(lib.hasInfix "circle_layout=" bobMango);
     "per-user layout override wins (alice)" = lib.hasInfix "tag_rule=id:1,layout_name:tile" aliceMango;
     "switch-layout bind rendered (SUPER+SHIFT+n)" =
       lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
+    # Move-to-monitor needs SUPER; bare CTRL+SHIFT+j/k would steal app shortcuts.
+    "move-to-monitor bind uses SUPER" = lib.hasInfix "binds=SUPER+CTRL+SHIFT,h,tagmon,left,1" bobMango;
+    "no bare CTRL+SHIFT bind" = !(lib.hasInfix "binds=CTRL+SHIFT," bobMango);
+    "focus-monitor bind rendered" = lib.hasInfix "binds=SUPER+CTRL,l,focusmon,right" bobMango;
+    "fullscreen bind rendered" = lib.hasInfix "binds=SUPER+SHIFT,f,togglefullscreen," bobMango;
+    # SHIFT+Tab emits ISO_Left_Tab, so the reverse switcher must be a keycode bind.
+    "reverse switcher is a keycode bind" = lib.hasInfix "bind=ALT+SHIFT,Tab,switcher,prev" bobMango;
+    # DMS theme fragments are sourced (optional), but never its binds.
+    "dms colors fragment sourced" = lib.hasInfix "source_optional=./dms/colors.conf" bobMango;
+    "dms binds fragment not sourced" = !(lib.hasInfix "dms/binds.conf" bobMango);
+    # Directional focus crosses monitors at the edge, but never tags.
+    "focus crosses monitors" = lib.hasInfix "focus_cross_monitor=1" bobMango;
+    "focus does not cross tags" = !(lib.hasInfix "focus_cross_tag=1" bobMango);
+    "default mouse move bind rendered" =
+      lib.hasInfix "mousebind=SUPER,btn_left,moveresize,curmove" bobMango;
+    "user bind on a default's key replaces it (alice)" =
+      lib.hasInfix "binds=SHIFT+SUPER,f,spawn,firefox" aliceMango
+      && !(lib.hasInfix "togglefullscreen" aliceMango);
+    "default on that key kept for others (bob)" = lib.hasInfix "togglefullscreen" bobMango;
+    "mouse-bind defaults opt-out (alice)" = !(lib.hasInfix "mousebind=" aliceMango);
+    "full-width bind rendered" = lib.hasInfix "binds=SUPER+CTRL,r,set_proportion,1.0" bobMango;
     # DMS notifications keeps SUPER+n — no collision with the layout bind.
     "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," bobMango;
 
     # ── mango monitors: system-wide default reaches every user ───────────
-    # bob inherits both system rules; the key→name default renders `name:HDMI-1`.
+    # bob inherits both system rules; the key→name default renders the anchored `name:^HDMI-1$`.
     "monitor default reaches user (bob HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
+      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
     "monitor default reaches user (bob DP-2)" =
-      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" bobMango;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" bobMango;
 
     # ── mango monitors: per-user override wins per KEY, sibling still inherits ──
     "per-user monitor override wins (alice HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:HDMI-1,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
+      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
     "per-user override replaces the system rule (alice)" =
-      !(lib.hasInfix "monitor_rule=name:HDMI-1,width:1920" aliceMango);
+      !(lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920" aliceMango);
     "sibling monitor still inherited (alice DP-2)" =
-      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" aliceMango;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" aliceMango;
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
     "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
 
     # ── mango monitors: the login greeter gets the system-wide layout ────
     "greeter gets system-wide monitors (HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:HDMI-1,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
+      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
     "greeter gets system-wide monitors (DP-2)" =
-      lib.hasInfix "monitor_rule=name:DP-2,width:2560,height:1440,x:1920,y:0" greeterMonitors;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" greeterMonitors;
 
     # ── mango gestures: system default reaches every user, per-user adds ──
     "gesture default reaches user (bob)" =
@@ -408,6 +445,8 @@ let
     "monitor renderer: float scale stripped" = lib.hasInfix "scale:1.5," renderedMonitor;
     "monitor renderer: transform maps to rr" = lib.hasInfix "rr:1" renderedMonitor;
     "monitor renderer: bool renders as 1" = lib.hasInfix "vrr:1" renderedMonitor;
+    "monitor renderer: primary rendered" = lib.hasInfix "primary:1" renderedMonitor;
+    "monitor renderer: hdr luminance rendered" = lib.hasInfix "hdr_max_lum:616" renderedMonitor;
     "monitor renderer: disabled emits disable:1" =
       lib.hasInfix "monitor_rule=name:HDMI-2,disable:1" renderedMonitor;
     "monitor renderer: disabled omits setting fields" = !(lib.hasInfix "width:9999" renderedMonitor);

@@ -45,35 +45,53 @@ let
   # scalar/list overrides: per-user value wins when set (non-null), else system.
   layout = if (usr.layout or null) != null then usr.layout else (sys.layout or "scroller");
   layoutCycle =
-    if (usr.layoutCycle or null) != null then
-      usr.layoutCycle
-    else
-      (sys.layoutCycle or [
-        "scroller"
-        "tile"
-        "monocle"
-        "grid"
-      ]
-      );
+    if (usr.layoutCycle or null) != null then usr.layoutCycle else (sys.layoutCycle or [ ]);
 
   # per-user-only knobs (fall back to the schema defaults for plain users).
   autostart = usr.autostart or true;
   extraConfig = usr.extraConfig or "";
   useDefaultKeybinds = usr.defaultKeybinds.enable or true;
+  useDefaultMousebinds = usr.defaultMousebinds.enable or true;
+  useDefaultGestures = usr.defaultGestures.enable or true;
 
-  # keybinds: system defaults (unless the user opted out) merged with per-user
-  # binds. A per-user bind of the same name replaces the default; new names add.
-  systemKeybinds = sys.keybinds or { };
-  userKeybinds = usr.keybinds or { };
-  effectiveKeybinds = (lib.optionalAttrs useDefaultKeybinds systemKeybinds) // userKeybinds;
+  # Binds: system defaults (unless the user opted out) merged with per-user
+  # binds. A per-user bind replaces a default of the same NAME or on the same
+  # TRIGGER (modifiers + `triggerOf`) — without the latter, a user bind on a key a default
+  # already holds would render both and fail mango's conflict check. Modifier
+  # order and case don't matter to mango, so they're normalised here.
+  mergeBinds =
+    triggerOf: useDefaults: system: user:
+    let
+      mods = b: lib.sort lib.lessThan (map lib.toUpper (b.modifierKeys or [ ]));
+      trigger = b: lib.concatStringsSep "," ([ (lib.concatStringsSep "+" (mods b)) ] ++ triggerOf b);
+      userTriggers = lib.mapAttrsToList (_: trigger) user;
+    in
+    lib.filterAttrs (_: b: !(builtins.elem (trigger b) userTriggers)) (
+      lib.optionalAttrs useDefaults system
+    )
+    // user;
+
+  # What identifies each bind kind's trigger, besides its modifiers.
+  keyTrigger = b: [ (lib.toLower b.keySymbol) ];
+  gestureTrigger = g: [
+    g.direction
+    (toString (g.fingerCount or 3))
+  ];
+  mouseTrigger = m: [ m.button ];
+
+  effectiveKeybinds = mergeBinds keyTrigger useDefaultKeybinds (sys.keybinds or { }) (
+    usr.keybinds or { }
+  );
 
   # monitors: system-wide output rules merged with this user's. A per-user
   # monitor of the same key replaces the system entry wholesale; new keys add.
   monitors = (sys.monitors or { }) // (usr.monitors or { });
 
-  # gestures: same merge model as keybinds/monitors (system default set, per-user
-  # entry of the same name replaces, new names add).
-  gestures = (sys.gestures or { }) // (usr.gestures or { });
+  # gestures / mouse binds: same merge model as keybinds.
+  gestures = mergeBinds gestureTrigger useDefaultGestures (sys.gestures or { }) (usr.gestures or { });
+  mousebinds = mergeBinds mouseTrigger useDefaultMousebinds (sys.mousebinds or { }) (
+    usr.mousebinds or { }
+  );
 
   # Keyboard layout: driven by the system `itera.keyboard` battery
   # (services.xserver.xkb). Emitting the `xkb_rules_*` lines here keeps the mango
@@ -101,7 +119,8 @@ let
   sessionSetup = pkgs.writeShellScript "itera-mango-session-setup" ''
     ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     ${pkgs.systemd}/bin/systemctl --user import-environment \
-      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIXOS_OZONE_WL
+      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIXOS_OZONE_WL \
+      XCURSOR_THEME XCURSOR_SIZE
     ${pkgs.systemd}/bin/systemctl --user reset-failed
     ${pkgs.systemd}/bin/systemctl --user start mango-session.target
   '';
@@ -114,8 +133,40 @@ let
     ++ [ "exec_once=${pkgs.systemd}/bin/systemd-cat -t dms dms run" ]
   );
 
+  # DankMaterialShell writes the look-and-feel it manages (theme colors, gaps,
+  # borders, cursor, touchpad/keyboard input, display layout, window rules) as
+  # fragments under mango/dms/ and expects config.conf to source them.
+  # `source_optional` so a fresh account (before DMS first runs) and the
+  # build-time `mango -p` check, which has no such files, parse cleanly.
+  # Placed after itera's monitor rules (mango applies the FIRST matching rule,
+  # so itera's monitors win) and before xkb/layout (later scalar lines win, so
+  # itera's keyboard layout and tag layouts win). `dms/binds.conf` is left out:
+  # DMS's binds would collide with itera's and trip mango's conflict check.
+  dmsSourcesConfig = lib.optionalString (osConfig.itera.desktop.dankMaterialShell.enable or false) (
+    lib.concatMapStringsSep "\n" (f: "source_optional=./dms/${f}.conf") [
+      "colors"
+      "layout"
+      "cursor"
+      "input"
+      "outputs"
+      "windowrules"
+    ]
+  );
+
+  # itera's opinionated compositor options (mango defaults otherwise).
+  #
+  # focus_cross_monitor: directional focus (SUPER+h/j/k/l, 3-finger swipes) at
+  # the edge of a tag moves to the monitor that way instead of doing nothing. A
+  # same-monitor window always wins, so the scroller strip is walked end to end
+  # first; single-monitor machines are unaffected. Swaps stay per-monitor
+  # (that is `exchange_cross_monitor`, left off). `focus_cross_tag` stays off:
+  # in scroller most columns have nothing above/below, so j/k would switch tags.
+  # Override either in `extraConfig` (later lines win).
+  optionsConfig = "focus_cross_monitor=1";
+
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
   gesturesConfig = iteraLib.mango.renderGestures gestures;
+  mouseBindsConfig = iteraLib.mango.renderMouseBinds mousebinds;
   monitorsConfig = iteraLib.mango.renderMonitorRules monitors;
   xkbConfig = iteraLib.mango.renderXkb {
     layout = xkb.layout or "";
@@ -132,15 +183,20 @@ let
     ]
   );
 
-  # Order: autostart (exec_once) → monitors → xkb → layout → keybinds → gestures
-  # → freeform extraConfig. (mango matches monitor rules by name, so their
-  # position in the file is not significant — placed early for readability.)
+  # Order: autostart (exec_once) → monitors → DMS fragments → xkb → layout →
+  # options → keybinds → mousebinds → gestures → freeform extraConfig. Order
+  # matters twice: mango applies the FIRST matching monitor rule, so itera's
+  # rules precede DMS's outputs fragment; and later scalar lines win, so
+  # itera's xkb/options follow the DMS fragments and extraConfig comes last.
   configText = lib.concatStringsSep "\n" (
     lib.optional autostart autostartConfig
     ++ lib.optional (monitorsConfig != "") monitorsConfig
+    ++ lib.optional (dmsSourcesConfig != "") dmsSourcesConfig
     ++ lib.optional (xkbConfig != "") xkbConfig
     ++ lib.optional (layoutConfig != "") layoutConfig
+    ++ [ optionsConfig ]
     ++ lib.optional (keybindsConfig != "") keybindsConfig
+    ++ lib.optional (mouseBindsConfig != "") mouseBindsConfig
     ++ lib.optional (gesturesConfig != "") gesturesConfig
     ++ lib.optional (extraConfig != "") extraConfig
   );
@@ -148,7 +204,15 @@ in
 {
   config = mkIf enable {
     xdg.config.files."mango/config.conf" = mkIf (configText != "") {
-      source = pkgs.writeText "mango-config.conf" (configText + "\n");
+      # Parsed with `mango -p` at build time (as upstream's home-manager module
+      # does): an unknown key (e.g. after an upstream rename, which mango ships
+      # without aliases) or a keybind conflict fails the rebuild instead of being
+      # skipped at runtime.
+      source = iteraLib.mango.validateConfig {
+        inherit pkgs;
+        mango = osConfig.programs.mango.package;
+        text = configText + "\n";
+      };
       # Explicit clobber (beyond itera's `hjem.clobberByDefault = true`) so the
       # linker OVERWRITES an existing target instead of leaving it. Two reasons:
       # (1) under itera's impermanence ~/.config is restored from /persist every

@@ -58,11 +58,14 @@
 
     # DankMaterialShell: a Quickshell-based Wayland desktop shell. itera bundles
     # its NixOS module (see modules/nixos). Powers the shell half of
-    # `itera.desktop.dankMaterialShell`. Pinned to the `stable` branch upstream
-    # recommends for the NixOS module. The greeter used to live here too but was
-    # extracted upstream into its own repo — see the `dank-greeter` input below.
+    # `itera.desktop.dankMaterialShell`. Tracks `master`, not the `stable`
+    # branch: mango 0.18 renamed every config key with no aliases, and only
+    # master writes the snake_case keys into the mango/dms/*.conf fragments that
+    # itera's mango config sources. Move back to `stable` once a release has it
+    # (`dms config mango-migrate` exists there). The greeter used to live here
+    # too but was extracted upstream into its own repo — see `dank-greeter` below.
     dms = {
-      url = "github:AvengeMedia/DankMaterialShell/stable";
+      url = "github:AvengeMedia/DankMaterialShell";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-compat.follows = "";
     };

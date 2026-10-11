@@ -249,6 +249,23 @@ in
         );
       };
 
+      # Parse the greeter's mango config at build time, like the per-user one
+      # (see `validateConfig` in lib/mango.nix).
+      system.checks =
+        lib.optional
+          (
+            config.programs.dms-greeter.compositor.name == "mango"
+            && config.programs.dms-greeter.compositor.customConfig != ""
+          )
+          (
+            iteraLib.mango.validateConfig {
+              inherit pkgs;
+              name = "dms-greeter-mango-config";
+              mango = config.programs.mango.package;
+              text = config.programs.dms-greeter.compositor.customConfig + "\n";
+            }
+          );
+
       # Default the post-login session picker to the mango session that the mango
       # module registers with the display manager.
       services.displayManager.defaultSession = mkDefault "mango";

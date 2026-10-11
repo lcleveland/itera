@@ -35,8 +35,9 @@ iteraLib.programs.mkCuratedProgram {
         MangoWC keybinds, name-keyed. At the system-wide level
         ({option}`itera.programs.mango.keybinds`) this is itera's curated default
         set; per-user ({option}`itera.users.<name>.programs.mango.keybinds`) a bind
-        whose attribute name matches a default replaces it, new names are added.
-        The names are organisational only — they never reach the file.
+        replaces any default with the same attribute name OR on the same key
+        combination (so rebinding SUPER+t needs no knowledge of the default's
+        name); other binds are added. The names never reach the file.
       '';
       example = lib.literalExpression ''
         {
@@ -50,6 +51,28 @@ iteraLib.programs.mkCuratedProgram {
       '';
     };
 
+    mousebinds = {
+      type = attrsOf iteraLib.mango.mouseBindType;
+      attrs = true;
+      description = ''
+        MangoWC mouse button binds, name-keyed, rendered as `mousebind=` lines.
+        Merges like `gestures`: the system-wide level
+        ({option}`itera.programs.mango.mousebinds`) is the default set
+        (SUPER+left-drag moves a window, SUPER+right-drag resizes it); per-user
+        ({option}`itera.users.<name>.programs.mango.mousebinds`) a bind whose
+        attribute name matches replaces it, new names are added.
+      '';
+      example = lib.literalExpression ''
+        {
+          closeOnMiddle = {
+            modifierKeys = [ "SUPER" ];
+            button = "btn_middle";
+            mangoCommand = "killclient";
+          };
+        }
+      '';
+    };
+
     gestures = {
       type = attrsOf iteraLib.mango.gestureType;
       attrs = true;
@@ -58,7 +81,9 @@ iteraLib.programs.mkCuratedProgram {
         Merges like `keybinds`: the system-wide level
         ({option}`itera.programs.mango.gestures`) is the default set; per-user
         ({option}`itera.users.<name>.programs.mango.gestures`) a gesture whose
-        attribute name matches replaces it, new names are added. Empty by default.
+        attribute name matches replaces it, new names are added. Defaults to
+        mango's own set: 3-finger swipes move focus, 4-finger left/right switch to
+        the next/previous occupied tag, 4-finger up/down enter/leave overview.
       '';
       example = lib.literalExpression ''
         {
@@ -85,7 +110,8 @@ iteraLib.programs.mkCuratedProgram {
 
     layoutCycle = {
       type = listOf (enum iteraLib.mango.supportedLayouts);
-      default = [
+      default = [ ];
+      example = [
         "scroller"
         "tile"
         "monocle"
@@ -93,8 +119,8 @@ iteraLib.programs.mkCuratedProgram {
       ];
       description = ''
         Layouts the SUPER+SHIFT+n `switch_layout` bind cycles through (rendered as
-        MangoWC's `circle_layout`). An empty list omits the line and cycles every
-        built-in layout instead.
+        MangoWC's `circle_layout`). Empty (the default) omits the line, so the bind
+        cycles every built-in layout; list a subset to restrict it.
       '';
     };
 
@@ -105,8 +131,9 @@ iteraLib.programs.mkCuratedProgram {
         MangoWC output configuration (position, resolution, scale, refresh,
         rotation, VRR/HDR, enable), rendered as `monitor_rule=` lines in
         {file}`mango/config.conf`. Keyed by a friendly name that defaults into the
-        `name` match regex, so keying by connector name (e.g. `"eDP-1"`) is usually
-        enough.
+        `name` match as an exact, anchored regex (`^eDP-1$`), so keying by
+        connector name (e.g. `"eDP-1"`) is usually enough. mango applies only the
+        first rule matching an output.
 
         At the system-wide level ({option}`itera.programs.mango.monitors`) this is
         the default for every user (and also feeds the login greeter); per-user
@@ -127,9 +154,9 @@ iteraLib.programs.mkCuratedProgram {
             y = 0;
             scale = 1.5;
           };
-          # External display to the right, rotated 90°, matched by an exact regex.
+          # Any HDMI display to the right, rotated 90°, matched by a custom regex.
           external = {
-            name = "^DP-1$";
+            name = "^HDMI-A-.*$";
             x = 1920;
             y = 0;
             transform = "90";
@@ -159,6 +186,26 @@ iteraLib.programs.mkCuratedProgram {
         Include the system-wide default keybinds
         ({option}`itera.programs.mango.keybinds`). Set `false` to start from an
         empty set and define all binds via this user's `keybinds`.
+      '';
+    };
+
+    defaultMousebinds.enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Include the system-wide default mouse binds
+        ({option}`itera.programs.mango.mousebinds`). Set `false` to start from an
+        empty set and define all mouse binds via this user's `mousebinds`.
+      '';
+    };
+
+    defaultGestures.enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Include the system-wide default touchpad gestures
+        ({option}`itera.programs.mango.gestures`). Set `false` to start from an
+        empty set and define all gestures via this user's `gestures`.
       '';
     };
 
@@ -257,9 +304,25 @@ iteraLib.programs.mkCuratedProgram {
                 };
               }
               {
+                name = "focusMonitor${dir}";
+                value = {
+                  modifierKeys = [
+                    "SUPER"
+                    "CTRL"
+                  ];
+                  flagModifiers = [ "s" ];
+                  keySymbol = key;
+                  mangoCommand = "focusmon";
+                  commandArguments = dir;
+                };
+              }
+              # Needs SUPER: a bare CTRL+SHIFT+j/k would swallow app shortcuts
+              # (browser devtools consoles, terminal copy/paste variants).
+              {
                 name = "moveMonitor${dir}";
                 value = {
                   modifierKeys = [
+                    "SUPER"
                     "CTRL"
                     "SHIFT"
                   ];
@@ -267,6 +330,21 @@ iteraLib.programs.mkCuratedProgram {
                   keySymbol = key;
                   mangoCommand = "tagmon";
                   commandArguments = "${dir},1";
+                };
+              }
+              # Scroller: pull the window into / push it out of the neighbouring
+              # column's stack.
+              {
+                name = "scrollerStack${dir}";
+                value = {
+                  modifierKeys = [
+                    "SUPER"
+                    "ALT"
+                  ];
+                  flagModifiers = [ "s" ];
+                  keySymbol = key;
+                  mangoCommand = "scroller_stack";
+                  commandArguments = dir;
                 };
               }
             ]
@@ -301,6 +379,15 @@ iteraLib.programs.mkCuratedProgram {
           keySymbol = "g";
           mangoCommand = "togglefloating";
         };
+        toggleFullscreen = {
+          modifierKeys = [
+            "SUPER"
+            "SHIFT"
+          ];
+          flagModifiers = [ "s" ];
+          keySymbol = "f";
+          mangoCommand = "togglefullscreen";
+        };
         toggleMaximize = {
           modifierKeys = [ "SUPER" ];
           flagModifiers = [ "s" ];
@@ -312,6 +399,70 @@ iteraLib.programs.mkCuratedProgram {
           flagModifiers = [ "s" ];
           keySymbol = "Tab";
           mangoCommand = "toggleoverview";
+        };
+        # Thumbnail window switcher; releasing ALT selects. The SHIFT variant is a
+        # keycode bind (no `s`): SHIFT+Tab emits `ISO_Left_Tab`, not `Tab`.
+        switcherNext = {
+          modifierKeys = [ "ALT" ];
+          flagModifiers = [ "s" ];
+          keySymbol = "Tab";
+          mangoCommand = "switcher";
+          commandArguments = "next";
+        };
+        switcherPrev = {
+          modifierKeys = [
+            "ALT"
+            "SHIFT"
+          ];
+          keySymbol = "Tab";
+          mangoCommand = "switcher";
+          commandArguments = "prev";
+        };
+        previousTag = {
+          modifierKeys = [ "SUPER" ];
+          flagModifiers = [ "s" ];
+          keySymbol = "grave";
+          mangoCommand = "view";
+          commandArguments = "-1";
+        };
+        # Scroller: cycle the focused column through `scroller_proportion_preset`.
+        # Scroller: make the focused column full width.
+        fullWidth = {
+          modifierKeys = [
+            "SUPER"
+            "CTRL"
+          ];
+          flagModifiers = [ "s" ];
+          keySymbol = "r";
+          mangoCommand = "set_proportion";
+          commandArguments = "1.0";
+        };
+        cycleProportion = {
+          modifierKeys = [ "SUPER" ];
+          flagModifiers = [ "s" ];
+          keySymbol = "r";
+          mangoCommand = "switch_proportion_preset";
+        };
+        scratchpad = {
+          modifierKeys = [ "SUPER" ];
+          flagModifiers = [ "s" ];
+          keySymbol = "s";
+          mangoCommand = "toggle_scratchpad";
+        };
+        minimize = {
+          modifierKeys = [ "SUPER" ];
+          flagModifiers = [ "s" ];
+          keySymbol = "i";
+          mangoCommand = "minimized";
+        };
+        restoreMinimized = {
+          modifierKeys = [
+            "SUPER"
+            "SHIFT"
+          ];
+          flagModifiers = [ "s" ];
+          keySymbol = "i";
+          mangoCommand = "restore_minimized";
         };
         reloadConfig = {
           modifierKeys = [
@@ -482,6 +633,55 @@ iteraLib.programs.mkCuratedProgram {
       };
     in
     {
+      mousebinds = mkDefault {
+        moveWindow = {
+          modifierKeys = [ "SUPER" ];
+          button = "btn_left";
+          mangoCommand = "moveresize";
+          commandArguments = "curmove";
+        };
+        resizeWindow = {
+          modifierKeys = [ "SUPER" ];
+          button = "btn_right";
+          mangoCommand = "moveresize";
+          commandArguments = "curresize";
+        };
+      };
+
+      # mango's own default gesture set (assets/config.conf upstream).
+      gestures = mkDefault (
+        lib.genAttrs' [ "left" "right" "up" "down" ] (dir: {
+          name = "focus${dir}";
+          value = {
+            direction = dir;
+            mangoCommand = "focusdir";
+            commandArguments = dir;
+          };
+        })
+        // {
+          nextTag = {
+            direction = "left";
+            fingerCount = 4;
+            mangoCommand = "viewnext_have_client";
+          };
+          previousTag = {
+            direction = "right";
+            fingerCount = 4;
+            mangoCommand = "viewprev_have_client";
+          };
+          enterOverview = {
+            direction = "up";
+            fingerCount = 4;
+            mangoCommand = "enteroverview";
+          };
+          leaveOverview = {
+            direction = "down";
+            fingerCount = 4;
+            mangoCommand = "leaveoverview";
+          };
+        }
+      );
+
       keybinds = mkDefault (
         tagBinds
         // directionalBinds
