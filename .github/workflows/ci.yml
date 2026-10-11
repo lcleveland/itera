@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  actions: write # cache-nix-action purge deletes old caches
 
 jobs:
   check:
@@ -53,24 +52,10 @@ jobs:
             extra-substituters = https://nix-community.cachix.org
             extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
 
-      # Persist /nix across runs so itera's own eval closures don't rebuild every
-      # time.
-      - name: Cache Nix store
-        uses: nix-community/cache-nix-action@v7
-        with:
-          primary-key: nix-${{ matrix.system }}-${{ matrix.channel }}-${{ hashFiles('flake.lock', '**/*.nix') }}
-          restore-prefixes-first-match: nix-${{ matrix.system }}-${{ matrix.channel }}-
-          # Keep the GitHub Actions cache bounded.
-          gc-max-store-size-linux: 5G
-          purge: true
-          purge-prefixes: nix-${{ matrix.system }}-${{ matrix.channel }}-
-          purge-created: 0
-          purge-primary-key: never
-
-      # Restored caches have come back with DB entries for store paths missing
-      # on disk ("path ... does not exist"); this drops them so Nix refetches.
-      - name: Repair restored store
-        run: nix-store --verify
+      # No /nix cache between runs: a restored store kept coming back with DB
+      # entries for paths missing on disk (failing eval, then `nix-store
+      # --verify` itself on FK constraints), and nearly everything it held is
+      # substitutable from cache.nixos.org / nix-community anyway.
 
       # Runs everything: treefmt `formatting`, git-hooks `pre-commit`, and the
       # itera module tests for this system.
