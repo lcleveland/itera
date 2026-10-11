@@ -88,11 +88,11 @@ let
     }) cfg.loginServices
   );
 
-  # The greeter surfaces its key-auth UI only when `greetd` is NOT a login surface
-  # — i.e. only when the key has been explicitly opted back into the login. Keeping
-  # it in step with the greetd pam_u2f factor above avoids showing a key prompt the
-  # greetd PAM stack would reject anyway.
-  greeterU2fEnabled = !(builtins.elem "greetd" cfg.loginServices);
+  # The greeter surfaces its key-auth UI only when `login` is NOT a login surface.
+  # nixpkgs' greetd PAM stack is just a substack of `login` (useDefaultRules =
+  # false), so `login`'s pam_u2f setting is what the greeter actually gets; keying
+  # off it avoids showing a key prompt the stack would reject.
+  greeterU2fEnabled = !(builtins.elem "login" cfg.loginServices);
 
   # A minimal greeter settings.json that drives the greeter's key-auth UI. The DMS
   # greeter only surfaces key auth when its own settings enable it AND the greetd
@@ -120,19 +120,16 @@ in
 
     loginServices = mkOption {
       type = listOf str;
-      default = [
-        "login"
-        "greetd"
-      ];
+      default = [ "login" ];
       description = ''
         PAM services that are the *initial-login* surface, on which pam_u2f is
         explicitly disabled (so a security key can never log you in, and the greeter
         accepts the typed password immediately instead of waiting on / cueing for a
-        key). The default covers TTY/console login and the graphical greeter. Every
-        other service keeps the key as an additional factor, so sudo/polkit still
-        accept it in-session. Removing `greetd` from this list opts the key back into
-        the graphical login (re-enabling both the greetd pam_u2f factor and the
-        greeter's key-auth UI).
+        key). `login` covers both TTY/console login and the graphical greeter, whose
+        greetd PAM stack is a substack of `login`. Every other service keeps the key
+        as an additional factor, so sudo/polkit still accept it in-session. Removing
+        `login` from this list opts the key back into both logins (re-enabling the
+        pam_u2f factor and the greeter's key-auth UI).
       '';
     };
 

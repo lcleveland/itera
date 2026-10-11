@@ -29,7 +29,7 @@ Or wire itera into an existing flake:
 ```nix
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     hjem.url = "github:feel-co/hjem";
     itera = {
       url = "github:lcleveland/itera";
@@ -74,7 +74,7 @@ bundles [disko](https://github.com/nix-community/disko),
 [lanzaboote](https://github.com/nix-community/lanzaboote),
 [agenix](https://github.com/ryantm/agenix),
 [sops-nix](https://github.com/Mic92/sops-nix),
-[nixos-facter](https://github.com/nix-community/nixos-facter-modules),
+[nixos-facter](https://github.com/nix-community/nixos-facter),
 [nix-index-database](https://github.com/nix-community/nix-index-database),
 [nix-flatpak](https://github.com/gmodena/nix-flatpak) and the Wayland desktop
 stack — [mango](https://github.com/mangowm/mango),

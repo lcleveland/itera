@@ -168,10 +168,8 @@ let
   gamingYamaRelaxed = mkGamingEval { nix-mineral.settings.system.yama = "relaxed"; };
 
   # caching resolver (itera.networking.resolved, on by default); a second eval
-  # with it off to assert systemd-resolved is gated, and one with AAAA
-  # suppression opted out (on by default) to assert the no-aaaa gate.
+  # with it off to assert systemd-resolved is gated.
   resolvedOff = mkEval { itera.networking.resolved.enable = false; };
-  suppressAAAAOff = mkEval { itera.networking.resolved.suppressAAAA = false; };
 
   # NetworkManager must be the *only* DHCP client. nixos-facter sets
   # `networking.interfaces.<name>.useDHCP` per detected NIC, and nixpkgs starts
@@ -263,12 +261,6 @@ let
       cfg.services.resolved.settings.Resolve.DNSSEC == false
       && cfg.nix-mineral.settings.misc.dnssec == false;
     "caching resolver is gated off when disabled" = !resolvedOff.services.resolved.enable;
-    # AAAA suppression is on by default (opt-out): sets glibc's no-aaaa option
-    # on the nsncd daemon, and is gated when disabled. See networking.nix.
-    "AAAA suppression sets no-aaaa on nscd by default" =
-      cfg.systemd.services.nscd.environment.RES_OPTIONS == "no-aaaa";
-    "AAAA suppression is gated off when disabled" =
-      !(suppressAAAAOff.systemd.services.nscd.environment ? RES_OPTIONS);
 
     # dev tooling battery (itera.dev, on by default): git is installed system-wide
     # so a fresh host can work on a Nix config; gated off with the battery.

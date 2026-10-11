@@ -5,7 +5,7 @@
     # Rolling channel used to build itera itself and as the default for consumers.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     # Stable channel, kept available so downstream can follow whichever they run.
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
@@ -118,11 +118,6 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Declarative hardware detection. Assumes disko (which itera uses). itera
-    # bundles its NixOS module (see modules/nixos). Powers `itera.hardware.facter`.
-    # Pure modules — no inputs to follow.
-    nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
 
     # Weekly-updated nix-index database + comma. itera bundles its NixOS module
     # (see modules/nixos). Powers `itera.nixIndex`.

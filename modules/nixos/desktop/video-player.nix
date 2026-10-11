@@ -93,7 +93,7 @@ let
   # facter's `graphics_card` entries carry a numeric PCI vendor id; Intel's is
   # 32902 (0x8086). Same detection shape as the NVIDIA one in
   # modules/nixos/core/facter.nix, which reads 4318 (0x10de) from the same list.
-  gpus = config.facter.report.hardware.graphics_card or [ ];
+  gpus = config.hardware.facter.report.hardware.graphics_card or [ ];
   hasIntelGpu = builtins.any (c: (c.vendor.value or null) == 32902) gpus;
 in
 {

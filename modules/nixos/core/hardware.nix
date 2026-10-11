@@ -213,7 +213,7 @@ in
     # alone, that would silently undo `usbSupport = false` on any facter host.
     # Overriding the detected option to `[]` is a no-op when no report is wired
     # (its default is already empty) and harmless when usbSupport is on.
-    facter.detected.boot.keyboard.kernelModules = mkIf (!cfg.initrd.usbSupport) (mkForce [ ]);
+    hardware.facter.detected.boot.keyboard.kernelModules = mkIf (!cfg.initrd.usbSupport) (mkForce [ ]);
 
     hardware = {
       enableRedistributableFirmware = mkDefault cfg.redistributableFirmware;

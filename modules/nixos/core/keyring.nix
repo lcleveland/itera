@@ -55,7 +55,7 @@ in
       '';
       example = [
         "login"
-        "greetd"
+        "sudo"
       ];
       description = ''
         PAM services that unlock the keyring. `login` covers the initial login;

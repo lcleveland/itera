@@ -61,7 +61,7 @@ let
   # The parsed report the upstream nixos-facter module exposes (`{}` when no
   # report is wired). Its `hardware.graphics_card` entries carry a numeric PCI
   # `vendor.value`; NVIDIA's is 4318 (0x10de).
-  gpus = config.facter.report.hardware.graphics_card or [ ];
+  gpus = config.hardware.facter.report.hardware.graphics_card or [ ];
   hasNvidiaGpu = builtins.any (c: (c.vendor.value or null) == 4318) gpus;
 
   reportPathStr = toString cfg.reportPath;
@@ -124,7 +124,7 @@ in
     # path (committed reports still read purely); an impure rebuild sees the
     # freshly generated host-local report.
     (mkIf (cfg.reportPath != null && builtins.pathExists cfg.reportPath) {
-      facter.reportPath = cfg.reportPath;
+      hardware.facter.reportPath = cfg.reportPath;
     })
 
     # --- Tell the rebuild wrapper (cli/itera.sh) what to do -------------------
