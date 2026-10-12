@@ -30,17 +30,57 @@
             )
           )
       );
+
+      # Look compliance lints (docs/look.md#verification): grep the source,
+      # skipping tests, docs and lib/look.nix, and fail listing every hit.
+      # `extraFilter` drops more lines from grep's `file:line:text` output.
+      mkLint =
+        name:
+        {
+          pattern,
+          extraFilter ? "cat",
+          src ? ../.,
+        }:
+        pkgs.runCommand name { } ''
+          cd ${src}
+          if grep -rnE --exclude-dir=tests --exclude-dir=docs --exclude='*.md' --exclude=flake.lock \
+              -e '${pattern}' . | grep -v '^\./lib/look\.nix:' | ${extraFilter} > $TMPDIR/hits; then
+            echo "${name}: found in"; cat $TMPDIR/hits; exit 1
+          fi
+          touch $out
+        '';
+      lints = {
+        # Colours belong in the palette (lib/look.nix); batteries call `resolve`.
+        look-hex-lint = {
+          pattern = "#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?\\b";
+        };
+        # Only lib/look.nix reads `itera.look`. Comment lines don't count.
+        look-reads-lint = {
+          pattern = "itera\\.(users\\.[^.[:space:]]+\\.)?look\\b";
+          extraFilter = "grep -vE '^[^:]+:[0-9]+:[[:space:]]*#'";
+        };
+      };
     in
     {
       checks =
-        # Auto-discovered VM tests under tests/nixos.
-        (import ../tests {
-          inherit pkgs lib;
-          inherit (inputs) self;
-          # VM boot tests need KVM; hosted aarch64 runners have none, so only
-          # discover them on x86_64. The eval checks below still run everywhere.
-          testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
-        })
+        lib.mapAttrs mkLint lints
+        # Each lint also runs on a planted violation (tests/lint-planted) and
+        # must fail on it.
+        // lib.mapAttrs' (
+          name: lint:
+          lib.nameValuePair "${name}-planted" (
+            pkgs.testers.testBuildFailure (mkLint name (lint // { src = ../tests/lint-planted; }))
+          )
+        ) lints
+        //
+          # Auto-discovered VM tests under tests/nixos.
+          (import ../tests {
+            inherit pkgs lib;
+            inherit (inputs) self;
+            # VM boot tests need KVM; hosted aarch64 runners have none, so only
+            # discover them on x86_64. The eval checks below still run everywhere.
+            testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
+          })
         // evalChecks;
     };
 }

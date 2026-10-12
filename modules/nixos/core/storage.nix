@@ -17,7 +17,7 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.modules) mkIf mkDefault;
-  inherit (lib.types) bool strMatching;
+  inherit (lib.types) bool nullOr strMatching;
 
   cfg = config.itera.storage;
 in
@@ -30,13 +30,13 @@ in
     };
 
     trayIconColor = mkOption {
-      type = strMatching "#[0-9a-fA-F]{6}";
-      default = "#ffffff";
-      example = "#1a1c20";
+      type = nullOr (strMatching "#[0-9a-fA-F]{6}");
+      default = null;
       description = ''
-        Fill color of udiskie's tray icon. White by default, matching the other
-        icons on itera's dark DankMaterialShell bar; change it if you switch to a
-        light theme. Qt does not recolor tray icons, so it is fixed at build time.
+        Fill colour of udiskie's tray icon, as `#rrggbb`. `null` (default) uses
+        each user's look `text` colour for their starting mode. Qt does not
+        recolour tray icons, so it is fixed at build time and follows neither
+        the DMS theme picker nor a runtime mode switch.
       '';
     };
   };

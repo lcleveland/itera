@@ -19,12 +19,14 @@
 let
   inherit (lib.options) mkOption;
   inherit (lib.types) nullOr;
-  inherit (lib.attrsets) mapAttrs optionalAttrs;
+  inherit (lib.attrsets) mapAttrs optionalAttrs setAttrByPath;
 in
 {
   # Build the option fragments for one curated program.
   #
   #   name           the <app> key, e.g. "mango".
+  #   path ?         where the options live under `itera` and `itera.users.<name>`,
+  #                  default `[ "programs" name ]`. The look uses `[ "look" ]`.
   #   fields         attrset  fieldName -> {
   #                    type;                # nix option type
   #                    attrs ? false;       # true = attrs option merged per-key with
@@ -48,6 +50,10 @@ in
   mkCuratedProgram =
     {
       name,
+      path ? [
+        "programs"
+        name
+      ],
       fields,
       systemConfig ? (_: { }),
       userExtra ? { },
@@ -89,14 +95,14 @@ in
       systemModule =
         { config, ... }:
         {
-          options.itera.programs.${name} = systemOptions;
-          config.itera.programs.${name} = systemConfig config;
+          options.itera = setAttrByPath path systemOptions;
+          config.itera = setAttrByPath path (systemConfig config);
         };
 
       # Splice into the `itera.users.<name>` submodule (via `imports`): the
       # per-user override level.
       usersSubmodule = {
-        options.programs.${name} = userFieldOptions // userExtra;
+        options = setAttrByPath path (userFieldOptions // userExtra);
       };
     };
 }

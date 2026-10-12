@@ -325,8 +325,8 @@ let
       !(cfgNoDesktop.xdg.portal.wlr.settings ? screencast);
 
     # udiskie's tray icon is a Material Symbols glyph (the font DMS draws its own
-    # bar icons with) in `itera.storage.trayIconColor`, not the Adwaita drive icon.
-    "udiskie tray icon is itera's Material Symbols glyph" = lib.hasInfix "fill=\"#ffffff\"" (
+    # bar icons with) in the look's text colour, not the Adwaita drive icon.
+    "udiskie tray icon is itera's Material Symbols glyph" = lib.hasInfix "fill=\"#e2e9ed\"" (
       udiskieIconOf cfg
     );
     "udiskie tray icon color is configurable" = lib.hasInfix "fill=\"#1a1c20\"" (
