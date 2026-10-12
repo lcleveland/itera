@@ -94,7 +94,7 @@ let
         ];
       }
       ''
-        export HOME=$TMPDIR/home
+        export HOME=$TMPDIR/home XDG_DATA_DIRS=${pkgs.adw-gtk3}/share
         session=$HOME/.local/state/DankMaterialShell/session.json
         mkdir -p $(dirname $session)
         echo '{"weatherLocation":"Oslo","isLightMode":true}' > $session
@@ -103,6 +103,9 @@ let
         # First run seeds dark and keeps unrelated keys.
         [ "$(run ${seeder "bob"})" = "'prefer-dark'" ]
         jq -e '.weatherLocation == "Oslo" and .isLightMode == false and .themeModeAutoEnabled == false' $session
+
+        # It applies DMS's GTK colours: the user copy of adw-gtk3 DMS patches.
+        [ -d $HOME/.local/share/themes/adw-gtk3-dark/gtk-3.0 ]
 
         # A live toggle survives the next run with the same seed.
         jq '.isLightMode = true' $session > s && mv s $session

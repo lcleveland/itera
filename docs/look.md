@@ -38,7 +38,7 @@ Where this spec and the code disagree, the code is out of date.
 | Surface                 | Lane      | Delivery                                                                                                                                                       |
 | ----------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DMS                     | source    | `currentThemeName = "custom"`, generated `customThemeFile` (dark + light), and `config.d` keys for fonts, `cornerRadius`, per-mode icons and `cursorSettings`. |
-| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped and `GTK_THEME` is never set.                                                                                       |
+| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped, the seeder runs DMS's GTK apply at each login, and `GTK_THEME` is never set.                                       |
 | Qt                      | DMS       | DMS kcolorscheme/qtengine.                                                                                                                                     |
 | mango                   | DMS       | Sources `dms/colors.conf`. Radius from `resolve`; gaps are seeded into DMS's spacing setting (see [Ultrawide](#ultrawide)).                                    |
 | WezTerm                 | DMS       | `color_scheme = "dank-theme"`. Font, size and opacity defaults from `resolve`.                                                                                 |
@@ -160,7 +160,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 - **Name:** the look is called **itera**. The palette is called Tide.
 - **Mark ("Flow"):** in a 100×100 box, angles clockwise from 3 o'clock.
   - **Strokes:** tapered arcs on radius 35 around (50, 50), width 1.2 → 11, round ends. The teal stroke (`accent`) runs 135°→280°; the coral stroke (`accentTertiary`) runs −45°→100°.
-  - **Lead-in dots:** two per stroke, in the stroke's colour, at 28° and 15° before its tail, with radii 1.4 and 2.6.
+  - **Lead-in dots:** two per stroke, in the stroke's colour, at 22° and 11° before its tail, clear of the previous stroke's head, with radii 1.4 and 2.6.
   - **The i:** stem `M50 47V64` (stroke width 8, round caps) and a dot at (50, 35), r 5, both in `text`.
 - **Wordmark:** the monoline "itera" (stroke 9, round caps, all paths) in `text`, to the right of the mark at the mark's height.
 - **Wallpaper motif ("Lead-in trails"):**
