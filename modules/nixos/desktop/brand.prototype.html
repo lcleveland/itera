@@ -2,7 +2,7 @@
 <!--
   PROTOTYPE, throwaway. Answers "What do the itera logo mark and the wallpaper motif look like?"
   (issue #198). Four marks are shown side by side; four wallpaper motifs are switchable with ?motif=
-  (arrow keys), ?mark= picks the mark they carry (keys E-H), M flips dark/light.
+  (arrow keys), ?mark= picks the mark they carry (keys H-L), M flips dark/light.
   The <script id="gen"> block is pure SVG-string generation, so the same code can be fed to resvg.
 -->
 <html lang="en">
@@ -38,7 +38,7 @@
 <body>
 <main>
   <p class="note">PROTOTYPE. Every image below is an SVG string built from Tide tokens, with no &lt;text&gt;, so it can go
-    straight to resvg. Click a mark card (or press E–H) to put that mark into the wallpapers. ← → cycle motifs, M flips mode.
+    straight to resvg. Click a mark card (or press H–L) to put that mark into the wallpapers. ← → cycle motifs, M flips mode.
     All motif geometry scales with the output's <em>height</em>, so wider outputs get more of the pattern, never a stretched one.</p>
   <h2>Marks</h2>
   <div class="marks" id="marks"></div>
@@ -70,25 +70,37 @@ const wordmark = (c) => `<g ${stroke(c, 9)}>
   <path d="M5 60V100M24 42V90Q24 100 34 100M15 60H34M42 80H82A20 20 0 1 0 76.14 94.14M96 60V100M96 80A20 20 0 0 1 116 60M162 80A20 20 0 1 1 122 80A20 20 0 1 1 162 80M162 60V100"/>
 </g><circle cx="5" cy="45" r="6" fill="${c}"/>`;
 
-// Round 2: every mark shows a sequence of steps. Round 1 (Loop, Tide, Tile, Spiral) read as static shapes, not iteration.
-const ring = (r, a0, a1) => {
-  const p = (a) => `${(50 + r * Math.cos(a * Math.PI / 180)).toFixed(2)} ${(50 + r * Math.sin(a * Math.PI / 180)).toFixed(2)}`;
-  return `M${p(a0)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p(a1)}`;
+// Round 3: refinements of Cycle (H), the round-2 favourite, aiming for more modern and more flowing.
+// Rejected so far: round 1 Loop/Tide/Tile/Spiral (static, not iterative); round 2 Echo/Converge/i++ and motifs 5-8.
+const lerp = (a, b, f) => a + (b - a) * f;
+const pt = (cx, cy, r, a) => [cx + r * Math.cos(a * Math.PI / 180), cy + r * Math.sin(a * Math.PI / 180)];
+const xy = ([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`;
+const arc = (cx, cy, r, a0, a1) => `M${xy(pt(cx, cy, r, a0))}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${xy(pt(cx, cy, r, a1))}`;
+const ring = (r, a0, a1) => arc(50, 50, r, a0, a1);
+// Filled arc whose width tapers from w0 (tail) to w1 (head), with a round head.
+const taper = (cx, cy, r, a0, a1, w0, w1) => {
+  const out = [], inn = [];
+  for (let k = 0; k <= 24; k++) { const f = k / 24, a = lerp(a0, a1, f), w = lerp(w0, w1, f) / 2; out.push(pt(cx, cy, r + w, a)); inn.push(pt(cx, cy, r - w, a)); }
+  return `M${out.map(xy).join('L')}A${w1 / 2} ${w1 / 2} 0 0 1 ${xy(inn[24])}L${inn.reverse().map(xy).join('L')}Z`;
 };
+// Opacity that builds along an arc: overlapping copies that all end at a1, so no seams.
+const fadeArc = (cx, cy, r, a0, a1, c, w, n = 18, o = 0.14) =>
+  Array.from({ length: n }, (_, k) => `<path d="${arc(cx, cy, r, lerp(a0, a1 - 30, k / n), a1)}" fill="none" stroke="${c}" stroke-width="${w}" opacity="${o}"/>`).join('');
+const iGlyph = (t) => `<path d="M50 47V64" ${stroke(t.text, 8)}/><circle cx="50" cy="35" r="5" fill="${t.text}"/>`;
+
 const MARKS = {
-  E: { name: 'Echo', note: 'Three i glyphs, each taller and more solid than the last: successive iterations, the newest dotted in coral.',
-    svg: (t) => [[24, 60, 0.3, t.accent], [50, 50, 0.6, t.accent], [76, 40, 1, t.accentTertiary]]
-      .map(([x, top, o, dot]) => `<g opacity="${o}"><path d="M${x} ${top}V84" ${stroke(t.accent, 11)}/><circle cx="${x}" cy="${top - 15}" r="6.5" fill="${dot}"/></g>`).join('') },
-  F: { name: 'Converge', note: 'A square refined, step by step, into a circle: each pass smoother than the last.',
-    svg: (t) => `<rect x="9" y="9" width="82" height="82" rx="4" ${stroke(t.accent, 6)} opacity=".35"/>
-      <rect x="22" y="22" width="56" height="56" rx="16" ${stroke(t.accent, 6)} opacity=".65"/>
-      <circle cx="50" cy="50" r="15" fill="${t.accent}"/><circle cx="50" cy="50" r="5" fill="${t.textOnAccent}"/>` },
-  G: { name: 'i++', note: 'The increment operator, literally: a geometric i followed by two coral plus signs.',
-    svg: (t) => `<path d="M20 46V80" ${stroke(t.accent, 11)}/><circle cx="20" cy="29" r="7" fill="${t.accent}"/>
-      <path d="M44 63H62M53 54V72M70 63H88M79 54V72" ${stroke(t.accentTertiary, 7)}/>` },
-  H: { name: 'Cycle', note: 'A ring of five passes, brightening clockwise, the current one in coral, around an i.',
-    svg: (t) => [0, 1, 2, 3, 4].map((k) => `<path d="${ring(36, -90 + k * 72 + 9, -90 + k * 72 + 63)}" ${stroke(k === 4 ? t.accentTertiary : t.accent, 9)} opacity="${k === 4 ? 1 : 0.3 + k * 0.23}"/>`).join('') +
-      `<path d="M50 47V64" ${stroke(t.text, 8)}/><circle cx="50" cy="35" r="5" fill="${t.text}"/>` },
+  H: { name: 'Cycle (round 2)', note: 'The round-2 pick, kept for comparison: five passes brightening clockwise, the current one coral.',
+    svg: (t) => [0, 1, 2, 3, 4].map((k) => `<path d="${ring(36, -90 + k * 72 + 9, -90 + k * 72 + 63)}" ${stroke(k === 4 ? t.accentTertiary : t.accent, 9)} opacity="${k === 4 ? 1 : 0.3 + k * 0.23}"/>`).join('') + iGlyph(t) },
+  I: { name: 'Sweep', note: 'One continuous stroke that fades in clockwise and lands on a coral head at twelve o\'clock: the passes melted into a single motion.',
+    svg: (t) => fadeArc(50, 50, 36, -30, 270, t.accent, 9) + `<circle cx="50" cy="14" r="6.5" fill="${t.accentTertiary}"/>` + iGlyph(t) },
+  J: { name: 'Dots', note: 'Twelve dots growing and brightening clockwise to a coral one at the top: discrete passes, but flowing like a spinner.',
+    svg: (t) => Array.from({ length: 12 }, (_, k) => { const f = k / 11, [x, y] = pt(50, 50, 36, -30 + k * 300 / 11);
+      return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${lerp(2, 6.5, f)}" fill="${k === 11 ? t.accentTertiary : t.accent}" opacity="${k === 11 ? 1 : lerp(0.25, 1, f).toFixed(2)}"/>`; }).join('') + iGlyph(t) },
+  K: { name: 'Orbit', note: 'A faint full track with one bold pass travelling it, coral at the leading edge: a loop in progress.',
+    svg: (t) => `<circle cx="50" cy="50" r="36" fill="none" stroke="${t.accent}" stroke-width="5" opacity=".2"/>
+      <path d="${ring(36, 140, 270)}" ${stroke(t.accent, 9)}/><circle cx="50" cy="14" r="6.5" fill="${t.accentTertiary}"/>` + iGlyph(t) },
+  L: { name: 'Twin flow', note: 'Two tapered strokes chasing each other round, thin tail to full head: continuous, rotational flow.',
+    svg: (t) => `<path d="${taper(50, 50, 35, 125, 285, 1, 11)}" fill="${t.accent}"/><path d="${taper(50, 50, 35, -55, 105, 1, 11)}" fill="${t.accentTertiary}"/>` + iGlyph(t) },
 };
 
 const markSvg = (id, t, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${MARKS[id].svg(t)}</svg>`;
@@ -106,60 +118,54 @@ const hero = (id, t, W, H, y, greeter, size) =>
   greeter ? placeLockup(id, t, W / 2, y, H * 0.09) : placeMark(id, t, W / 2, y, size);
 
 const rng = (seed) => () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-const lerp = (a, b, f) => a + (b - a) * f;
 
+// Round 3 motifs echo the cycle: rings, sweeps and orbits around the centred mark.
+const centre = (W, H, g) => [W / 2, g ? H * 0.36 : H / 2];
 const MOTIFS = {
-  5: { name: 'Generations', note: 'A field of cells that are square at the edges and refine into circles toward the centre, one step per column, fading out radially.',
+  9: { name: 'Ripple passes', note: 'Rings of five passes spreading out from the mark, each ring turned a little further: the mark\'s cycle, iterated outward.',
     svg: (id, t, W, H, g) => {
-      const c = H / 14, cx = W / 2, cy = H / 2;
-      let cells = '';
-      for (let x = (cx % c) - c; x < W + c; x += c) for (let y = (cy % c) - c; y < H + c; y += c) {
-        const d = Math.hypot(x - cx, y - cy) / (H * 0.9);
-        if (d > 1) continue;
-        const f = Math.min(1, Math.floor(Math.abs(x - cx) / c) / 10), s = c * 0.42;
-        cells += `<rect x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}" rx="${lerp(s / 2, 0, f)}" fill="${d < 0.25 ? t.accentContainer : t.border}" opacity="${(1 - d).toFixed(2)}"/>`;
-      }
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${cells}${hero(id, t, W, H, g ? H * 0.36 : H / 2, g, H * 0.16)}`;
-    } },
-  6: { name: 'Commit graph', note: 'A git-style history running the full width: a teal main line with branches forking off and merging back.',
-    svg: (id, t, W, H, g) => {
-      const r = rng(7), dx = H * 0.07, y0 = H * 0.62, gap = H * 0.085, sw = H * 0.0045, nr = H * 0.009;
-      const lanes = [t.accent, t.accentSecondary, t.accentTertiary, t.borderStrong];
-      const y = (i) => y0 + i * gap;
-      let lines = `<path d="M0 ${y(0)}H${W}" stroke="${t.accent}" stroke-width="${sw}"/>`, nodes = '';
-      for (let x = dx / 2; x < W; x += dx) nodes += `<circle cx="${x}" cy="${y(0)}" r="${nr}" fill="${t.background}" stroke="${t.accent}" stroke-width="${sw}"/>`;
-      for (let i = 1; i < lanes.length; i++) {
-        let s = Math.floor(r() * 8);
-        while ((s + 2) * dx < W) {
-          const len = 2 + Math.floor(r() * 5), a = dx / 2 + s * dx, b = a + (len + 1) * dx;
-          lines += `<path d="M${a} ${y(0)}C${a + dx / 2} ${y(0)} ${a + dx / 2} ${y(i)} ${a + dx} ${y(i)}H${b - dx}C${b - dx / 2} ${y(i)} ${b - dx / 2} ${y(0)} ${b} ${y(0)}" fill="none" stroke="${lanes[i]}" stroke-width="${sw}"/>`;
-          for (let k = 1; k <= len; k++) nodes += `<circle cx="${a + k * dx}" cy="${y(i)}" r="${nr}" fill="${t.background}" stroke="${lanes[i]}" stroke-width="${sw}"/>`;
-          s += len + 6 + Math.floor(r() * 10);
+      const [cx, cy] = centre(W, H, g), reach = Math.hypot(W / 2, H), sw = H * 0.004;
+      let rings = '';
+      for (let k = 1, r = H * 0.15; r < reach; k++, r += H * 0.075) {
+        const o = Math.max(0.15, lerp(0.9, 0.15, (r - H * 0.15) / (H * 1.2)));
+        for (let s = 0; s < 5; s++) {
+          const a = -90 + s * 72 + k * 11, hot = k === 2;
+          rings += `<path d="${arc(cx, cy, r, a + 7, a + 65)}" fill="none" stroke="${hot ? (s === 4 ? t.accentTertiary : t.accent) : t.border}" stroke-width="${sw}" stroke-linecap="round" opacity="${hot ? 1 : o.toFixed(2)}"/>`;
         }
       }
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${lines}${nodes}${hero(id, t, W, H, H * 0.36, g, H * 0.12)}`;
+      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${rings}${hero(id, t, W, H, cy, g, H * 0.13)}`;
     } },
-  7: { name: 'Contours', note: 'Nested outlines that start as the screen\'s own frame and refine, pass by pass, into a circle around the mark.',
+  10: { name: 'Vortex', note: 'Logarithmic spirals streaming out of the mark: a cycle that keeps turning as it grows. Every ninth stream is teal.',
     svg: (id, t, W, H, g) => {
-      const n = 16, s = H * 0.24, cy = g ? H * 0.36 : H / 2;
-      let rings = '';
-      for (let k = 0; k < n; k++) {
-        const f = k / (n - 1), e = f, w = lerp(W * 0.97, s, e), h = lerp(H * 0.94, s, e), cyk = lerp(H / 2, cy, e);
-        rings += `<rect x="${W / 2 - w / 2}" y="${cyk - h / 2}" width="${w}" height="${h}" rx="${lerp(H * 0.02, s / 2, f ** 1.5)}" fill="none" stroke="${k >= n - 3 ? t.accent : t.border}" stroke-width="${H * 0.0025}" opacity="${lerp(0.35, 1, f).toFixed(2)}"/>`;
+      const [cx, cy] = centre(W, H, g), r0 = H * 0.11, b = 0.2, reach = Math.hypot(W / 2, H), tmax = Math.log(reach / r0) / b;
+      let s = '';
+      for (let k = 0; k < 36; k++) {
+        let d = '';
+        for (let th = 0; th <= tmax; th += 0.08) { const r = r0 * Math.exp(b * th), a = th + k * Math.PI / 18; d += `${d ? 'L' : 'M'}${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`; }
+        s += `<path d="${d}" fill="none" stroke="${k % 9 ? t.border : t.accent}" stroke-width="${H * 0.0018}" opacity="${k % 9 ? 0.55 : 0.8}"/>`;
       }
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${rings}${hero(id, t, W, H, cy, g, H * 0.12)}`;
+      return `<defs><radialGradient id="v" cx="${cx}" cy="${cy}" r="${H * 0.3}" gradientUnits="userSpaceOnUse"><stop offset=".3" stop-color="${t.background}"/><stop offset="1" stop-color="${t.background}" stop-opacity="0"/></radialGradient></defs>
+      <rect width="${W}" height="${H}" fill="${t.background}"/>${s}<rect width="${W}" height="${H}" fill="url(#v)"/>${hero(id, t, W, H, cy, g, H * 0.13)}`;
     } },
-  8: { name: 'Echo trail', note: 'The mark repeated from the left edge, each copy larger and more solid, arriving at the centre; on a faint dot grid.',
+  11: { name: 'Sweep', note: 'The Sweep mark at wallpaper scale: a soft accent sweep around faint tracks, landing on a coral leading edge.',
     svg: (id, t, W, H, g) => {
-      const sg = H / 24, cy = g ? H * 0.36 : H / 2, big = H * 0.14;
-      let trail = '', x = W / 2, size = big;
-      const steps = [];
-      while (x > -size && size > H * 0.012) { steps.push([x, size]); x -= size * 1.15; size *= 0.86; }
-      steps.reverse().forEach(([x, s], i) => { if (i < steps.length - 1) trail += placeMark(id, t, x, cy, s, `opacity="${(0.08 + 0.5 * i / steps.length).toFixed(2)}"`); });
-      return `<defs><pattern id="dots" width="${sg}" height="${sg}" x="${(W / 2) % sg - sg / 2}" y="${(H / 2) % sg - sg / 2}" patternUnits="userSpaceOnUse">
-        <circle cx="${sg / 2}" cy="${sg / 2}" r="${H * 0.0018}" fill="${t.border}"/></pattern></defs>
-      <rect width="${W}" height="${H}" fill="${t.background}"/><rect width="${W}" height="${H}" fill="url(#dots)"/>${trail}
-      ${g ? placeLockup(id, t, W / 2 + H * 0.09 * 1.45 - big / 2, cy, H * 0.09) : placeMark(id, t, W / 2, cy, big)}`;
+      const [cx, cy] = centre(W, H, g), R = H * 0.42;
+      const tracks = [0.18, 0.3, 0.42, 0.54, 0.66].map((f) => `<circle cx="${cx}" cy="${cy}" r="${H * f}" fill="none" stroke="${t.border}" stroke-width="${H * 0.0018}" opacity=".7"/>`).join('');
+      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${tracks}
+        ${fadeArc(cx, cy, R, -30, 270, t.accent, H * 0.006, 24, 0.1)}${fadeArc(cx, cy, R * 0.72, 30, 330, t.accentSecondary, H * 0.003, 18, 0.08)}
+        <circle cx="${cx}" cy="${cy - R}" r="${H * 0.008}" fill="${t.accentTertiary}"/>${hero(id, t, W, H, cy, g, H * 0.13)}`;
+    } },
+  12: { name: 'Orbits', note: 'Wide, tilted orbit tracks that stretch with the screen, a few nodes travelling them, one coral: passes in motion around the mark.',
+    svg: (id, t, W, H, g) => {
+      const [cx, cy] = centre(W, H, g), r = rng(3), n = 6;
+      let s = '';
+      for (let k = 0; k < n; k++) {
+        const f = k / (n - 1), rx = lerp(H * 0.2, W * 0.5, f), ry = rx * lerp(0.42, 0.3, f), hot = k === 2;
+        s += `<g transform="translate(${cx} ${cy}) rotate(-10)"><ellipse rx="${rx}" ry="${ry}" fill="none" stroke="${hot ? t.accent : t.border}" stroke-width="${H * (hot ? 0.003 : 0.0018)}" opacity="${hot ? 1 : 0.8}"/>`;
+        for (let j = 0; j < 2; j++) { const a = r() * 2 * Math.PI; s += `<circle cx="${rx * Math.cos(a)}" cy="${ry * Math.sin(a)}" r="${H * 0.007}" fill="${hot && j === 0 ? t.accentTertiary : t.accentSecondary}"/>`; }
+        s += '</g>';
+      }
+      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${s}${hero(id, t, W, H, cy, g, H * 0.13)}`;
     } },
 };
 
@@ -171,7 +177,7 @@ const wallpaperSvg = (motif, mark, mode, cls) => {
 
 <script>
 const q = new URLSearchParams(location.search);
-let state = { motif: q.get('motif') || '5', mark: q.get('mark') || 'E', mode: q.get('mode') || 'dark' };
+let state = { motif: q.get('motif') || '9', mark: q.get('mark') || 'I', mode: q.get('mode') || 'dark' };
 const motifs = Object.keys(MOTIFS);
 
 function render() {
