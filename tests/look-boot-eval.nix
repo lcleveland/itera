@@ -81,6 +81,7 @@ let
       "udev.log_level=3"
       "rd.systemd.show_status=auto"
     ];
+    "no boot param is passed twice" = lib.unique cfg.boot.kernelParams == cfg.boot.kernelParams;
     "the opt-out drops itera's boot params" =
       !lib.elem "rd.systemd.show_status=auto" cfgOff.boot.kernelParams;
     "console.colors are the 16 dark terminal tokens" =
