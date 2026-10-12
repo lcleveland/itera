@@ -27,3 +27,7 @@ _Avoid_: target, backend
 **Aspect class**:
 The width family of a display, taken from its aspect ratio: standard (around 16:9), ultrawide (around 21:9) or super-ultrawide (around 32:9). Layout and wallpaper defaults vary by aspect class, not by individual display.
 _Avoid_: monitor type, screen size
+
+**Brand asset**:
+The itera logo, wallpapers or greeter image. Each is generated from colour tokens for each mode, not drawn or sourced as a fixed file.
+_Avoid_: artwork, branding
