@@ -30,6 +30,7 @@ let
     ;
 
   cfg = config.itera.boot;
+  mineralQuiet = (config.nix-mineral.enable or false) && (config.nix-mineral.settings.debug.quiet-boot or false);
 in
 {
   # The systemd initrd is NixOS's own default since 26.05; set
@@ -180,12 +181,15 @@ in
         # Silent boot behind the splash. A mkDefault list would be dropped by any
         # other kernelParams definition, so these follow the opt-out instead.
         # The kernel log level is nix-mineral's (`boot.consoleLogLevel = 0`,
-        # quieter than 3), so it is left alone.
-        (mkIf cfg.plymouth.enable [
-          "quiet"
-          "udev.log_level=3"
-          "rd.systemd.show_status=auto"
-        ])
+        # quieter than 3), so it is left alone. Its quiet-boot already adds
+        # `quiet` and `udev.log_level=3`, so they're only added without it.
+        (mkIf cfg.plymouth.enable (
+          lib.optionals (!mineralQuiet) [
+            "quiet"
+            "udev.log_level=3"
+          ]
+          ++ [ "rd.systemd.show_status=auto" ]
+        ))
       ];
 
       # The system look's starting mode (auto starts dark).
