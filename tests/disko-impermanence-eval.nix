@@ -154,8 +154,8 @@ let
   # attributes the other gaming checks touch — enough to reach Steam's i686
   # package set ("i686 Linux package set can only be used with the x86 family" on
   # the aarch64 runner). Pin the platform like the nvidia evals do so these run
-  # identically on both runners. Second variant: a host that has relaxed yama, to
-  # assert the warning is conditional and not a permanent nag.
+  # identically on both runners. Second variant: a host that forces yama back to
+  # "restricted", the only case the warning should still fire.
   mkGamingEval =
     extra:
     mkConfig [
@@ -164,8 +164,11 @@ let
       { itera.gaming.enable = true; }
       extra
     ];
-  gamingWarn = mkGamingEval { };
-  gamingYamaRelaxed = mkGamingEval { nix-mineral.settings.system.yama = "relaxed"; };
+  gamingQuiet = mkGamingEval { };
+  gamingYamaForced = mkGamingEval { nix-mineral.settings.system.yama = lib.mkForce "restricted"; };
+
+  # zram swap is on by default; with it off the zram-tuned vm sysctls must drop out.
+  zramOff = mkEval { zramSwap.enable = false; };
 
   # caching resolver (itera.networking.resolved, on by default); a second eval
   # with it off to assert systemd-resolved is gated.
@@ -556,15 +559,29 @@ let
     "no steam clipboard injection without steam" =
       !(builtins.any (p: lib.getName p == "wl-clipboard-x11") cfg.programs.steam.extraPackages);
     # Hardening leaves yama at "restricted" (ptrace_scope 3), which blocks the
-    # ptrace Wine/Proton does on its own children. The gaming battery must warn
-    # about that rather than silently relax it — and must go quiet once a host
-    # has actually relaxed it.
+    # ptrace Wine/Proton does on its own children. The gaming battery relaxes it
+    # (and turns off split-lock throttling), and warns only when a host forces
+    # "restricted" back on.
     "hardening keeps yama restricted by default" = cfg.nix-mineral.settings.system.yama == "restricted";
-    "gaming warns about the ptrace/yama conflict" = builtins.any (
+    "no split-lock override without gaming" = !(cfg.boot.kernel.sysctl ? "kernel.split_lock_mitigate");
+    "gaming relaxes yama" = gamingOn.boot.kernel.sysctl."kernel.yama.ptrace_scope" == "1";
+    "gaming disables split-lock mitigation" =
+      gamingOn.boot.kernel.sysctl."kernel.split_lock_mitigate" or null == 0;
+    "gaming is quiet about ptrace by default" =
+      !(builtins.any (w: lib.hasInfix "ptrace_scope" w) gamingQuiet.warnings);
+    "gaming warns when yama is forced restricted" = builtins.any (
       w: lib.hasInfix "ptrace_scope" w
-    ) gamingWarn.warnings;
-    "gaming is quiet once yama is relaxed" =
-      !(builtins.any (w: lib.hasInfix "ptrace_scope" w) gamingYamaRelaxed.warnings);
+    ) gamingYamaForced.warnings;
+
+    # perf tuning (#239-#241)
+    "TCP SACK is not disabled" = cfg.boot.kernel.sysctl."net.ipv4.tcp_sack" or "1" == "1";
+    "zram tunes swappiness" = cfg.boot.kernel.sysctl."vm.swappiness" or null == 180;
+    "zram disables swap readahead" = cfg.boot.kernel.sysctl."vm.page-cluster" or null == 0;
+    "zram sysctls drop out without zram" = !(zramOff.boot.kernel.sysctl ? "vm.swappiness");
+    "nix daemon builds at batch CPU priority" = cfg.nix.daemonCPUSchedPolicy == "batch";
+    "nix daemon builds at idle IO priority" = cfg.nix.daemonIOSchedClass == "idle";
+    "nix download buffer is 256 MiB" =
+      cfg.nix.settings.download-buffer-size or null == 256 * 1024 * 1024;
   };
 
 in

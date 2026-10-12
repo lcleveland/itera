@@ -106,6 +106,20 @@ in
       # always works; a host wanting the tighter default can flip it back off.
       settings.system.multilib = mkDefault true;
 
+      # Keep TCP SACK (and DSACK/FACK) on. nix-mineral turns them off to guard
+      # against the 2019 SACK-panic CVEs, which were fixed in the kernel long ago.
+      # Without SACK, TCP recovers slowly from lost packets, which hurts
+      # throughput on Wi-Fi and other lossy links.
+      settings.network.tcp-sack = mkDefault true;
+
+      # io_uring stays fully disabled (nix-mineral's `kernel.io_uring_disabled=2`).
+      # The middle setting (`=1`) gains little: it limits io_uring to
+      # CAP_SYS_ADMIN and `kernel.io_uring_group`, and that group defaults to
+      # none, so libvirt's unprivileged QEMU would still be blocked. QEMU only
+      # uses io_uring when `aio=io_uring` is set, and its default `threads`
+      # backend works without it. A host that needs io_uring sets
+      # `nix-mineral.settings.kernel.io-uring = true`.
+
       # Known benign boot-log noise from this layer — left as-is on purpose:
       #
       #   • `udev-worker: Error running install command

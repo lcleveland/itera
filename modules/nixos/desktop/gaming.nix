@@ -1,6 +1,7 @@
 # itera's gaming battery.
 #
-# Steam (with Proton-GE), gamemode, and gamescope. Opt-IN (off by default): a
+# Steam (with Proton-GE), gamemode, and gamescope, plus the kernel relaxations
+# games need (yama ptrace scope, split-lock throttling, joydev). Opt-IN (off by default): a
 # desktop-adjacent battery like the other `itera.desktop.*` ones, but not wanted
 # on every machine.
 #
@@ -54,22 +55,28 @@ in
     # "restricted" default (kernel.yama.ptrace_scope = 3), which forbids ptrace
     # outright. Wine/Proton's `wineserver` ptraces its own children, so Proton
     # titles spam `kernel: ptrace attach of "…" was attempted by "…/wineserver"`
-    # and kernel-adjacent anti-cheats can refuse to run. Upstream nix-mineral
-    # calls this out and its `compatibility` preset sets `yama = "relaxed"`
-    # (scope 1: a parent may trace its own children — exactly Wine's pattern)
-    # for this reason. Warn rather than relax it here: weakening hardening is
-    # the host's call, not something a gaming battery should do silently.
+    # and kernel-adjacent anti-cheats can refuse to run. Relax it to "relaxed"
+    # (scope 1: a parent may trace its own children, which is what Wine does),
+    # the same value nix-mineral's `compatibility` preset uses. mkDefault beats
+    # the option default, but a preset that pins "restricted" (`maximum`) or a
+    # host override wins, and only then do we warn.
+    nix-mineral.settings.system.yama = mkDefault "relaxed";
     warnings =
       lib.optional
         (config.itera.hardening.enable && config.nix-mineral.settings.system.yama == "restricted")
         ''
           itera.gaming is enabled but nix-mineral.settings.system.yama = "restricted"
-          (kernel.yama.ptrace_scope = 3), which blocks all ptrace. Wine/Proton needs
-          it for its own child processes: expect ptrace denials in the journal and
-          anti-cheats that refuse to start. Set
-          nix-mineral.settings.system.yama = "relaxed" (or add "compatibility" to
-          itera.hardening.preset) if you hit that.
+          (kernel.yama.ptrace_scope = 3, from a host override or the `maximum`
+          preset), which blocks all ptrace. Wine/Proton needs it for its own child
+          processes: expect ptrace denials in the journal and anti-cheats that refuse
+          to start. Set nix-mineral.settings.system.yama = lib.mkForce "relaxed" if
+          you hit that.
         '';
+
+    # Kernels 6.2 and later deliberately slow down processes that do split-lock
+    # memory accesses, and several Windows games under Proton do, so they stutter
+    # badly. SteamOS turns this off too.
+    boot.kernel.sysctl."kernel.split_lock_mitigate" = mkDefault 0;
 
     # nix-mineral disables the whole `joystick-drivers` combo (secureblue's list),
     # which sweeps up `joydev` — the driver behind the legacy `/dev/input/js*`
@@ -89,9 +96,8 @@ in
     # …) that a modern gaming host has no use for, and leaving them disabled keeps
     # the attack surface tight. `disable.<module>` is a freeform per-module knob
     # that takes priority over the combo, so this is a targeted carve-out and not
-    # a blanket relaxation of the hardening layer. Unlike the yama case above this
-    # IS flipped for you: it is narrow, and a gaming battery that silently drops
-    # legacy joystick support isn't delivering what it advertises. mkDefault so a
+    # a blanket relaxation of the hardening layer. A gaming battery that silently
+    # drops legacy joystick support isn't delivering what it advertises. mkDefault so a
     # host that would rather keep `joydev` off can force it back. Not gated on
     # `itera.hardening.enable`: nix-mineral's own module already no-ops the whole
     # disable list when it is off, and gating here would miss a host that turns
