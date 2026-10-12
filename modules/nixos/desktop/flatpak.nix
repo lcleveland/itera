@@ -56,7 +56,23 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    services.flatpak.enable = mkDefault true;
-    services.flatpak.packages = cfg.packages;
+    services.flatpak = {
+      enable = mkDefault true;
+      # adw-gtk3 for GTK3 apps in both modes (docs/look.md#flatpaks).
+      packages = cfg.packages ++ [
+        "org.gtk.Gtk3theme.adw-gtk3"
+        "org.gtk.Gtk3theme.adw-gtk3-dark"
+      ];
+      # The look's one Flatpak override, with no colours: Flatpaks read DMS's
+      # gtk.css and the host cursors. No /nix/store grant, so any look file a
+      # Flatpak reads must be a real file, not a hjem store symlink.
+      overrides.settings.global = {
+        Context.filesystems = [
+          "xdg-config/gtk-3.0:ro"
+          "xdg-config/gtk-4.0:ro"
+        ];
+        Environment.XCURSOR_PATH = "/run/host/user-share/icons:/run/host/share/icons";
+      };
+    };
   };
 }

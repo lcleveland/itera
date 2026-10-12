@@ -70,8 +70,38 @@ let
     (config.itera.programs.dankMaterialShell.settings or { })
     // (config.itera.users.${name}.programs.dankMaterialShell.settings or { });
 
-  # First itera user with a home, if any: the greeter's default theme source.
-  homeUsers = lib.attrNames (lib.filterAttrs (_: u: u.enableHome) config.itera.users);
+  # What the greeter is seeded with (docs/look.md#greeter): with no sync user,
+  # SYSTEM tokens (palette, the greeter image, and the start mode, so auto
+  # shows dark); with one, that user's look over their mirrored DMS files.
+  sync = cfg.greeter.syncUser;
+  greeterLook = iteraLib.look.resolve config sync;
+  greeterTheme = iteraLib.look.dmsTheme greeterLook;
+  greeterSeed = {
+    theme = greeterTheme;
+    settings = {
+      currentThemeName = "custom";
+      customThemeFile = "${pkgs.writeText "itera-dms-greeter-theme.json" (builtins.toJSON greeterTheme)}";
+      fontFamily = greeterLook.fonts.sans;
+      monoFontFamily = greeterLook.fonts.mono;
+      lockScreenFontFamily = greeterLook.fonts.sans;
+    }
+    // (
+      if sync != null then
+        userSettings sync
+      else
+        {
+          # The greeter prefers `lockScreenWallpaperPath` over the session
+          # wallpaper; set only in the greeter's copy.
+          lockScreenWallpaperPath = "${iteraLib.brand.greeterPng pkgs greeterLook.startColors}";
+        }
+        // config.itera.programs.dankMaterialShell.settings
+    )
+    // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
+      lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
+    };
+    # The mode lives in session.json; a synced user's copy carries their own.
+    session = if sync != null then null else { isLightMode = greeterLook.startMode == "light"; };
+  };
 in
 {
   options.itera.desktop.dankMaterialShell = {
@@ -100,13 +130,15 @@ in
 
       syncUser = mkOption {
         type = nullOr str;
-        default = if homeUsers == [ ] then null else builtins.head homeUsers;
-        defaultText = lib.literalMD "the first `itera.users` entry with `enableHome`";
+        default = null;
         example = "alice";
         description = ''
-          User whose DankMaterialShell theme, wallpaper and settings the greeter
-          copies at each greetd start (DMS GUI changes plus itera's settings for that
-          user). `null` leaves the greeter on itera's system-wide settings only.
+          User whose whole DankMaterialShell look the greeter mirrors at each
+          greetd start: their theme, mode, wallpaper and settings (DMS GUI changes
+          plus itera's settings and look for that user), as DMS does upstream.
+          `null` (default) gives the greeter the system look: system palette and
+          mode (`auto` shows dark) and the itera greeter image. Per-user look
+          overrides don't reach it.
         '';
       };
 
@@ -115,11 +147,20 @@ in
         default = null;
         example = lib.literalExpression "./login-background.jpg";
         description = ''
-          Wallpaper for the login screen only, independent of the synced user's
-          desktop and lock-screen wallpaper. `null` (default) follows the synced
-          user. A path inside your configuration is copied to the Nix store; an
-          absolute path outside it must be readable by the `greeter` user.
+          Wallpaper for the login screen only, independent of any desktop and
+          lock-screen wallpaper. `null` (default) shows the itera greeter image,
+          or follows the synced user. A path inside your configuration is copied
+          to the Nix store; an absolute path outside it must be readable by the
+          `greeter` user.
         '';
+      };
+
+      seed = mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        internal = true;
+        readOnly = true;
+        default = greeterSeed;
+        description = "The theme, settings and session the greeter is seeded with.";
       };
     };
   };
@@ -388,6 +429,7 @@ in
         # session.json (wallpapers) and dms-colors.json (dynamic theme) into
         # the greeter's cache at every start. itera's own keys live in a
         # config.d drop-in the module does not copy; they are merged in below.
+        # Opt-in: with no sync user the greeter shows the system look.
         configHome = mkIf (cfg.greeter.syncUser != null) (
           mkDefault config.users.users.${cfg.greeter.syncUser}.home
         );
@@ -450,20 +492,7 @@ in
             dir = "/var/lib/dms-greeter";
             user = config.services.greetd.settings.default_session.user;
             iteraSettings = pkgs.writeText "itera-dms-greeter-settings.json" (
-              builtins.toJSON (
-                (
-                  if cfg.greeter.syncUser != null then
-                    userSettings cfg.greeter.syncUser
-                  else
-                    config.itera.programs.dankMaterialShell.settings
-                )
-                # The greeter prefers `lockScreenWallpaperPath` over the session
-                # wallpaper; set only in the greeter's copy, so the session's lock
-                # screen is unaffected.
-                // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
-                  lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
-                }
-              )
+              builtins.toJSON greeterSeed.settings
             );
           in
           mkMerge [
@@ -487,6 +516,14 @@ in
               chmod 0640 ${dir}/settings.json
               chown ${user}: ${dir}/settings.json
             '')
+            # No sync user: the system mode, which only session.json carries.
+            (lib.mkIf (greeterSeed.session != null) (
+              lib.mkAfter ''
+                cp ${pkgs.writeText "itera-dms-greeter-session.json" (builtins.toJSON greeterSeed.session)} ${dir}/session.json
+                chmod 0640 ${dir}/session.json
+                chown ${user}: ${dir}/session.json
+              ''
+            ))
           ];
       };
     })

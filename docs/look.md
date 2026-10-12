@@ -196,7 +196,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 ([greeter and Flatpaks](https://github.com/lcleveland/itera/issues/200))
 
 - **Source:** palette, mode and image come from **system** tokens. When the system `look.mode` is `auto`, the greeter shows dark.
-- **Mirroring a user:** `itera.desktop.dankMaterialShell.greeter.syncUser` now defaults to `null` (today it defaults to the first home user). Setting it mirrors that user's whole last DMS look, which is DMS's upstream behaviour.
+- **Mirroring a user:** `itera.desktop.dankMaterialShell.greeter.syncUser` defaults to `null`. Setting it mirrors that user's whole last DMS look, which is DMS's upstream behaviour.
 
 ## Flatpaks
 

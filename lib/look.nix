@@ -608,6 +608,48 @@ let
       icons = merge "icons";
     };
 
+  # A resolved look as a DMS custom theme, both modes, through the DMS mapping
+  # in docs/look.md#palette-tide. The session and the greeter both use it.
+  dmsTheme =
+    look:
+    let
+      toDms = c: {
+        primary = c.accent;
+        primaryText = c.textOnAccent;
+        primaryContainer = c.accentContainer;
+        primaryContainerText = c.textOnAccentContainer;
+        secondary = c.accentSecondary;
+        tertiary = c.accentTertiary;
+        surfaceTint = c.accent;
+        surface = c.background;
+        surfaceContainerLowest = c.surface.lowest;
+        surfaceContainerLow = c.surface.low;
+        surfaceContainer = c.surface.base;
+        surfaceContainerHigh = c.surface.high;
+        surfaceContainerHighest = c.surface.highest;
+        inherit (c) surfaceVariant;
+        surfaceText = c.text;
+        surfaceVariantText = c.textMuted;
+        inherit (c) background;
+        backgroundText = c.text;
+        inherit (c) inverseSurface;
+        inverseOnSurface = c.inverseText;
+        outline = c.border;
+        inherit (c)
+          error
+          warning
+          success
+          info
+          scrim
+          ;
+      };
+    in
+    {
+      name = "itera";
+      dark = toDms look.colors.dark;
+      light = toDms look.colors.light;
+    };
+
   clock = types.strMatching "([01][0-9]|2[0-3]):[0-5][0-9]";
 
   colorOverrides = mkOption {
@@ -617,7 +659,12 @@ let
   };
 in
 {
-  inherit tide resolve contrastFailures;
+  inherit
+    tide
+    resolve
+    contrastFailures
+    dmsTheme
+    ;
 
   # `itera.look` and `itera.users.<name>.look`, spliced in like a curated
   # program by modules/programs/look.nix, plus the contrast warnings.

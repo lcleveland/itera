@@ -55,36 +55,6 @@ let
   look = iteraLib.look.resolve osConfig name;
   themeFile = "DankMaterialShell/itera-theme.json";
   batteryOn = b: (osConfig.itera.enable or false) && (osConfig.itera.desktop.${b}.enable or false);
-  dmsTheme = c: {
-    primary = c.accent;
-    primaryText = c.textOnAccent;
-    primaryContainer = c.accentContainer;
-    primaryContainerText = c.textOnAccentContainer;
-    secondary = c.accentSecondary;
-    tertiary = c.accentTertiary;
-    surfaceTint = c.accent;
-    surface = c.background;
-    surfaceContainerLowest = c.surface.lowest;
-    surfaceContainerLow = c.surface.low;
-    surfaceContainer = c.surface.base;
-    surfaceContainerHigh = c.surface.high;
-    surfaceContainerHighest = c.surface.highest;
-    inherit (c) surfaceVariant;
-    surfaceText = c.text;
-    surfaceVariantText = c.textMuted;
-    inherit (c) background;
-    backgroundText = c.text;
-    inherit (c) inverseSurface;
-    inverseOnSurface = c.inverseText;
-    outline = c.border;
-    inherit (c)
-      error
-      warning
-      success
-      info
-      scrim
-      ;
-  };
 
   # The launcher shows this user's Flow mark (docs/look.md#brand-assets) in
   # their starting mode: DMS takes one logo path, so it doesn't follow a live
@@ -176,11 +146,7 @@ in
       };
 
       ${themeFile} = {
-        text = builtins.toJSON {
-          name = "itera";
-          dark = dmsTheme look.colors.dark;
-          light = dmsTheme look.colors.light;
-        };
+        text = builtins.toJSON (iteraLib.look.dmsTheme look);
         inherit clobber;
       };
 
