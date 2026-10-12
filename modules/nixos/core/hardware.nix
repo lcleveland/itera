@@ -226,12 +226,31 @@ in
       };
     };
 
-    # Compressed in-RAM swap. itera's disko layouts ship no swap partition, so
-    # without this the kernel has no swap at all — systemd-oomd degrades its
+    # Compressed in-RAM swap. itera's disko layouts ship no swap partition by
+    # default (itera.disko.swapSize adds one), so without this the kernel has
+    # no swap at all — systemd-oomd degrades its
     # memory-pressure handling and logs "No swap; memory pressure usage will be
     # degraded" every boot. zram gives a swap device that lives in RAM, so it
     # both silences that and improves behaviour under pressure. Opt-out via
     # mkDefault, matching the rest of itera's battery shape.
     zramSwap.enable = mkDefault true;
+
+    # Tune the VM for swap that lives in RAM rather than on disk. These are the
+    # Pop!_OS values, also given on the Arch Wiki (Zram). They matter here
+    # because `/` and `/tmp` are tmpfs, so memory pressure is common. High
+    # swappiness is cheap with zram, and page-cluster 0 turns off swap
+    # readahead, which only pays off on disk. nix-mineral's
+    # `extras.system.minimize-swapping` (on in its `maximum` preset) mkForces
+    # swappiness to 1, overriding this.
+    # ponytail: with a disk swap partition (itera.disko.swapSize), swappiness
+    # 180 also makes the kernel quicker to use disk swap. zram has the higher
+    # priority, so the disk is only used once zram is full. Lower swappiness
+    # when swapSize is set if disk swap ever churns.
+    boot.kernel.sysctl = mkIf config.zramSwap.enable {
+      "vm.swappiness" = mkDefault 180;
+      "vm.page-cluster" = mkDefault 0;
+      "vm.watermark_boost_factor" = mkDefault 0;
+      "vm.watermark_scale_factor" = mkDefault 125;
+    };
   };
 }

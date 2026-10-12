@@ -1,4 +1,5 @@
-# itera's nix battery: flakes, unfree packages, and system.stateVersion.
+# itera's nix battery: flakes, unfree packages, system.stateVersion, and
+# nix-daemon build priority.
 #
 # The minimum Nix-level configuration a flake-based system needs to rebuild
 # itself: the `nix-command`/`flakes` experimental features, permission to pull in
@@ -55,24 +56,38 @@ in
       "itera.nix.stateVersion (${cfg.stateVersion}) differs from system.stateVersion (${config.system.stateVersion}). Changing stateVersion after installation can break existing systems; it should normally only be set once."
     ];
 
-    nix.settings.experimental-features = mkIf cfg.flakes.enable (mkBefore [
-      "nix-command"
-      "flakes"
-    ]);
+    nix = {
+      settings.experimental-features = mkIf cfg.flakes.enable (mkBefore [
+        "nix-command"
+        "flakes"
+      ]);
 
-    # A flake-built system never subscribes root to a channel, so the channel
-    # state directory is never created — but nixpkgs still appends it to
-    # `nix.nixPath` (modules/misc/nixpkgs-flake.nix, gated on
-    # `nix.channel.enable`), and every evaluation then warns:
-    #
-    #   warning: Nix search path entry
-    #   '/nix/var/nix/profiles/per-user/root/channels' does not exist, ignoring
-    #
-    # Turning channels off drops that entry, leaving `nixpkgs=flake:nixpkgs`,
-    # which resolves through the flake registry pin nixpkgs already sets — so
-    # `<nixpkgs>` keeps working and matches the system's own nixpkgs. It also
-    # drops the `nix-channel` command, which has nothing to manage here.
-    nix.channel.enable = mkIf cfg.flakes.enable (mkDefault false);
+      # A flake-built system never subscribes root to a channel, so the channel
+      # state directory is never created — but nixpkgs still appends it to
+      # `nix.nixPath` (modules/misc/nixpkgs-flake.nix, gated on
+      # `nix.channel.enable`), and every evaluation then warns:
+      #
+      #   warning: Nix search path entry
+      #   '/nix/var/nix/profiles/per-user/root/channels' does not exist, ignoring
+      #
+      # Turning channels off drops that entry, leaving `nixpkgs=flake:nixpkgs`,
+      # which resolves through the flake registry pin nixpkgs already sets — so
+      # `<nixpkgs>` keeps working and matches the system's own nixpkgs. It also
+      # drops the `nix-channel` command, which has nothing to manage here.
+      channel.enable = mkIf cfg.flakes.enable (mkDefault false);
+
+      # Run daemon builds (which includes `itera update`, via nh) below the
+      # desktop, so a rebuild doesn't make it stutter. CPU uses "batch", not
+      # "idle": the NixOS docs warn that idle CPU scheduling can starve the build
+      # under load. Idle IO is fine, since it only yields the disk to other IO
+      # and still gets idle time. Builds run directly as root bypass the daemon
+      # and aren't affected.
+      daemonCPUSchedPolicy = mkDefault "batch";
+      daemonIOSchedClass = mkDefault "idle";
+      # The small default buffer stalls ("download buffer is full") when fetching
+      # large substitutes.
+      settings.download-buffer-size = mkDefault (256 * 1024 * 1024);
+    };
 
     # `nixpkgs.config` is an opaque `attrs`-typed option, so a nested `mkDefault`
     # would be stored literally rather than resolved — set it plainly. Override
