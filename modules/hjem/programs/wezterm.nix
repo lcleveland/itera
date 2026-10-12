@@ -68,10 +68,26 @@ let
   # `settings.font` names a family, which needs a `wezterm.font(...)` call.
   fontLua = "config.font = wezterm.font(${toLua (finalSettings.font or look.fonts.mono)})";
 
+  # DMS lane (docs/look.md#delivery-lanes): DMS renders the scheme into
+  # wezterm/colors/dank-theme.toml, which WezTerm searches by name. Named only
+  # once the file exists, so a fresh account starts on stock colours, and
+  # watched so DMS's mode and theme changes reload the config. Before
+  # `settingsLua`, so a `settings.color_scheme` wins. Without DMS: stock colours.
+  dmsLua = lib.optionalString (osConfig.itera.desktop.dankMaterialShell.enable or false) ''
+    local dank_theme = (os.getenv('XDG_CONFIG_HOME') or (wezterm.home_dir .. '/.config')) .. '/wezterm/colors/dank-theme.toml'
+    local dank_file = io.open(dank_theme)
+    if dank_file then
+      dank_file:close()
+      wezterm.add_to_config_reload_watch_list(dank_theme)
+      config.color_scheme = 'dank-theme'
+    end
+  '';
+
   configText = ''
     local wezterm = require 'wezterm'
     local config = wezterm.config_builder()
 
+    ${dmsLua}
     ${settingsLua}
     ${fontLua}
     ${extraLua}

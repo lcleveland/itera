@@ -233,6 +233,10 @@ let
     # which asks the portal and falls back to LIGHT when nothing answers.
     "zed pins the dark color scheme by default" = cfg.itera.programs.zed.settings.theme.mode == "dark";
     "zed follows look.mode = light" = cfgLightTheme.itera.programs.zed.settings.theme.mode == "light";
+    # DMS renders the themes (tests/look-apps-eval.nix covers DMS off).
+    "zed's themes are DMS's DankShell pair" =
+      cfg.itera.programs.zed.settings.theme.dark == "DankShell Dark"
+      && cfg.itera.programs.zed.settings.theme.light == "DankShell Light";
     "zed sets no theme when the theme battery is off" =
       !(cfgNoTheme.itera.programs.zed.settings ? theme);
 
