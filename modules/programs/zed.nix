@@ -99,6 +99,7 @@ iteraLib.programs.mkCuratedProgram {
       # with no portal in the loop.
       followsTheme = config.itera.enable && config.itera.desktop.theme.enable;
       inherit (iteraLib.look.resolve config null) startMode;
+      dmsEnabled = config.itera.desktop.dankMaterialShell.enable;
       # When the Claude ACP battery is on and Zed is installed, register the
       # adapter as an external agent so it shows up in Zed's agent panel with no
       # further config. `mkDefault` lets an explicit system/per-user value win.
@@ -113,12 +114,14 @@ iteraLib.programs.mkCuratedProgram {
       }
       // lib.optionalAttrs followsTheme {
         # `light`/`dark` name the theme used in each mode; `mode` pins which one
-        # is active. Both are Zed's own built-in defaults, so flipping
-        # `look.mode` needs no theme extension installed.
+        # is active. With DMS on they are the DankShell themes DMS renders into
+        # zed/themes (docs/look.md#delivery-lanes); until DMS first writes them,
+        # Zed logs the missing theme and uses its default. Without DMS, Zed's own
+        # built-in defaults.
         theme = mkDefault {
           mode = startMode;
-          light = "One Light";
-          dark = "One Dark";
+          light = if dmsEnabled then "DankShell Light" else "One Light";
+          dark = if dmsEnabled then "DankShell Dark" else "One Dark";
         };
       }
       // lib.optionalAttrs nixLsp {

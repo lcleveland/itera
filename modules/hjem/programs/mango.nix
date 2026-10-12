@@ -111,6 +111,8 @@ let
   # (`set_activation_env()` in mango.c, issued just before the exec_once list),
   # but it too is an async spawn and its fixed variable list omits NixOS's
   # `NIXOS_OZONE_WL`, so doing it here keeps the ordering deterministic.
+  # `MANGO_INSTANCE_SIGNATURE` matters to DMS: its mango colour template
+  # (dms/colors.conf) only renders when the variable names a live socket.
   #
   # `mango-session.target` is declared by the system battery
   # (`modules/nixos/desktop/mango.nix`) and is bound to
@@ -121,7 +123,7 @@ let
     ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     ${pkgs.systemd}/bin/systemctl --user import-environment \
       DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE NIXOS_OZONE_WL \
-      XCURSOR_THEME XCURSOR_SIZE
+      XCURSOR_THEME XCURSOR_SIZE MANGO_INSTANCE_SIGNATURE
     ${pkgs.systemd}/bin/systemctl --user reset-failed
     ${pkgs.systemd}/bin/systemctl --user start mango-session.target
   '';
@@ -197,7 +199,12 @@ let
   # (that is `exchange_cross_monitor`, left off). `focus_cross_tag` stays off:
   # in scroller most columns have nothing above/below, so j/k would switch tags.
   # Override either in `extraConfig` (later lines win).
-  optionsConfig = "focus_cross_monitor=1";
+  #
+  # border_radius: the look's radius (docs/look.md#delivery-lanes), after the
+  # DMS fragments so it wins over DMS's layout.conf.
+  optionsConfig = ''
+    focus_cross_monitor=1
+    border_radius=${toString look.radius}'';
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
   gesturesConfig = iteraLib.mango.renderGestures gestures;

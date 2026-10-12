@@ -346,6 +346,20 @@ in
       );
     }
 
+    {
+      # Qt (DMS lane, docs/look.md#delivery-lanes): DMS always renders its
+      # KColorScheme (~/.local/share/color-schemes/DankMatugen.colors), and when
+      # QT_QPA_PLATFORMTHEME is qtengine it points qtengine's config at it, so
+      # Qt 6 apps repaint live. The variable reaches dms.service through PAM.
+      # Until DMS first runs, qtengine finds no config and uses its defaults.
+      # `qt.enable` puts the system profile's Qt plugin dirs on QT_PLUGIN_PATH.
+      qt.enable = mkDefault true;
+      environment = {
+        sessionVariables.QT_QPA_PLATFORMTHEME = mkDefault "qtengine";
+        systemPackages = [ pkgs.qtengine ];
+      };
+    }
+
     (mkIf cfg.greeter.enable {
       programs.dms-greeter = {
         enable = mkDefault true;

@@ -61,9 +61,23 @@ let
   # after first write (see the registration's `clobber` doc). Mirrors the DMS
   # battery.
   clobber = usr.clobber or true;
+
+  # Zed's theme stays the DMS one while DMS is on (docs/look.md#verification):
+  # any theme but DMS's DankShell pair would ignore the look.
+  isDankTheme =
+    t:
+    if builtins.isString t then
+      lib.hasPrefix "DankShell " t
+    else
+      lib.all isDankTheme (lib.attrValues (removeAttrs t [ "mode" ]));
 in
 {
   config = mkIf enable {
+    assertions = lib.optional (osConfig.itera.desktop.dankMaterialShell.enable or false) {
+      assertion = isDankTheme (finalSettings.theme or "DankShell Dark");
+      message = "Zed's `theme' (itera.programs.zed.settings or this user's override) names a theme other than DMS's DankShell Dark/Light, so Zed would not follow the look. Remove it, or turn DankMaterialShell off.";
+    };
+
     xdg.config.files."zed/settings.json" = {
       source = json.generate "zed-settings.json" finalSettings;
       inherit clobber;
