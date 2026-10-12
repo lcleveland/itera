@@ -488,7 +488,9 @@ let
     "per-user package installed (alice)" = builtins.elem "hello" (
       map lib.getName cfg.users.users.alice.packages
     );
-    "per-user packages empty by default (bob)" = cfg.users.users.bob.packages == [ ];
+    # (bob still gets the look's user tmpfiles rules as a package, so check by name.)
+    "per-user packages stay per user (bob)" =
+      !(builtins.elem "hello" (map lib.getName cfg.users.users.bob.packages));
 
     # ── monitor renderer unit ────────────────────────────────────────────
     "monitor renderer: anchored name preserved" = lib.hasInfix "name:^eDP-1$" renderedMonitor;

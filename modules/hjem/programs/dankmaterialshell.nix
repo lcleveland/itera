@@ -53,6 +53,7 @@ let
   # through the DMS mapping in docs/look.md#palette-tide. DMS picks the mode.
   look = iteraLib.look.resolve osConfig name;
   themeFile = "DankMaterialShell/itera-theme.json";
+  batteryOn = b: (osConfig.itera.enable or false) && (osConfig.itera.desktop.${b}.enable or false);
   dmsTheme = c: {
     primary = c.accent;
     primaryText = c.textOnAccent;
@@ -92,6 +93,19 @@ let
     fontFamily = look.fonts.sans;
     monoFontFamily = look.fonts.mono;
     lockScreenFontFamily = look.fonts.sans;
+  }
+  # Icons and cursor only while their batteries install them.
+  // lib.optionalAttrs (batteryOn "iconTheme") {
+    iconThemePerMode = true;
+    iconThemeDark = look.icons.name.dark;
+    iconThemeLight = look.icons.name.light;
+  }
+  // lib.optionalAttrs (batteryOn "cursor") {
+    # DMS has one cursor theme, not one per mode: the starting mode's.
+    cursorSettings = {
+      theme = look.cursor.name.${look.startMode};
+      inherit (look.cursor) size;
+    };
   }
   // (sys.settings or { })
   // (usr.settings or { });

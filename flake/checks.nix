@@ -94,6 +94,10 @@
     {
       checks = {
         look-fonts = fontsCheck;
+        look-themes = import ../tests/look-themes.nix {
+          inherit pkgs lib;
+          inherit (inputs) self nixpkgs;
+        };
       }
       // lib.mapAttrs mkLint lints
       # Each lint also runs on a planted violation (tests/lint-planted) and

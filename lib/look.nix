@@ -565,19 +565,27 @@ let
         "light"
       ];
 
+  # Merge nested token sets one key at a time, keeping packages whole.
+  deepMerge = lib.recursiveUpdateUntil (
+    _: l: r:
+    !(builtins.isAttrs l && builtins.isAttrs r) || lib.isDerivation l || lib.isDerivation r
+  );
+
   # The merged look for one user (`null` = the system look): a per-user scalar
   # wins when set, colours merge one token at a time per mode over Tide (then
-  # aliases resolve), and fonts one key at a time over the shipped fonts.
-  # `startColors` is the starting mode's palette, for Nix-lane surfaces that
-  # render one mode (auto starts dark).
+  # aliases resolve), fonts one key at a time over the shipped fonts, and other
+  # token sets one key at a time. `startMode` is the mode a session starts in
+  # (auto starts dark), and `startColors` its palette, for Nix-lane surfaces
+  # that render one mode.
   resolve =
     osConfig: name:
     let
       sys = osConfig.itera.look;
       usr = if name == null then { } else osConfig.itera.users.${name}.look or { };
       pick = k: if usr.${k} or null != null then usr.${k} else sys.${k};
-      merge = k: sys.${k} // usr.${k} or { };
+      merge = k: deepMerge sys.${k} (usr.${k} or { });
       mode = pick "mode";
+      startMode = if mode == "light" then "light" else "dark";
       colors = mapAttrs (
         mode: shipped:
         resolveAliases (
@@ -586,8 +594,8 @@ let
       ) tide;
     in
     {
-      inherit mode colors;
-      startColors = colors.${if mode == "light" then "light" else "dark"};
+      inherit mode startMode colors;
+      startColors = colors.${startMode};
       radius = pick "radius";
       gaps = pick "gaps";
       opacity = pick "opacity";
@@ -678,12 +686,28 @@ in
           cursor = {
             type = types.attrsOf types.anything;
             attrs = true;
-            description = "Cursor tokens, merged per key.";
+            example = {
+              name.dark = "Bibata-Modern-Amber";
+              size = 32;
+            };
+            description = ''
+              Cursor tokens, merged one key at a time (system, then per user):
+              `package`, `name.dark`, `name.light` and `size`. The default is
+              Bibata Modern Ice (dark) and Classic (light) at 24. The starting
+              mode's theme reaches DMS (and so mango), `XCURSOR_*`, dconf and
+              {file}`~/.Xresources`. Only the starting mode's theme is applied: DMS
+              keeps one cursor theme, so a runtime mode switch doesn't change it.
+            '';
           };
           icons = {
             type = types.attrsOf types.anything;
             attrs = true;
-            description = "Icon theme tokens, merged per key.";
+            description = ''
+              Icon theme tokens, merged one key at a time (system, then per
+              user): `package`, `name.dark` and `name.light`. The default is
+              Papirus-Dark and Papirus-Light with teal folders, swapped per mode
+              by DMS.
+            '';
           };
         };
       };
@@ -691,23 +715,85 @@ in
     {
       inherit (reg) usersSubmodule;
       systemModule =
-        { config, ... }:
+        {
+          config,
+          pkgs,
+          ...
+        }:
         let
           sysFailures = contrastFailures (resolve config null).colors;
+          oldIcons = config.itera.desktop.iconTheme;
         in
         {
           imports = [ reg.systemModule ];
-          # The shipped palette is checked in flake check; here only overrides
-          # can fail, so they warn. A user inheriting a system failure is
-          # reported once, under the system.
-          warnings =
-            map (f: "itera.look: ${f}") sysFailures
-            ++ lib.concatMap (
-              n:
-              map (f: "itera.users.${n}.look: ${f}") (
-                lib.subtractLists sysFailures (contrastFailures (resolve config n).colors)
-              )
-            ) (lib.attrNames config.itera.users);
+
+          # The removed icon-theme options (docs/look.md#migration), which now
+          # set the icon tokens. Drop both at NixOS 26.11, the next stable
+          # release after they landed.
+          options.itera.desktop.iconTheme = {
+            package = mkOption {
+              type = types.nullOr types.package;
+              default = null;
+              visible = false;
+              description = "Renamed to the look's icons.package.";
+            };
+            name = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              visible = false;
+              description = "Replaced by the look's per-mode icons.name.";
+            };
+          };
+
+          config = {
+            # Shipped icon and cursor tokens. Packages need `pkgs`, so these are
+            # set here rather than in resolve.
+            itera.look = {
+              icons = {
+                package = lib.mkDefault (pkgs.papirus-icon-theme.override { color = "teal"; });
+                # The old option sets both modes at normal priority, as
+                # mkChangedOptionModule would.
+                name =
+                  if oldIcons.name != null then
+                    {
+                      dark = oldIcons.name;
+                      light = oldIcons.name;
+                    }
+                  else
+                    {
+                      dark = lib.mkDefault "Papirus-Dark";
+                      light = lib.mkDefault "Papirus-Light";
+                    };
+              }
+              // lib.optionalAttrs (oldIcons.package != null) { inherit (oldIcons) package; };
+              cursor = {
+                package = lib.mkDefault pkgs.bibata-cursors;
+                name = {
+                  dark = lib.mkDefault "Bibata-Modern-Ice";
+                  light = lib.mkDefault "Bibata-Modern-Classic";
+                };
+                size = lib.mkDefault 24;
+              };
+            };
+
+            # The shipped palette is checked in flake check; here only overrides
+            # can fail, so they warn. A user inheriting a system failure is
+            # reported once, under the system.
+            warnings =
+              map (f: "itera.look: ${f}") sysFailures
+              ++ lib.concatMap (
+                n:
+                map (f: "itera.users.${n}.look: ${f}") (
+                  lib.subtractLists sysFailures (contrastFailures (resolve config n).colors)
+                )
+              ) (lib.attrNames config.itera.users)
+              ++ lib.optional (
+                oldIcons.package != null
+              ) "itera.desktop.iconTheme.package has been renamed to itera.look.icons.package."
+              ++
+                lib.optional (oldIcons.name != null)
+                  "itera.desktop.iconTheme.name has been replaced by itera.look.icons.name.dark and .light; it sets both.";
+          };
         };
     };
 }
