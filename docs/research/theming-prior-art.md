@@ -74,7 +74,7 @@ User writes go to `~/.config/cosmic/<id>/v<ver>/<key>` [C3]. A distro therefore
 ships the branded default as data files, and users override it key by key.
 
 **App opt-in.** Native apps get the theme by being built on libcosmic, which
-reads the config and live-updates. For foreign toolkits COSMIC *exports*. It
+reads the config and live-updates. For foreign toolkits COSMIC _exports_. It
 writes `~/.config/gtk-4.0/cosmic/{dark,light}.css`, and `apply_gtk` symlinks
 that into `gtk-4.0/gtk.css` and `gtk-3.0/gtk.css`. It first backs up a non-COSMIC
 `gtk.css` to `gtk.css.bak` and removes only its own symlink on reset [C4]. There
@@ -92,6 +92,7 @@ Pop!_OS look is the default data shipped, not a separate theme mechanism [C2][C3
 
 **Theme packaging.** There is no theme engine. Bazzite ships upstream GNOME
 and KDE with vendor defaults baked into the image under `system_files/` [B1]:
+
 - GNOME: numbered `gschema.override` files, e.g.
   `zz0-04-bazzite-desktop-silverblue-theme.gschema.override`. It sets
   `color-scheme='prefer-dark'`, `accent-color='purple'`, Noto Sans and Fira
@@ -237,19 +238,20 @@ read. Omarchy, end-4 and Bazzite reach it indirectly by setting
 
 ## Comparison
 
-| | Palette model | Where a theme lives | App opt-in | Light/dark | Branding | System → user |
-|---|---|---|---|---|---|---|
-| Omarchy | Flat named tokens (`colors.toml`, ~30 keys) | Theme dir in repo or `~/.config/omarchy/themes` | Central `.tpl` per app; theme file can override; reload script per app | One mode per theme; separate light themes | House + ported themes, each with wallpapers, unlock/Plymouth art | Single user |
-| COSMIC | Typed builder → derived component theme (RON) | cosmic-config: `$XDG_DATA_DIRS/cosmic` default, `~/.config/cosmic` override | Native via libcosmic; GTK/Qt/VS Code via export + symlink, user toggle | Two full themes always present; runtime toggle + auto | Curated accent list; distro defaults as data | Yes, per key |
-| Bazzite/uBlue | None (upstream DE theme) | gschema overrides, dconf `distro.d`, KDE defaults in image | None; toolkit defaults + accent | DE default, dark preset | Wallpapers (artwork repo), accent, Plymouth watermark, MOTD | Vendor default, user changes in DE |
-| Stylix | base16 (scheme or from image) | Nix options | In-tree `mkTarget` module per app, auto-enabled with app | Build-time `polarity` | None | HM follows NixOS by default |
-| DMS | Material 3 roles (matugen or custom JSON) | `settings.json` + theme JSON / registry | Bundled template per app, auto-detected, skip list; **user must include side file** | Both modes generated; portal sync optional | Material You from wallpaper | Single user |
-| end-4 | Material 3 (matugen) | User dotfiles | Templates overwrite main configs | matugen `--mode`, gsettings, forced-dark terminals | Wallpaper-driven | Single user |
-| caelestia | Material 3 roles (flat txt schemes) | CLI data dir + user templates | Per-app writer with `enableX` flag; user templates; `postHook` | dark/light files per flavour | Named schemes + wallpaper | Single user |
+|               | Palette model                                 | Where a theme lives                                                         | App opt-in                                                                          | Light/dark                                            | Branding                                                         | System → user                      |
+| ------------- | --------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| Omarchy       | Flat named tokens (`colors.toml`, ~30 keys)   | Theme dir in repo or `~/.config/omarchy/themes`                             | Central `.tpl` per app; theme file can override; reload script per app              | One mode per theme; separate light themes             | House + ported themes, each with wallpapers, unlock/Plymouth art | Single user                        |
+| COSMIC        | Typed builder → derived component theme (RON) | cosmic-config: `$XDG_DATA_DIRS/cosmic` default, `~/.config/cosmic` override | Native via libcosmic; GTK/Qt/VS Code via export + symlink, user toggle              | Two full themes always present; runtime toggle + auto | Curated accent list; distro defaults as data                     | Yes, per key                       |
+| Bazzite/uBlue | None (upstream DE theme)                      | gschema overrides, dconf `distro.d`, KDE defaults in image                  | None; toolkit defaults + accent                                                     | DE default, dark preset                               | Wallpapers (artwork repo), accent, Plymouth watermark, MOTD      | Vendor default, user changes in DE |
+| Stylix        | base16 (scheme or from image)                 | Nix options                                                                 | In-tree `mkTarget` module per app, auto-enabled with app                            | Build-time `polarity`                                 | None                                                             | HM follows NixOS by default        |
+| DMS           | Material 3 roles (matugen or custom JSON)     | `settings.json` + theme JSON / registry                                     | Bundled template per app, auto-detected, skip list; **user must include side file** | Both modes generated; portal sync optional            | Material You from wallpaper                                      | Single user                        |
+| end-4         | Material 3 (matugen)                          | User dotfiles                                                               | Templates overwrite main configs                                                    | matugen `--mode`, gsettings, forced-dark terminals    | Wallpaper-driven                                                 | Single user                        |
+| caelestia     | Material 3 roles (flat txt schemes)           | CLI data dir + user templates                                               | Per-app writer with `enableX` flag; user templates; `postHook`                      | dark/light files per flavour                          | Named schemes + wallpaper                                        | Single user                        |
 
 ## Patterns to borrow / pitfalls (facts observed, not a decision)
 
 **Patterns that recur**
+
 - **One token file, many templates.** Omarchy, Stylix, DMS, caelestia and
   matugen all keep a single palette source and render a per-app template from
   it. Adding an app means adding one template, not touching every theme
@@ -282,6 +284,7 @@ read. Omarchy, end-4 and Bazzite reach it indirectly by setting
   `color-scheme` (directly or via gsettings) so toolkits follow [P1][O7][E2].
 
 **Pitfalls observed**
+
 - **Include burden.** DMS output does nothing until the user edits each app's
   config to include it [D4]. A batteries-included layer has to do that wiring
   itself.

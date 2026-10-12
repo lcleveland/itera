@@ -25,14 +25,14 @@ Sources are read at the revs pinned in `flake.lock`:
 
 Global options (`mango:docs/window-management/layouts.md`, parsed in `mango:src/config/option_defs.c`):
 
-| Option | Default | Ultrawide relevance |
-| --- | --- | --- |
-| `scroller_default_proportion` | `0.9` | Width of a new column as a fraction of the output. 0.9 of 5120 px is about 4600 px, far too wide for one app. |
-| `scroller_proportion_preset` | `0.5,0.8,1.0` | Widths that the cycle-width bind steps through. On 32:9 you'd want about `0.25,0.33,0.5`. **Global only.** |
-| `scroller_ignore_proportion_single` | `1` | With `1`, a lone window uses its normal proportion (0.9) and is centred. |
-| `scroller_default_proportion_single` | `1.0` | Width of a lone window. Takes effect only when `scroller_ignore_proportion_single=0`. |
-| `scroller_structs` | `20` | Reserved side margin (px) when a column's ratio is 1. Fixed pixels, **global only**. |
-| `scroller_focus_center` / `scroller_prefer_center` / `scroller_prefer_overspread` | `0`/`0`/`1` | Centring policy. Precedence is overspread > focus_center > prefer_center (layouts.md warning). **Global only.** |
+| Option                                                                            | Default       | Ultrawide relevance                                                                                             |
+| --------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `scroller_default_proportion`                                                     | `0.9`         | Width of a new column as a fraction of the output. 0.9 of 5120 px is about 4600 px, far too wide for one app.   |
+| `scroller_proportion_preset`                                                      | `0.5,0.8,1.0` | Widths that the cycle-width bind steps through. On 32:9 you'd want about `0.25,0.33,0.5`. **Global only.**      |
+| `scroller_ignore_proportion_single`                                               | `1`           | With `1`, a lone window uses its normal proportion (0.9) and is centred.                                        |
+| `scroller_default_proportion_single`                                              | `1.0`         | Width of a lone window. Takes effect only when `scroller_ignore_proportion_single=0`.                           |
+| `scroller_structs`                                                                | `20`          | Reserved side margin (px) when a column's ratio is 1. Fixed pixels, **global only**.                            |
+| `scroller_focus_center` / `scroller_prefer_center` / `scroller_prefer_overspread` | `0`/`0`/`1`   | Centring policy. Precedence is overspread > focus_center > prefer_center (layouts.md warning). **Global only.** |
 
 **A lone window is always centred.** In `mango:src/layout/scroll.c`, `need_apply_center` is true whenever `n_heads == 1`, and the single-window branch sets `x = m->w.x + (m->w.width - width)/2`. Ultrawide therefore doesn't need a "centre the lone window" switch. It needs a **narrower single-window width** on wide outputs, for example `scroller_ignore_proportion_single=0` with `scroller_default_proportion_single=0.5` on 32:9 (about 2560 px, a 16:9-shaped area in the middle).
 
@@ -78,7 +78,7 @@ Under itera, gaps are **owned by DMS**. DMS writes `mango/dms/layout.conf` with 
 
 ### Per-component screen filtering
 
-`screenPreferences` is also a map keyed by component, read by `getFilteredScreens(componentId)` (`dms:quickshell/Common/SettingsData.qml`). The component ids in use are `wallpaper`, `notifications`, `osd`, `toast`, `lockScreen`, `systemTray` and `notepad`. A component's preference can choose *which* outputs it appears on, but not *where on* each output.
+`screenPreferences` is also a map keyed by component, read by `getFilteredScreens(componentId)` (`dms:quickshell/Common/SettingsData.qml`). The component ids in use are `wallpaper`, `notifications`, `osd`, `toast`, `lockScreen`, `systemTray` and `notepad`. A component's preference can choose _which_ outputs it appears on, but not _where on_ each output.
 
 Matching (`dms:quickshell/Common/LayoutResolver.js` `screenMatches`) is by exact connector name, or by model when `displayNameMode == "model"`. Neither uses regex or aspect ratio.
 
@@ -90,7 +90,7 @@ The width is a fixed pixel preset (`dankLauncherV2Size`: micro/default/medium/la
 
 - `notificationPopupPosition` takes values Top Right (default), Top Left, Top Center, Bottom Center, Bottom Right and Bottom Left (`dms:quickshell/Modules/Settings/NotificationsTab.qml`). It is global. On 32:9 a corner sits about 2500 px from the centre of gaze. `Top Center` / `Bottom Center` are the aspect-neutral choices.
 - `notificationFocusedMonitor` shows popups on the focused output instead of the filtered set (`dms:quickshell/DMSShell.qml`).
-- `osdPosition` (default 5, BottomCenter in the `Position` enum) and `osdPositionOverrides` are keyed by OSD *kind*, not by monitor (`SettingsData.qml`). The centred default is already fine.
+- `osdPosition` (default 5, BottomCenter in the `Position` enum) and `osdPositionOverrides` are keyed by OSD _kind_, not by monitor (`SettingsData.qml`). The centred default is already fine.
 
 All of these are `settings.json` keys, so itera can set them declaratively through its `config.d/00-itera.json` drop-in (`modules/hjem/programs/dankmaterialshell.nix`).
 
@@ -106,7 +106,7 @@ All of these are `settings.json` keys, so itera can set them declaratively throu
 ### matugen sampling
 
 - With per-monitor wallpapers, the theme comes from **one** monitor: `matugenTargetMonitor`, or the first screen when that is empty (`dms:quickshell/Common/SessionData.qml`, `SettingsSpec.js`). It is a `settings.json` key, so it can be set declaratively.
-- matugen squashes the image to a fixed **112×112** with `image::imageops::resize`, which does *not* keep the aspect ratio (`matugen:src/color/color.rs` `get_scored_colors_from_image` → `material-colors:src/image.rs`). It then quantises to 128 colours (Celebi) and scores them. Squashing keeps each region's share of the area, so **a 32:9 image is sampled over its full width, with no bias and no cropping**. The only ultrawide effect is that the seed reflects the whole wide image, including parts a 16:9 `Fill` crop would hide.
+- matugen squashes the image to a fixed **112×112** with `image::imageops::resize`, which does _not_ keep the aspect ratio (`matugen:src/color/color.rs` `get_scored_colors_from_image` → `material-colors:src/image.rs`). It then quantises to 128 colours (Celebi) and scores them. Squashing keeps each region's share of the area, so **a 32:9 image is sampled over its full width, with no bias and no cropping**. The only ultrawide effect is that the seed reflects the whole wide image, including parts a 16:9 `Fill` crop would hide.
 - DMS may resolve the seed colour first and pass it to matugen as `hex` (`dms:core/internal/matugen/matugen.go`). That doesn't change any aspect behaviour.
 
 ## 4. Greeter and lock screen
@@ -116,7 +116,7 @@ All of these are `settings.json` keys, so itera can set them declaratively throu
 
 ## 5. How other setups handle ultrawide
 
-- **niri** gets ultrawide right as built-in behaviour: `center-focused-column "never"|"always"|"on-overflow"`, `always-center-single-column`, `preset-column-widths` with `proportion` *or* `fixed` logical-pixel widths, and `struts`. Since 25.11, layout settings can be overridden **per output** and per named workspace ([niri wiki: Configuration: Layout](https://github.com/YaLTeR/niri/wiki/Configuration:-Layout)). The ideas mango lacks are fixed-pixel column presets and per-output overrides of everything.
+- **niri** gets ultrawide right as built-in behaviour: `center-focused-column "never"|"always"|"on-overflow"`, `always-center-single-column`, `preset-column-widths` with `proportion` _or_ `fixed` logical-pixel widths, and `struts`. Since 25.11, layout settings can be overridden **per output** and per named workspace ([niri wiki: Configuration: Layout](https://github.com/YaLTeR/niri/wiki/Configuration:-Layout)). The ideas mango lacks are fixed-pixel column presets and per-output overrides of everything.
 - **Hyprland** handles it with workspace rules that take `gapsin`/`gapsout` per workspace and bind workspaces to a monitor (`monitor:`, `m[...]` selector) ([Hyprland wiki: Workspace Rules](https://wiki.hypr.land/0.54.0/Configuring/Workspace-Rules/)). Big outer gaps on the ultrawide's workspaces are the common way to centre content.
 - The common recipe is: keep a single window near 16:9 in the middle, use one-third or one-quarter column widths, put popups at top or bottom centre, and keep a wallpaper per aspect ratio.
 
@@ -124,24 +124,24 @@ All of these are `settings.json` keys, so itera can set them declaratively throu
 
 ## Summary table
 
-| Surface | What ultrawide needs | Hook / option | Per-monitor? | Source |
-| --- | --- | --- | --- | --- |
-| mango new-column width | ~0.33 (32:9) / ~0.5 (21:9) instead of 0.9 | `scroller_default_proportion` (global) or `tag_rule …,scroller_default_proportion:` | Yes, via `tag_rule` (name regex / make / model / serial) | mango `option_defs.c`, `reapply.c`, rules.md |
-| mango lone window | Narrow and centred (centring is automatic) | `scroller_ignore_proportion_single:0` + `scroller_default_proportion_single:` | Yes, via `tag_rule` | mango `scroll.c`, rules.md |
-| mango width presets | Narrower cycle steps (e.g. 0.25,0.33,0.5) | `scroller_proportion_preset` | **No** (global) | layouts.md |
-| mango centring policy | Prefer centring focused column | `scroller_focus_center` / `prefer_center` / `prefer_overspread` | **No** (global) | layouts.md, `scroll.c` |
-| mango side margin | Optional wider struts | `scroller_structs` (px) | **No** (global) | layouts.md |
-| mango master layouts | Centre master | `tag_rule …,layout_name:center_tile` | Yes, via `tag_rule` | layouts.md |
-| mango gaps | Optional larger horizontal outer gap | `gap_outer_horizontal` (written by DMS `dms/layout.conf`) | **No** (global; runtime `incgaps` only) | theming.md, DMS `MangoService.qml` |
-| mango per-app width | Per-app column width | `window_rule …,scroller_proportion:` | No (window rules can't match a monitor) | rules.md |
-| DMS bar | Shorter bar / centred widgets | `barConfigs[].barLengthMode` = `percent`/`fit`, `barLengthPercent` | Yes: one bar entry per output via `barConfigs[].screenPreferences` | DMS `SettingsSpec.js`, `DBarBody.qml` |
-| DMS launcher | Nothing (fixed px, centred) | `dankLauncherV2Size` | n/a | DMS `DLauncherV2ModalHost.qml` |
-| DMS notifications | Centre position | `notificationPopupPosition` (Top/Bottom Center) | No position per monitor; `screenPreferences.notifications` picks outputs | DMS `NotificationsTab.qml`, `SettingsData.qml` |
-| DMS OSD | Nothing (BottomCenter default) | `osdPosition`, `osdPositionOverrides` (per kind) | No; `screenPreferences.osd` picks outputs | DMS `SettingsSpec.js` |
-| Wallpaper | Per-aspect variants (16:9 / 21:9 / 32:9); no spanning | `perMonitorWallpaper`, `monitorWallpapers`, `monitorWallpaperFillModes` (session.json); IPC `wallpaper setFor` | Yes (by connector name) | DMS `SessionData.qml`, `WallpaperCyclingService.qml` |
-| matugen | Nothing (aspect-agnostic 112×112 squash) | `matugenTargetMonitor` picks which output's wallpaper seeds the theme | Picks one output | matugen `color.rs`, material-colors `image.rs`, DMS `SettingsSpec.js` |
-| Greeter | Wallpaper per aspect; prompt on the intended screen | itera `greeter.wallpaper` (single path); prompt on `screens[0]` | No | DMS `GreeterContent.qml`, itera `dankmaterialshell.nix` |
-| Lock screen | Wallpaper per aspect | Inherits per-monitor wallpaper; `lockScreenWallpaperPath` / `…FillMode` are single; `screenPreferences.lockScreen` | Inherited wallpaper yes; custom no | DMS `Lock.qml`, `LockScreenBackground.qml` |
+| Surface                | What ultrawide needs                                  | Hook / option                                                                                                      | Per-monitor?                                                             | Source                                                                |
+| ---------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| mango new-column width | ~0.33 (32:9) / ~0.5 (21:9) instead of 0.9             | `scroller_default_proportion` (global) or `tag_rule …,scroller_default_proportion:`                                | Yes, via `tag_rule` (name regex / make / model / serial)                 | mango `option_defs.c`, `reapply.c`, rules.md                          |
+| mango lone window      | Narrow and centred (centring is automatic)            | `scroller_ignore_proportion_single:0` + `scroller_default_proportion_single:`                                      | Yes, via `tag_rule`                                                      | mango `scroll.c`, rules.md                                            |
+| mango width presets    | Narrower cycle steps (e.g. 0.25,0.33,0.5)             | `scroller_proportion_preset`                                                                                       | **No** (global)                                                          | layouts.md                                                            |
+| mango centring policy  | Prefer centring focused column                        | `scroller_focus_center` / `prefer_center` / `prefer_overspread`                                                    | **No** (global)                                                          | layouts.md, `scroll.c`                                                |
+| mango side margin      | Optional wider struts                                 | `scroller_structs` (px)                                                                                            | **No** (global)                                                          | layouts.md                                                            |
+| mango master layouts   | Centre master                                         | `tag_rule …,layout_name:center_tile`                                                                               | Yes, via `tag_rule`                                                      | layouts.md                                                            |
+| mango gaps             | Optional larger horizontal outer gap                  | `gap_outer_horizontal` (written by DMS `dms/layout.conf`)                                                          | **No** (global; runtime `incgaps` only)                                  | theming.md, DMS `MangoService.qml`                                    |
+| mango per-app width    | Per-app column width                                  | `window_rule …,scroller_proportion:`                                                                               | No (window rules can't match a monitor)                                  | rules.md                                                              |
+| DMS bar                | Shorter bar / centred widgets                         | `barConfigs[].barLengthMode` = `percent`/`fit`, `barLengthPercent`                                                 | Yes: one bar entry per output via `barConfigs[].screenPreferences`       | DMS `SettingsSpec.js`, `DBarBody.qml`                                 |
+| DMS launcher           | Nothing (fixed px, centred)                           | `dankLauncherV2Size`                                                                                               | n/a                                                                      | DMS `DLauncherV2ModalHost.qml`                                        |
+| DMS notifications      | Centre position                                       | `notificationPopupPosition` (Top/Bottom Center)                                                                    | No position per monitor; `screenPreferences.notifications` picks outputs | DMS `NotificationsTab.qml`, `SettingsData.qml`                        |
+| DMS OSD                | Nothing (BottomCenter default)                        | `osdPosition`, `osdPositionOverrides` (per kind)                                                                   | No; `screenPreferences.osd` picks outputs                                | DMS `SettingsSpec.js`                                                 |
+| Wallpaper              | Per-aspect variants (16:9 / 21:9 / 32:9); no spanning | `perMonitorWallpaper`, `monitorWallpapers`, `monitorWallpaperFillModes` (session.json); IPC `wallpaper setFor`     | Yes (by connector name)                                                  | DMS `SessionData.qml`, `WallpaperCyclingService.qml`                  |
+| matugen                | Nothing (aspect-agnostic 112×112 squash)              | `matugenTargetMonitor` picks which output's wallpaper seeds the theme                                              | Picks one output                                                         | matugen `color.rs`, material-colors `image.rs`, DMS `SettingsSpec.js` |
+| Greeter                | Wallpaper per aspect; prompt on the intended screen   | itera `greeter.wallpaper` (single path); prompt on `screens[0]`                                                    | No                                                                       | DMS `GreeterContent.qml`, itera `dankmaterialshell.nix`               |
+| Lock screen            | Wallpaper per aspect                                  | Inherits per-monitor wallpaper; `lockScreenWallpaperPath` / `…FillMode` are single; `screenPreferences.lockScreen` | Inherited wallpaper yes; custom no                                       | DMS `Lock.qml`, `LockScreenBackground.qml`                            |
 
 ## Implications for itera (facts and trade-offs, not a decision)
 

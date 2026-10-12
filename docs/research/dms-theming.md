@@ -6,11 +6,11 @@ Research for [#179](https://github.com/lcleveland/itera/issues/179) (map [#177](
 
 **Reference versions (from `flake.lock`):**
 
-| Input | Rev | Short link prefix used below |
-|---|---|---|
-| `dms` (AvengeMedia/DankMaterialShell) | `60736a73814fd0b861316972d2c1924f8e6f8b4e` | `DMS:` = `https://github.com/AvengeMedia/DankMaterialShell/blob/60736a73814fd0b861316972d2c1924f8e6f8b4e/` |
-| `dank-qml-common_2` (DMS's `DCommon` submodule) | `bd90e4b6f2ec36035fc2cb560acdc0e418f669ac` | `DQC:` = `https://github.com/AvengeMedia/dank-qml-common/blob/bd90e4b6f2ec36035fc2cb560acdc0e418f669ac/` |
-| `dank-greeter` | `a91ca2ad486bfc25bd23f624c542d695c2dfb8b8` | `DG:` = `https://github.com/AvengeMedia/dank-greeter/blob/a91ca2ad486bfc25bd23f624c542d695c2dfb8b8/` |
+| Input                                           | Rev                                        | Short link prefix used below                                                                               |
+| ----------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `dms` (AvengeMedia/DankMaterialShell)           | `60736a73814fd0b861316972d2c1924f8e6f8b4e` | `DMS:` = `https://github.com/AvengeMedia/DankMaterialShell/blob/60736a73814fd0b861316972d2c1924f8e6f8b4e/` |
+| `dank-qml-common_2` (DMS's `DCommon` submodule) | `bd90e4b6f2ec36035fc2cb560acdc0e418f669ac` | `DQC:` = `https://github.com/AvengeMedia/dank-qml-common/blob/bd90e4b6f2ec36035fc2cb560acdc0e418f669ac/`   |
+| `dank-greeter`                                  | `a91ca2ad486bfc25bd23f624c542d695c2dfb8b8` | `DG:` = `https://github.com/AvengeMedia/dank-greeter/blob/a91ca2ad486bfc25bd23f624c542d695c2dfb8b8/`       |
 
 The source was read from the Nix store (`nix flake prefetch github:AvengeMedia/DankMaterialShell/<rev>`). The local `matugen` is 4.2.0. Secondary sources: the DMS docs at danklinux.com (custom themes, application themes) and the matugen wiki. Where a doc and the code disagree, this note follows the code.
 
@@ -20,13 +20,14 @@ The source was read from the Nix store (`nix flake prefetch github:AvengeMedia/D
 
 `currentThemeName` (default `"purple"`, `DQC:DCommon/Common/settings/SharedSettingsSpec.js` L82) picks the colour source:
 
-| `currentThemeName` | Source | Where it's defined |
-|---|---|---|
-| `blue`, `purple`, `green`, `orange`, `red`, `cyan`, `pink`, `amber`, `coral`, `monochrome` | **Stock themes.** Hard-coded dark and light palettes. | `DMS:quickshell/Common/StockThemes.js` |
-| `custom` | **Custom theme file.** A JSON file at `customThemeFile`. | `DMS:quickshell/Common/Theme.qml` (`loadCustomTheme`, `resolveCustomTheme`, `customThemeFileView`) |
-| `dynamic` | **Matugen.** Colours come from the wallpaper (`kind=image`), or from `matugenSeedColor` / `materialWallpaperSeed` (`kind=hex`). | `Theme.qml` `_executeThemeGeneration` |
+| `currentThemeName`                                                                         | Source                                                                                                                          | Where it's defined                                                                                 |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `blue`, `purple`, `green`, `orange`, `red`, `cyan`, `pink`, `amber`, `coral`, `monochrome` | **Stock themes.** Hard-coded dark and light palettes.                                                                           | `DMS:quickshell/Common/StockThemes.js`                                                             |
+| `custom`                                                                                   | **Custom theme file.** A JSON file at `customThemeFile`.                                                                        | `DMS:quickshell/Common/Theme.qml` (`loadCustomTheme`, `resolveCustomTheme`, `customThemeFileView`) |
+| `dynamic`                                                                                  | **Matugen.** Colours come from the wallpaper (`kind=image`), or from `matugenSeedColor` / `materialWallpaperSeed` (`kind=hex`). | `Theme.qml` `_executeThemeGeneration`                                                              |
 
 The `dynamic` source has these knobs, all in `DMS:quickshell/Common/settings/SettingsSpec.js` L29–63:
+
 - `matugenScheme` (default `scheme-tonal-spot`)
 - `matugenSmartMode`
 - `matugenSourceMode` (default `dominant`)
@@ -41,6 +42,7 @@ The `dynamic` source has these knobs, all in `DMS:quickshell/Common/settings/Set
 ### Custom theme file format
 
 The format is documented at <https://danklinux.com/docs/dankmaterialshell/custom-themes> and confirmed in `resolveCustomTheme`:
+
 - **Shape:** either a flat colour object, or `{ "dark": {...}, "light": {...} }`.
 - **Variants:** an optional `variants` block, either `options` or `multi` with `flavors` × `accents`. The chosen variant is stored in `registryThemeVariants`.
 - **Keys:** camelCase colour names, the same set the stock themes use: `primary`, `primaryText`, `primaryContainer`, `secondary`, `surfaceTint`, `surface`, `surfaceText`, `surfaceVariant`, `surfaceVariantText`, `surfaceContainer{Lowest,Low,,High,Highest}`, `background`, `backgroundText`, `outline`.
@@ -53,7 +55,10 @@ The docs note that some keys DMS itself never renders are still needed because t
 itera already writes DMS settings through `~/.config/DankMaterialShell/config.d/00-itera.json` (`modules/hjem/programs/dankmaterialshell.nix`). The loader is at `DMS:quickshell/Common/SettingsData.qml` L3965. Setting these two keys there makes DMS and every detected app template render a Nix-provided palette:
 
 ```json
-{ "currentThemeName": "custom", "customThemeFile": "/nix/store/…-itera-theme.json" }
+{
+  "currentThemeName": "custom",
+  "customThemeFile": "/nix/store/…-itera-theme.json"
+}
 ```
 
 A dynamic-but-seeded option also exists: `currentThemeName = "dynamic"` with a `matugenSeedColor`. This generates a full M3 scheme from a single hex colour.
@@ -64,33 +69,34 @@ A dynamic-but-seeded option also exists: `currentThemeName = "dynamic"` with a `
 
 The template registry is `templateRegistry` in `DMS:core/internal/matugen/matugen.go` L62–86. Each template's TOML is in `DMS:quickshell/matugen/configs/`, and its source file is in `DMS:quickshell/matugen/templates/`. All output paths are relative to `$XDG_CONFIG_HOME` unless marked otherwise.
 
-| ID | Detected by | Output(s) |
-|---|---|---|
-| `dank` (always) | — | `~/.cache/DankMaterialShell/dms-colors.json` (the shell's own palette) |
-| `gtk` | **always runs** | `gtk-3.0/dank-colors.css`, `gtk-4.0/dank-colors.css` (a separate light variant is used for gtk3 in light mode) |
-| `kcolorscheme` | **always runs** | `~/.local/share/color-schemes/DankMatugen{,Light,Dark}.colors` |
-| `niri` | `niri` | `niri/dms/colors.kdl` |
-| `hyprland` | `Hyprland` | `hypr/dms/colors.lua` |
-| `mangowc` | `mango` + `$MANGO_INSTANCE_SIGNATURE` | `mango/dms/colors.conf` (legacy or snake_case dialect; post-hook `mmsg dispatch reload_config`) |
-| `qt5ct` / `qt6ct` | `qt5ct` / `qt6ct` | `qt5ct/colors/matugen.conf`, `qt6ct/colors/matugen.conf` |
-| `qtengine` | `QT_QPA_PLATFORMTHEME=qtengine` | `qtengine/config.json` (points at the kcolorscheme output) |
-| `fcitx5` | `fcitx5` or config dir | `~/.local/share/fcitx5/themes/dms/{theme.conf,panel.svg,highlight.svg}` |
-| `firefox` | `firefox` | `DankMaterialShell/firefox.css` (userChrome) |
-| `pywalfox` | `pywalfox` | `~/.cache/wal/dank-pywalfox.json`, `~/.cache/wal/colors.json` |
-| `zenbrowser` | `zen*` / Flatpak | `DankMaterialShell/zen.css` |
-| `vesktop` / `vencord` / `equibop` | command, Flatpak or config dir | `<app>/themes/dank-discord.css` (Flatpak-aware) |
-| `ghostty` | `ghostty` | `ghostty/themes/dankcolors` |
-| `kitty` | `kitty` | `kitty/dank-theme.conf`, `kitty/dank-tabs.conf` |
-| `foot` | `foot` | `foot/dank-colors.ini` |
-| `alacritty` | `alacritty` | `alacritty/dank-theme.toml` |
-| `wezterm` | `wezterm` | `wezterm/colors/dank-theme.toml` |
-| `nvim` | `nvim` | `nvim/colors/dms.lua`, `nvim/lua/lualine/themes/dms.lua` |
-| `dgop` | `dgop` | `dgop/colors.json` |
-| `vscode` | per-editor extension dir | DMS theme extension files (vscode, codium, cursor, windsurf, insiders) |
-| `emacs` | `emacs` + Emacs config dir | `<emacs>/themes/dank-emacs-theme.el` |
-| `zed` | `zed` / `zeditor` / `zedit` | `zed/themes/dank-zed-theme.json` (themes "DankShell Dark/Light[ Transparent]") |
+| ID                                | Detected by                           | Output(s)                                                                                                      |
+| --------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `dank` (always)                   | —                                     | `~/.cache/DankMaterialShell/dms-colors.json` (the shell's own palette)                                         |
+| `gtk`                             | **always runs**                       | `gtk-3.0/dank-colors.css`, `gtk-4.0/dank-colors.css` (a separate light variant is used for gtk3 in light mode) |
+| `kcolorscheme`                    | **always runs**                       | `~/.local/share/color-schemes/DankMatugen{,Light,Dark}.colors`                                                 |
+| `niri`                            | `niri`                                | `niri/dms/colors.kdl`                                                                                          |
+| `hyprland`                        | `Hyprland`                            | `hypr/dms/colors.lua`                                                                                          |
+| `mangowc`                         | `mango` + `$MANGO_INSTANCE_SIGNATURE` | `mango/dms/colors.conf` (legacy or snake_case dialect; post-hook `mmsg dispatch reload_config`)                |
+| `qt5ct` / `qt6ct`                 | `qt5ct` / `qt6ct`                     | `qt5ct/colors/matugen.conf`, `qt6ct/colors/matugen.conf`                                                       |
+| `qtengine`                        | `QT_QPA_PLATFORMTHEME=qtengine`       | `qtengine/config.json` (points at the kcolorscheme output)                                                     |
+| `fcitx5`                          | `fcitx5` or config dir                | `~/.local/share/fcitx5/themes/dms/{theme.conf,panel.svg,highlight.svg}`                                        |
+| `firefox`                         | `firefox`                             | `DankMaterialShell/firefox.css` (userChrome)                                                                   |
+| `pywalfox`                        | `pywalfox`                            | `~/.cache/wal/dank-pywalfox.json`, `~/.cache/wal/colors.json`                                                  |
+| `zenbrowser`                      | `zen*` / Flatpak                      | `DankMaterialShell/zen.css`                                                                                    |
+| `vesktop` / `vencord` / `equibop` | command, Flatpak or config dir        | `<app>/themes/dank-discord.css` (Flatpak-aware)                                                                |
+| `ghostty`                         | `ghostty`                             | `ghostty/themes/dankcolors`                                                                                    |
+| `kitty`                           | `kitty`                               | `kitty/dank-theme.conf`, `kitty/dank-tabs.conf`                                                                |
+| `foot`                            | `foot`                                | `foot/dank-colors.ini`                                                                                         |
+| `alacritty`                       | `alacritty`                           | `alacritty/dank-theme.toml`                                                                                    |
+| `wezterm`                         | `wezterm`                             | `wezterm/colors/dank-theme.toml`                                                                               |
+| `nvim`                            | `nvim`                                | `nvim/colors/dms.lua`, `nvim/lua/lualine/themes/dms.lua`                                                       |
+| `dgop`                            | `dgop`                                | `dgop/colors.json`                                                                                             |
+| `vscode`                          | per-editor extension dir              | DMS theme extension files (vscode, codium, cursor, windsurf, insiders)                                         |
+| `emacs`                           | `emacs` + Emacs config dir            | `<emacs>/themes/dank-emacs-theme.el`                                                                           |
+| `zed`                             | `zed` / `zeditor` / `zedit`           | `zed/themes/dank-zed-theme.json` (themes "DankShell Dark/Light[ Transparent]")                                 |
 
 **Mechanics:**
+
 - **Detection.** A template is added to the merged matugen config only when its app's command is on DMS's `PATH`, or its Flatpak or config dir exists (`appendConfigContent`, `appExists`, `configDirExists`). `gtk` and `kcolorscheme` run unconditionally.
 - **Per-template toggles.** Each template has a `matugenTemplate<Name>` setting (default `true`), and `runDmsMatugenTemplates` (default `true`) is a master switch (`SettingsSpec.js` L1137–1230). The shell turns these into `--skip-templates` (`Theme.qml` ~L1820).
 - **Terminal colours.** Terminals get 16 ANSI colours from DMS's `dank16` generator (`generateDank16Variants`). `terminalsAlwaysDark` forces dark terminal colours.
@@ -129,14 +135,14 @@ Template syntax is plain matugen: `[templates.<name>]` with `input_path` and `ou
 
 All of these are plain settings keys, so they're all settable from itera's `config.d` drop-in. Except where noted, the defaults are in `DQC:.../SharedSettingsSpec.js`.
 
-| Concern | Keys (default) | Effect outside the shell |
-|---|---|---|
-| Radius | `radiusStrength` (50), `radiusMode` (`scale`), `fixedRadius` (12). The derived value is `SettingsData.cornerRadius`. | Written as compositor `border_radius` (mango `layout.conf`). Per-compositor overrides: `mangoLayoutRadiusOverride`, `niri…`, `hyprland…`. |
-| Gaps and borders | `mangoLayoutGapsOverride`, `mangoLayoutGapsOutOverride`, `mangoLayoutBorderSize` | mango `layout.conf` |
-| Fonts | `fontFamily` ("Google Sans Flex"), `monoFontFamily` ("Fira Code"), `displayFontFamily`, `fontWeight` (400), `fontScale` (1.0) | Shell UI only. No template exports fonts to apps. |
-| Icons | `iconThemeDark`, `iconThemeLight` ("System Default"), `iconThemePerMode` | Writes `gtk-icon-theme-name` into `gtk-{3,4}.0/settings.ini` (skipped if read-only). Sets the icon theme through the DMS freedesktop settings portal and in COSMIC's config. Passed to qtengine. (`SettingsData.qml` ~L1550–1610) |
-| Cursor | `cursorSettings = { theme ("System Default"), size (24), niri/hyprland/dwl/mango sub-objects }` (`SettingsSpec.js` L935) | mango `cursor.conf` (`cursor_size`, `cursor_theme`, `cursor_hide_timeout`). Also reads and updates Xresources `Xcursor.*`. |
-| Surfaces and transparency | `popupTransparency`, `widgetColorMode`, `hostSurfaceColor`, `cardSurfaceColor`, … | Shell UI only |
+| Concern                   | Keys (default)                                                                                                                | Effect outside the shell                                                                                                                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Radius                    | `radiusStrength` (50), `radiusMode` (`scale`), `fixedRadius` (12). The derived value is `SettingsData.cornerRadius`.          | Written as compositor `border_radius` (mango `layout.conf`). Per-compositor overrides: `mangoLayoutRadiusOverride`, `niri…`, `hyprland…`.                                                                                         |
+| Gaps and borders          | `mangoLayoutGapsOverride`, `mangoLayoutGapsOutOverride`, `mangoLayoutBorderSize`                                              | mango `layout.conf`                                                                                                                                                                                                               |
+| Fonts                     | `fontFamily` ("Google Sans Flex"), `monoFontFamily` ("Fira Code"), `displayFontFamily`, `fontWeight` (400), `fontScale` (1.0) | Shell UI only. No template exports fonts to apps.                                                                                                                                                                                 |
+| Icons                     | `iconThemeDark`, `iconThemeLight` ("System Default"), `iconThemePerMode`                                                      | Writes `gtk-icon-theme-name` into `gtk-{3,4}.0/settings.ini` (skipped if read-only). Sets the icon theme through the DMS freedesktop settings portal and in COSMIC's config. Passed to qtengine. (`SettingsData.qml` ~L1550–1610) |
+| Cursor                    | `cursorSettings = { theme ("System Default"), size (24), niri/hyprland/dwl/mango sub-objects }` (`SettingsSpec.js` L935)      | mango `cursor.conf` (`cursor_size`, `cursor_theme`, `cursor_hide_timeout`). Also reads and updates Xresources `Xcursor.*`.                                                                                                        |
+| Surfaces and transparency | `popupTransparency`, `widgetColorMode`, `hostSurfaceColor`, `cardSurfaceColor`, …                                             | Shell UI only                                                                                                                                                                                                                     |
 
 Fonts aren't part of the matugen data at all. DMS doesn't propagate fonts to GTK, Qt or terminals.
 
@@ -161,13 +167,14 @@ The greeter is the separate `dank-greeter` flake. `programs.dms-greeter.configHo
 - `<home>/.cache/DankMaterialShell/dms-colors.json`
 
 greetd's `preStart` copies these files into the greeter cache (`/var/lib/dms-greeter`), along with:
+
 - the wallpapers named in session.json (`wallpaperPath`, `wallpaperPathLight`, `wallpaperPathDark`, and the per-monitor variants), rewriting their paths;
 - the file at `customThemeFile`, saved as `custom-theme.json`, with the path rewritten;
 - the file at `lockScreenWallpaperPath`.
 
 It then renames `dms-colors.json` to `colors.json` (`DG:distro/nix/greeter.nix` ~L200–253). The greeter's `Theme.qml` reads `$DMS_GREET_CFG_DIR` or `/var/cache/dms-greeter` + `/colors.json` (`DMS:quickshell/Common/Theme.qml` L2392–2414). The greeter never runs matugen (`generateSystemThemesFromCurrentTheme` returns early in greeter mode). It only renders what the synced user last generated.
 
-**How itera's greetd wiring interacts with this.** itera's own `preStart` (`modules/nixos/desktop/dankmaterialshell.nix`) first clears the cache. After the upstream copy, it jq-merges itera's `config.d` keys over the synced settings.json. That merge runs *after* the upstream `customThemeFile` copy step. So if `customThemeFile` is set only by itera, the greeter gets the original path, not a copied one. A `/nix/store` path is world-readable, so the greeter can still read it. With `syncUser = null`, the greeter gets no `dms-colors.json` and only itera's system-wide keys.
+**How itera's greetd wiring interacts with this.** itera's own `preStart` (`modules/nixos/desktop/dankmaterialshell.nix`) first clears the cache. After the upstream copy, it jq-merges itera's `config.d` keys over the synced settings.json. That merge runs _after_ the upstream `customThemeFile` copy step. So if `customThemeFile` is set only by itera, the greeter gets the original path, not a copied one. A `/nix/store` path is world-readable, so the greeter can still read it. With `syncUser = null`, the greeter gets no `dms-colors.json` and only itera's system-wide keys.
 
 ---
 
@@ -176,26 +183,29 @@ It then renames `dms-colors.json` to `colors.json` (`DG:distro/nix/greeter.nix` 
 These are facts and trade-offs for the decision tickets. No decision is made here.
 
 **DMS as the hub (DMS generates, apps consume).**
-- *For:*
+
+- _For:_
   - DMS already renders one palette into GTK, KDE/Qt, WezTerm, Zed, mango, Firefox and others, and refreshes running apps when the mode or palette changes.
   - A Nix-written `customThemeFile`, or a `matugenSeedColor`, makes that palette deterministic.
   - Users can add templates through the `~/.config/matugen/dms/configs/` drop-in, which hjem can write into without touching the user's own matugen config.
-- *Against:*
+- _Against:_
   - Output is runtime state (files in `$XDG_CONFIG_HOME`, `~/.cache` and gsettings). It isn't available at build time or before first login, and it isn't present on systems without DMS.
   - Templates run only for apps detected on DMS's `PATH`.
   - No template covers Vivaldi, Nushell, mpv, Plymouth or the TTY.
   - Fonts aren't covered at all.
 
 **DMS as a consumer (Nix owns the tokens, DMS is one more target).**
-- *For:*
+
+- _For:_
   - Every key DMS needs is a settings key itera already writes through `config.d`: `currentThemeName = "custom"` plus `customThemeFile`, radius, fonts, icon themes and cursor.
   - The same token set could render a custom-theme JSON for DMS and also native config for apps DMS doesn't cover.
-- *Against:*
+- _Against:_
   - DMS would still run its own templates over the Nix palette unless itera turns them off (`runDmsMatugenTemplates`, the per-template toggles, or `DMS_DISABLE_MATUGEN`). Otherwise two writers target overlapping files: GTK css, WezTerm and Zed theme files, and mango colours.
 
 **Hybrid.** Nix supplies the palette (custom theme JSON) and DMS's template engine distributes it. In this mode DMS is "consumer of tokens, hub for propagation".
 
 **Known frictions to resolve whichever way is chosen:**
+
 - **Light/dark has three writers today.** itera's `theme.nix` (`GTK_THEME` env and dconf), DMS's `isLightMode` (session.json, not reachable through `config.d`), and DMS's portal sync (off in itera).
   - `GTK_THEME=Adwaita:dark` pins GTK3's theme. That conflicts with DMS's adw-gtk3 patching and its `gtk-theme` refresh.
 - **Zed.** itera's Zed module pins `theme.mode` from `itera.desktop.theme.dark`, and doesn't name the DMS-generated "DankShell Dark/Light" theme.

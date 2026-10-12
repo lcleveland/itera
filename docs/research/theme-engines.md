@@ -35,9 +35,9 @@ uses release branches that follow NixOS. A warning fires when the Stylix and Nix
 releases differ ([stylix/nixos/default.nix](https://github.com/nix-community/stylix/blob/master/stylix/nixos/default.nix)).
 
 - **Without home-manager:** this is the weak point. The installation docs say:
-  *"Many applications cannot be configured system wide, so Stylix will also need
+  _"Many applications cannot be configured system wide, so Stylix will also need
   Home Manager … You can theoretically use it without installing Home Manager,
-  however most features will be unavailable."*
+  however most features will be unavailable."_
   ([doc/src/installation.md](https://github.com/nix-community/stylix/blob/master/doc/src/installation.md)).
   The per-app targets bear this out. Going by the `modules/*/{nixos,hm}.nix`
   files in the repo tree:
@@ -133,7 +133,7 @@ MIT, about 8.4k stars, pushed today.
   adds the user's own templates.
 - **Without home-manager:** yes. DMS writes these files itself, at runtime, into
   `$XDG_CONFIG_HOME`. The app configs that itera generates through hjem would have
-  to *reference* them: WezTerm `color_scheme = "dank-theme"`, Zed theme name,
+  to _reference_ them: WezTerm `color_scheme = "dank-theme"`, Zed theme name,
   GTK `@import 'dank-colors.css'`. That part is still to be wired up.
 - **Per-user:** comes for free. DMS state lives per user, and itera already merges
   `itera.programs.dankMaterialShell.settings` with per-user overrides into
@@ -206,19 +206,19 @@ module would render the tokens through hjem.
 
 ## Comparison
 
-| | Stylix | matugen (standalone) | matugen via DMS | tinted/base16 (+base16.nix) | Hand-rolled tokens |
-|---|---|---|---|---|---|
-| Works without HM | Partly: palette, fonts, console, plymouth, grub/limine, qt, chromium; **itera's apps are HM-only** | Yes (`nixosModules.matugen`, store paths) | Yes (DMS writes `~/.config` itself) | Yes (library + hjem) | Yes, native |
-| Per-user overrides | Only via HM | Build it yourself | Yes (per-user DMS settings, already merged by itera) | Build it yourself | Yes, existing `itera.users.<name>` pattern |
-| Palette source | base16 scheme or build-time image extraction | Seed colour or image | Stock, custom JSON, wallpaper, seed colour | Static scheme library (361 base16 / 210 base24) | Anything (hex, base16, build-time matugen) |
-| Colour model | base16 (16 slots) | Material 3 roles + base16 | Material 3 roles | base16/base24 | Whatever itera defines (M3 fits DMS) |
-| Light/dark | One polarity per build; runtime toggle is open issue #447 | One variant per run | Both, switchable at runtime (`isLightMode`/portal) | Two separate schemes | Both built; runtime switch still to design |
-| itera apps covered out of the box | NixOS: GTK hint, Qt, TTY, Plymouth. HM-only: WezTerm, Zed, Nushell, mpv, DMS. No mango | None (community templates: wezterm, zed, vivaldi, gtk, qt, mango) | GTK3/4 (Nemo, virt-manager…), Qt, mango, WezTerm, Zed, DMS + greeter. No nushell/mpv/Vivaldi/boot | Templates for wezterm, zed, gtk. No nushell/mpv/Vivaldi/mango/DMS | None until written |
-| Build vs runtime | Build | Build (or CLI at runtime) | Runtime | Build (tinty = runtime, impure) | Build |
-| Reproducible / checkable in CI | Yes | Yes | No (mutable `~/.config` state) | Yes | Yes |
-| Maintenance health | Very active, release-pinned to NixOS | Active, v4.2.0 Aug 2026 | Very active (fast-moving schema) | Org active; nix-colors archived; base16.nix quiet but alive | itera's own |
-| Licence | MIT | GPL-2.0 | MIT (bundles matugen GPL-2.0 as a runtime tool) | MIT (specs/schemes); tinty GPL-3.0; nix-colors GPL-3.0 | itera's |
-| New dependency for itera | Yes (flake input; HM in practice) | No (already installed by DMS) | No (already running) | base16.nix input or none (pkgs.base16-schemes) | No |
+|                                   | Stylix                                                                                             | matugen (standalone)                                              | matugen via DMS                                                                                   | tinted/base16 (+base16.nix)                                       | Hand-rolled tokens                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------ |
+| Works without HM                  | Partly: palette, fonts, console, plymouth, grub/limine, qt, chromium; **itera's apps are HM-only** | Yes (`nixosModules.matugen`, store paths)                         | Yes (DMS writes `~/.config` itself)                                                               | Yes (library + hjem)                                              | Yes, native                                |
+| Per-user overrides                | Only via HM                                                                                        | Build it yourself                                                 | Yes (per-user DMS settings, already merged by itera)                                              | Build it yourself                                                 | Yes, existing `itera.users.<name>` pattern |
+| Palette source                    | base16 scheme or build-time image extraction                                                       | Seed colour or image                                              | Stock, custom JSON, wallpaper, seed colour                                                        | Static scheme library (361 base16 / 210 base24)                   | Anything (hex, base16, build-time matugen) |
+| Colour model                      | base16 (16 slots)                                                                                  | Material 3 roles + base16                                         | Material 3 roles                                                                                  | base16/base24                                                     | Whatever itera defines (M3 fits DMS)       |
+| Light/dark                        | One polarity per build; runtime toggle is open issue #447                                          | One variant per run                                               | Both, switchable at runtime (`isLightMode`/portal)                                                | Two separate schemes                                              | Both built; runtime switch still to design |
+| itera apps covered out of the box | NixOS: GTK hint, Qt, TTY, Plymouth. HM-only: WezTerm, Zed, Nushell, mpv, DMS. No mango             | None (community templates: wezterm, zed, vivaldi, gtk, qt, mango) | GTK3/4 (Nemo, virt-manager…), Qt, mango, WezTerm, Zed, DMS + greeter. No nushell/mpv/Vivaldi/boot | Templates for wezterm, zed, gtk. No nushell/mpv/Vivaldi/mango/DMS | None until written                         |
+| Build vs runtime                  | Build                                                                                              | Build (or CLI at runtime)                                         | Runtime                                                                                           | Build (tinty = runtime, impure)                                   | Build                                      |
+| Reproducible / checkable in CI    | Yes                                                                                                | Yes                                                               | No (mutable `~/.config` state)                                                                    | Yes                                                               | Yes                                        |
+| Maintenance health                | Very active, release-pinned to NixOS                                                               | Active, v4.2.0 Aug 2026                                           | Very active (fast-moving schema)                                                                  | Org active; nix-colors archived; base16.nix quiet but alive       | itera's own                                |
+| Licence                           | MIT                                                                                                | GPL-2.0                                                           | MIT (bundles matugen GPL-2.0 as a runtime tool)                                                   | MIT (specs/schemes); tinty GPL-3.0; nix-colors GPL-3.0            | itera's                                    |
+| New dependency for itera          | Yes (flake input; HM in practice)                                                                  | No (already installed by DMS)                                     | No (already running)                                                                              | base16.nix input or none (pkgs.base16-schemes)                    | No                                         |
 
 ## Implications for itera
 
@@ -233,7 +233,7 @@ module would render the tokens through hjem.
   small: itera's hjem configs need to point at DMS's output files. The cost: the
   look lives in mutable runtime state, is invisible to Nix, and may not exist on
   first login until DMS has run (`generateThemeAtStartup` defaults to true).
-- **A branded *static* look still fits DMS.** A `custom` theme JSON with separate
+- **A branded _static_ look still fits DMS.** A `custom` theme JSON with separate
   `dark` and `light` palettes, set through `itera.programs.dankMaterialShell.settings`
   (`currentThemeName = "custom"`, `customThemeFile`), makes DMS push itera's colours
   through every template. Wallpaper-dynamic colour remains an opt-in for users.
@@ -247,7 +247,7 @@ module would render the tokens through hjem.
   question for the contract ticket.
 - **base16 alone is a poor fit for the shell.** DMS and Material 3 need about 20
   roles; base16's 16 slots must be stretched (as Stylix's DMS target does). base16
-  schemes still work well as an *input* or as a terminal ANSI palette.
+  schemes still work well as an _input_ or as a terminal ANSI palette.
 - **Avoid:** nix-colors (archived) and tinty (impure runtime git clones).
 - **Licence note:** matugen is GPL-2.0. Calling it as a tool (at build time or
   runtime) does not change itera's licence. Vendoring templates from DMS (MIT) or

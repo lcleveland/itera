@@ -18,13 +18,13 @@ wallpaper/theme/mode change and renders templates for many apps. Its template
 registry ([`core/internal/matugen/matugen.go`](https://github.com/AvengeMedia/DankMaterialShell/blob/master/core/internal/matugen/matugen.go))
 covers several itera surfaces:
 
-| Template ID | Gate (app detected by) | Output |
-|---|---|---|
-| `gtk` | always runs | `~/.config/gtk-3.0/dank-colors.css`, `~/.config/gtk-4.0/dank-colors.css` |
-| `mangowc` | `mango` on PATH **and** `$MANGO_INSTANCE_SIGNATURE` set | `~/.config/mango/dms/colors.conf` (snake_case variant auto-detected) |
-| `qt5ct` / `qt6ct` | `qt5ct` / `qt6ct` on PATH | `~/.config/qt{5,6}ct/colors/matugen.conf` |
-| `wezterm` | `wezterm` on PATH | `~/.config/wezterm/colors/dank-theme.toml` ([config](https://github.com/AvengeMedia/DankMaterialShell/blob/master/quickshell/matugen/configs/wezterm.toml)) |
-| `zed` | `zed`/`zeditor`/`zedit` on PATH | `~/.config/zed/themes/dank-zed-theme.json` ([config](https://github.com/AvengeMedia/DankMaterialShell/blob/master/quickshell/matugen/configs/zed.toml)) |
+| Template ID       | Gate (app detected by)                                  | Output                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gtk`             | always runs                                             | `~/.config/gtk-3.0/dank-colors.css`, `~/.config/gtk-4.0/dank-colors.css`                                                                                    |
+| `mangowc`         | `mango` on PATH **and** `$MANGO_INSTANCE_SIGNATURE` set | `~/.config/mango/dms/colors.conf` (snake_case variant auto-detected)                                                                                        |
+| `qt5ct` / `qt6ct` | `qt5ct` / `qt6ct` on PATH                               | `~/.config/qt{5,6}ct/colors/matugen.conf`                                                                                                                   |
+| `wezterm`         | `wezterm` on PATH                                       | `~/.config/wezterm/colors/dank-theme.toml` ([config](https://github.com/AvengeMedia/DankMaterialShell/blob/master/quickshell/matugen/configs/wezterm.toml)) |
+| `zed`             | `zed`/`zeditor`/`zedit` on PATH                         | `~/.config/zed/themes/dank-zed-theme.json` ([config](https://github.com/AvengeMedia/DankMaterialShell/blob/master/quickshell/matugen/configs/zed.toml))     |
 
 Each template has a `matugenTemplate<Name>` toggle in DMS settings (all default
 `true`, plus a master `runDmsMatugenTemplates`, default `true`), see
@@ -318,24 +318,24 @@ itera: no colours or font set; `core/keyboard.nix` sets only `console.useXkbConf
 
 ## Summary table
 
-| Surface | Hook | Format | Runtime reload? | Gotchas |
-|---|---|---|---|---|
-| WezTerm | `wezterm.lua` (`color_scheme`, `colors`, `font`, opacity); scheme TOML in `~/.config/wezterm/colors/` | Lua + TOML `[colors]` | Yes: config auto-reload; appearance change re-evaluates config | DMS writes `dank-theme.toml` but nothing selects it; no signal from DMS |
-| Zed | `settings.json` `theme{mode,light,dark}`, `theme_overrides`, fonts; JSON themes in `~/.config/zed/themes/` | JSON | Yes: settings and theme dir watched; portal colour scheme live | itera pins One Dark/Light, so DMS's `dank-zed-theme.json` goes unused; `system` + no portal = Light |
-| Nushell | `$env.config.color_config`, `$env.LS_COLORS`, `PROMPT_COMMAND` | Nu records / dircolors string | No: new shells only | Use ANSI names to inherit the terminal palette; no appearance detection |
-| Vivaldi | In-app themes + OS schedule; Website Appearance | Mutable profile (no declarative file) | Yes for OS-scheduled light/dark via portal | No documented policy/theme file; no DMS template |
-| GTK3 | gsettings `gtk-theme`, `~/.config/gtk-3.0/gtk.css`, `GTK_THEME` | Theme name / CSS | Yes on `gtk-theme` change; `GTK_THEME` per session | Dark needs a dark theme (adw-gtk3 for libadwaita look) |
-| GTK4 | `~/.config/gtk-4.0/gtk.css` (USER priority) | CSS | Only on colour-scheme flip | DMS's live refresh of it is opt-in |
-| libadwaita | Portal/gsettings `color-scheme`, `accent-color`; CSS vars | `u` / RGB tuple (portal), enum of 9 (gsettings) | Yes | **`GTK_THEME` disables libadwaita's stylesheet**; xdp-gtk exposes no accent |
-| Qt5/6 | `QT_QPA_PLATFORMTHEME` (qt6ct…), `QT_STYLE_OVERRIDE` (kvantum…); NixOS `qt.*` | Env + INI palettes / Kvantum SVG | Palette yes (qt6ct watch); env needs new session | Nothing set in itera today; DMS template needs qt6ct on PATH |
-| Flatpak | Settings portal; theme extensions; nix-flatpak overrides | D-Bus / override INI | Portal yes; overrides at launch | No accent via xdp-gtk; NixOS lacks `/usr/share` icons/fonts; host `gtk.css` hidden |
-| mpv | `script-opts/osc.conf`, `mpv.conf` OSD options | `key=value`, `#RRGGBB` | OSC script-opts yes via IPC; files at start | No light/dark; options are recent |
-| gnome-calculator | (libadwaita) | — | Yes (if libadwaita styling active) | Defeated by `GTK_THEME` |
-| mango | `config.conf` colours/radius/opacity/blur; `source_optional` DMS fragments | `0xRRGGBBAA`, `key=value` | Yes: inotify watcher + `reload_config` | Key renames handled by DMS; template needs mango session env |
-| DMS greeter | `/var/lib/dms-greeter/*.json` synced from one user + itera merge | JSON | No: at greetd start | One look system-wide |
-| Plymouth | `boot.plymouth.*` | Theme pkg, PNG logo | No: rebuild + reboot | System-wide only |
-| systemd-boot/lanzaboote | None in `loader.conf`; UKI `.splash` BMP | BMP | No: rebuild + reboot | Splash is measured into PCRs |
-| Console | `console.colors` → `vt.default_*` | 16 × `RRGGBB` | No: reboot | 16 colours, system-wide |
+| Surface                 | Hook                                                                                                       | Format                                          | Runtime reload?                                                | Gotchas                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| WezTerm                 | `wezterm.lua` (`color_scheme`, `colors`, `font`, opacity); scheme TOML in `~/.config/wezterm/colors/`      | Lua + TOML `[colors]`                           | Yes: config auto-reload; appearance change re-evaluates config | DMS writes `dank-theme.toml` but nothing selects it; no signal from DMS                             |
+| Zed                     | `settings.json` `theme{mode,light,dark}`, `theme_overrides`, fonts; JSON themes in `~/.config/zed/themes/` | JSON                                            | Yes: settings and theme dir watched; portal colour scheme live | itera pins One Dark/Light, so DMS's `dank-zed-theme.json` goes unused; `system` + no portal = Light |
+| Nushell                 | `$env.config.color_config`, `$env.LS_COLORS`, `PROMPT_COMMAND`                                             | Nu records / dircolors string                   | No: new shells only                                            | Use ANSI names to inherit the terminal palette; no appearance detection                             |
+| Vivaldi                 | In-app themes + OS schedule; Website Appearance                                                            | Mutable profile (no declarative file)           | Yes for OS-scheduled light/dark via portal                     | No documented policy/theme file; no DMS template                                                    |
+| GTK3                    | gsettings `gtk-theme`, `~/.config/gtk-3.0/gtk.css`, `GTK_THEME`                                            | Theme name / CSS                                | Yes on `gtk-theme` change; `GTK_THEME` per session             | Dark needs a dark theme (adw-gtk3 for libadwaita look)                                              |
+| GTK4                    | `~/.config/gtk-4.0/gtk.css` (USER priority)                                                                | CSS                                             | Only on colour-scheme flip                                     | DMS's live refresh of it is opt-in                                                                  |
+| libadwaita              | Portal/gsettings `color-scheme`, `accent-color`; CSS vars                                                  | `u` / RGB tuple (portal), enum of 9 (gsettings) | Yes                                                            | **`GTK_THEME` disables libadwaita's stylesheet**; xdp-gtk exposes no accent                         |
+| Qt5/6                   | `QT_QPA_PLATFORMTHEME` (qt6ct…), `QT_STYLE_OVERRIDE` (kvantum…); NixOS `qt.*`                              | Env + INI palettes / Kvantum SVG                | Palette yes (qt6ct watch); env needs new session               | Nothing set in itera today; DMS template needs qt6ct on PATH                                        |
+| Flatpak                 | Settings portal; theme extensions; nix-flatpak overrides                                                   | D-Bus / override INI                            | Portal yes; overrides at launch                                | No accent via xdp-gtk; NixOS lacks `/usr/share` icons/fonts; host `gtk.css` hidden                  |
+| mpv                     | `script-opts/osc.conf`, `mpv.conf` OSD options                                                             | `key=value`, `#RRGGBB`                          | OSC script-opts yes via IPC; files at start                    | No light/dark; options are recent                                                                   |
+| gnome-calculator        | (libadwaita)                                                                                               | —                                               | Yes (if libadwaita styling active)                             | Defeated by `GTK_THEME`                                                                             |
+| mango                   | `config.conf` colours/radius/opacity/blur; `source_optional` DMS fragments                                 | `0xRRGGBBAA`, `key=value`                       | Yes: inotify watcher + `reload_config`                         | Key renames handled by DMS; template needs mango session env                                        |
+| DMS greeter             | `/var/lib/dms-greeter/*.json` synced from one user + itera merge                                           | JSON                                            | No: at greetd start                                            | One look system-wide                                                                                |
+| Plymouth                | `boot.plymouth.*`                                                                                          | Theme pkg, PNG logo                             | No: rebuild + reboot                                           | System-wide only                                                                                    |
+| systemd-boot/lanzaboote | None in `loader.conf`; UKI `.splash` BMP                                                                   | BMP                                             | No: rebuild + reboot                                           | Splash is measured into PCRs                                                                        |
+| Console                 | `console.colors` → `vt.default_*`                                                                          | 16 × `RRGGBB`                                   | No: reboot                                                     | 16 colours, system-wide                                                                             |
 
 ## Implications for itera (facts, not decisions)
 
