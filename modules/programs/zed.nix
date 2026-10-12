@@ -32,7 +32,8 @@ iteraLib.programs.mkCuratedProgram {
         per-user override merge per key. itera's opinionated defaults are
         disabling telemetry and pinning the color scheme to
         {option}`itera.desktop.theme.dark` (Zed cannot read the GTK/dconf
-        preference itself). The dedicated {option}`agent` and
+        preference itself). The buffer and UI font families and sizes default to
+        the look's mono and sans fonts. The dedicated {option}`agent` and
         {option}`agentServers` options are merged in on top of this under their
         respective settings keys.
       '';

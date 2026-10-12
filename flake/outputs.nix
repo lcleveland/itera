@@ -23,7 +23,7 @@
     #   imports = [ itera.nixosModules.default itera.hardwareModules.framework-13-7040-amd ];
     hardwareModules = inputs.nixos-hardware.nixosModules;
 
-    # Package overlay (exposes `pkgs.itera.*`); passthrough until packages land.
+    # Package overlay (exposes `pkgs.itera.*`).
     overlays.default = import ../overlays inputs;
 
     # Starter flake for new consumers: `nix flake init -t github:lcleveland/itera`.

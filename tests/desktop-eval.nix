@@ -158,12 +158,12 @@ let
     "default 3-finger focus gesture" = lib.hasInfix "gesturebind=none,left,3,focusdir,left" mangoConf;
     "default 4-finger overview gesture" = lib.hasInfix "gesturebind=none,up,4,enteroverview," mangoConf;
 
-    # Terminal battery ships WezTerm, wires SUPER+t to it, and installs the Nerd
-    # Font WezTerm needs for the shell's glyphs.
+    # Terminal battery ships WezTerm and wires SUPER+t to it. Its font comes
+    # from the look (the fonts battery), not a font of its own.
     "terminal battery is enabled" = cfg.itera.desktop.terminal.enable;
     "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm start";
     "wezterm package is installed" = hasPkgInfix "wezterm" cfg.environment.systemPackages;
-    "JetBrains Mono Nerd Font is installed" = hasPkgInfix "jetbrains-mono" cfg.fonts.packages;
+    "terminal battery installs no font of its own" = !(hasPkgInfix "jetbrains-mono" cfg.fonts.packages);
 
     # File-manager battery ships Nemo (default ON) and wires SUPER+f to it.
     "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
@@ -208,10 +208,10 @@ let
     # Home layer: the WezTerm user config renders. Probing the key forces the hjem
     # battery's Lua `configText` (settings + font serialization) to evaluate.
     "wezterm user config is generated" = mangoUserFiles ? "wezterm/wezterm.lua";
-    "wezterm config sets the font" =
-      lib.hasInfix "wezterm.font('JetBrainsMono Nerd Font')"
+    "wezterm config sets the look's mono font" =
+      lib.hasInfix "wezterm.font('itera Mono')"
         mangoUserFiles."wezterm/wezterm.lua".text;
-    "wezterm config sets font_size" =
+    "wezterm config sets the look's mono size" =
       lib.hasInfix "config.font_size = 12"
         mangoUserFiles."wezterm/wezterm.lua".text;
 

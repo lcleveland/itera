@@ -84,10 +84,14 @@ let
       ;
   };
 
-  # Look keys first, so a consumer's own `currentThemeName` still wins.
+  # Look keys first, so a consumer's own DMS settings (`currentThemeName`,
+  # `fontFamily`, …) still win.
   finalSettings = {
     currentThemeName = "custom";
     customThemeFile = "~/.config/${themeFile}";
+    fontFamily = look.fonts.sans;
+    monoFontFamily = look.fonts.mono;
+    lockScreenFontFamily = look.fonts.sans;
   }
   // (sys.settings or { })
   // (usr.settings or { });

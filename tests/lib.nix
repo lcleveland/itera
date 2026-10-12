@@ -64,7 +64,7 @@
 
   # Looser: exact `pname` OR a substring of the full name-with-version. Needed
   # where the attribute and the derivation name disagree — e.g. matching
-  # "jetbrains-mono" against the nerd-font package in `fonts.packages`. Prefer
+  # a pname against a package whose attribute name differs. Prefer
   # `hasPkgName` unless a check actually needs this.
   hasPkgInfix =
     pname: pkgList:

@@ -18,6 +18,7 @@
 # system editor toggle.
 {
   lib,
+  iteraLib,
   pkgs,
   osConfig ? null,
   name,
@@ -37,7 +38,18 @@ let
   # shallow per key), then splice the agent options into their settings.json keys
   # (`agent` / `agent_servers`). `optionalAttrs` keeps empty options from writing
   # an empty `{}` into the file.
-  baseSettings = (sys.settings or { }) // (usr.settings or { });
+  # The look's fonts are defaults; `settings` wins. Zed sizes are pixels, the
+  # tokens are points.
+  look = iteraLib.look.resolve osConfig name;
+  px = pt: builtins.floor (pt * 4 / 3.0 + 0.5);
+  baseSettings = {
+    buffer_font_family = look.fonts.mono;
+    buffer_font_size = px look.fonts.size.mono;
+    ui_font_family = look.fonts.sans;
+    ui_font_size = px look.fonts.size.sans;
+  }
+  // (sys.settings or { })
+  // (usr.settings or { });
   agent = (sys.agent or { }) // (usr.agent or { });
   agentServers = (sys.agentServers or { }) // (usr.agentServers or { });
   finalSettings =

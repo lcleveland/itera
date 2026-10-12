@@ -5,11 +5,10 @@
 # named one (see `itera.desktop.mango.commands.terminal`). This battery ships
 # WezTerm: a fast, Wayland-native, GPU-accelerated terminal with a Lua config.
 #
-# Unlike some GPU terminals, WezTerm embeds no font, so this battery also installs
-# JetBrains Mono Nerd Font system-wide (`fonts.packages`) and the home battery
-# points WezTerm at it — otherwise glyph-heavy CLI tooling would render as tofu.
+# WezTerm embeds no font. Its font is the look's mono font (itera Mono, with the
+# Nerd glyphs CLI tooling needs), which the fonts battery installs.
 #
-# This module is the SYSTEM half: it installs the package + font and wires the
+# This module is the SYSTEM half: it installs the package and wires the
 # compositor bind. The curated config options (font size, padding, …) are declared
 # by `modules/programs/wezterm.nix` — settable system-wide at
 # `itera.programs.wezterm.*` and per-user at `itera.users.<name>.programs.wezterm.*`
@@ -52,12 +51,6 @@ in
 
   config = mkIf (config.itera.enable && cfg.enable) {
     environment.systemPackages = mkIf (cfg.package != null) [ cfg.package ];
-
-    # WezTerm embeds no font. Install JetBrains Mono Nerd Font so the home
-    # battery's `fontFamily` default resolves and the shell's Nerd-Font glyphs
-    # render. Gated on the package being present (dropping the terminal drops its
-    # font too).
-    fonts.packages = mkIf (cfg.package != null) [ pkgs.nerd-fonts.jetbrains-mono ];
 
     # Light up the mango SUPER+t spawn bind. The option is always declared by the
     # mango module (even when mango is disabled), and `mkDefault` lets a consumer

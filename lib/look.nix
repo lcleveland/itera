@@ -123,6 +123,18 @@ let
     };
   };
 
+  # The shipped font tokens (docs/look.md#typography-icons-cursor). Sizes are in
+  # points; the fonts battery installs these families.
+  shippedFonts = {
+    sans = "Roboto Flex";
+    mono = "itera Mono";
+    emoji = "Noto Color Emoji";
+    size = {
+      sans = 11;
+      mono = 12;
+    };
+  };
+
   # Replace every alias with the hex value it names, following chains.
   resolveAliases =
     palette:
@@ -554,9 +566,10 @@ let
       ];
 
   # The merged look for one user (`null` = the system look): a per-user scalar
-  # wins when set, colours merge one token at a time per mode over Tide, then
-  # aliases resolve. `startColors` is the starting mode's palette, for Nix-lane
-  # surfaces that render one mode (auto starts dark).
+  # wins when set, colours merge one token at a time per mode over Tide (then
+  # aliases resolve), and fonts one key at a time over the shipped fonts.
+  # `startColors` is the starting mode's palette, for Nix-lane surfaces that
+  # render one mode (auto starts dark).
   resolve =
     osConfig: name:
     let
@@ -578,7 +591,7 @@ let
       radius = pick "radius";
       gaps = pick "gaps";
       opacity = pick "opacity";
-      fonts = merge "fonts";
+      fonts = recursiveUpdate (recursiveUpdate shippedFonts sys.fonts) (usr.fonts or { });
       cursor = merge "cursor";
       icons = merge "icons";
     };
@@ -633,7 +646,17 @@ in
           fonts = {
             type = types.attrsOf types.anything;
             attrs = true;
-            description = "Font tokens, merged per key.";
+            example = {
+              mono = "Iosevka";
+              size.mono = 13;
+            };
+            description = ''
+              Font token overrides, merged one key at a time (system, then per
+              user): `sans`, `mono` and `emoji` family names and `size.sans` /
+              `size.mono` in points. The defaults are Roboto Flex 11 and itera
+              Mono 12, with Noto Color Emoji; only those fonts are installed,
+              so add the package for any other family to {option}`fonts.packages`.
+            '';
           };
           radius = {
             type = types.ints.unsigned;
