@@ -218,17 +218,9 @@ let
   # the SYSTEM-WIDE monitors via `compositor.customConfig`.
   greeterMonitors = cfg.programs.dms-greeter.compositor.customConfig;
 
-  # The greeter's merged settings file, as greetd's preStart writes it.
-  # lib.splitString keeps string context, so the path stays a build input.
-  greeterSettingsOf =
-    c:
-    builtins.fromJSON (
-      builtins.readFile (
-        lib.findFirst (lib.hasSuffix "-itera-dms-greeter-settings.json") null (
-          lib.splitString " " (lib.replaceStrings [ "\n" ] [ " " ] c.systemd.services.greetd.preStart)
-        )
-      )
-    );
+  # What greetd's preStart merges into the greeter's settings.json. Read from
+  # the seed, not the written file, so eval builds nothing.
+  greeterSettingsOf = c: c.itera.desktop.dankMaterialShell.greeter.seed.settings;
   greeterSettings = greeterSettingsOf cfg;
   greeterWallpaperSettings = greeterSettingsOf (mkConfig [
     { itera.desktop.dankMaterialShell.greeter.wallpaper = "/etc/login-wallpaper.jpg"; }
@@ -460,11 +452,14 @@ let
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
     "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
 
-    # ── greeter: synced theme plus itera's settings ──────────────────────
-    "greeter syncs the first itera user's DMS config" =
-      cfg.programs.dms-greeter.configHome == cfg.users.users.alice.home;
-    "greeter gets that user's itera settings" = greeterSettings.radiusStrength == 25;
-    "greeter follows the user's wallpaper by default" = !(greeterSettings ? lockScreenWallpaperPath);
+    # ── greeter: system settings unless a user is synced ─────────────────
+    "greeter syncs no user by default" = cfg.programs.dms-greeter.configHome == null;
+    "greetd merges the greeter settings" =
+      lib.hasInfix "-itera-dms-greeter-settings.json" cfg.systemd.services.greetd.preStart;
+    "greeter gets the system itera settings" =
+      greeterSettings.currentThemeName == "blue" && !(greeterSettings ? radiusStrength);
+    "greeter shows the greeter image by default" =
+      lib.hasInfix "itera-greeter" greeterSettings.lockScreenWallpaperPath;
     "greeter wallpaper option sets only the greeter's copy" =
       greeterWallpaperSettings.lockScreenWallpaperPath == "/etc/login-wallpaper.jpg";
 
