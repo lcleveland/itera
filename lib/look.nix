@@ -599,10 +599,16 @@ let
       radius = pick "radius";
       gaps = pick "gaps";
       opacity = pick "opacity";
+      darkFrom = pick "darkFrom";
+      lightFrom = pick "lightFrom";
+      latitude = pick "latitude";
+      longitude = pick "longitude";
       fonts = recursiveUpdate (recursiveUpdate shippedFonts sys.fonts) (usr.fonts or { });
       cursor = merge "cursor";
       icons = merge "icons";
     };
+
+  clock = types.strMatching "([01][0-9]|2[0-3]):[0-5][0-9]";
 
   colorOverrides = mkOption {
     type = types.attrsOf types.anything;
@@ -628,7 +634,33 @@ in
               "auto"
             ];
             default = "dark";
-            description = "The starting light/dark mode.";
+            description = ''
+              The starting light/dark mode, seeded into DankMaterialShell, which
+              owns the live mode: a toggle there lasts until this changes. `auto`
+              follows the `darkFrom`/`lightFrom` schedule, or sunset and sunrise
+              when `latitude` and `longitude` are set. Without DankMaterialShell,
+              `auto` starts dark.
+            '';
+          };
+          darkFrom = {
+            type = clock;
+            default = "18:00";
+            description = "In `auto` mode, when dark mode starts (HH:MM).";
+          };
+          lightFrom = {
+            type = clock;
+            default = "06:00";
+            description = "In `auto` mode, when light mode starts (HH:MM).";
+          };
+          latitude = {
+            type = types.nullOr (types.numbers.between (-90) 90);
+            default = null;
+            description = "Latitude for `auto` mode's sunset/sunrise schedule, set with `longitude`.";
+          };
+          longitude = {
+            type = types.nullOr (types.numbers.between (-180) 180);
+            default = null;
+            description = "Longitude for `auto` mode's sunset/sunrise schedule, set with `latitude`.";
           };
           colors = {
             type = types.submodule {
@@ -792,7 +824,15 @@ in
               ) "itera.desktop.iconTheme.package has been renamed to itera.look.icons.package."
               ++
                 lib.optional (oldIcons.name != null)
-                  "itera.desktop.iconTheme.name has been replaced by itera.look.icons.name.dark and .light; it sets both.";
+                  "itera.desktop.iconTheme.name has been replaced by itera.look.icons.name.dark and .light; it sets both."
+              # Auto needs DMS to switch; without it the batteries start dark.
+              ++
+                lib.optional
+                  (
+                    !config.itera.desktop.dankMaterialShell.enable
+                    && lib.any (n: (resolve config n).mode == "auto") ([ null ] ++ lib.attrNames config.itera.users)
+                  )
+                  "itera.look: mode = \"auto\" needs DankMaterialShell to switch; with it disabled the session starts dark.";
           };
         };
     };

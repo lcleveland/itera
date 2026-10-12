@@ -138,11 +138,10 @@ iteraLib.programs.mkCuratedProgram {
       # `configVersion` is pinned by the desktop battery to the bundled DMS's
       # current schema version (read from its source), so DMS never migrates.
       clockFormat = mkDefault "24h";
-      # Dark mode by default: don't follow the desktop portal's color-scheme
-      # (which reports "no preference" on a fresh session and would flip DMS to
-      # light). With portal sync off, DMS uses its stored isLightMode, which
-      # defaults to false (dark).
-      syncModeWithPortal = mkDefault false;
+      # DMS owns the live mode (seeded from `look.mode`, see
+      # modules/hjem/look-seed.nix) and writes it to the portal color-scheme,
+      # which GTK, libadwaita and Flatpak apps follow.
+      syncModeWithPortal = mkDefault true;
       # Weather widget defaults: Fahrenheit and auto-detected location. DMS's own
       # defaults are Celsius (useFahrenheit=false) and a manual location
       # (useAutoLocation=false); auto-location resolves via geoclue, which the

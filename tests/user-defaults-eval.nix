@@ -291,7 +291,7 @@ let
     "settings.json left to DMS (bob)" = !(bobFiles ? "DankMaterialShell/settings.json");
     "system-level override reaches user (bob)" = bobDms.currentThemeName == "blue";
     "opinionated default present (bob)" = bobDms.clockFormat == "24h";
-    "dark mode default present (bob)" = bobDms.syncModeWithPortal == false;
+    "portal sync default present (bob)" = bobDms.syncModeWithPortal == true;
     "weather uses fahrenheit by default (bob)" = bobDms.useFahrenheit == true;
     "weather uses auto location by default (bob)" = bobDms.useAutoLocation == true;
 

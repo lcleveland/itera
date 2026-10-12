@@ -31,7 +31,7 @@ iteraLib.programs.mkCuratedProgram {
         system-wide default ({option}`itera.programs.zed.settings`) and each
         per-user override merge per key. itera's opinionated defaults are
         disabling telemetry and pinning the color scheme to
-        {option}`itera.desktop.theme.dark` (Zed cannot read the GTK/dconf
+        the system look's starting mode (Zed cannot read the GTK/dconf
         preference itself). The buffer and UI font families and sizes default to
         the look's mono and sans fonts. The dedicated {option}`agent` and
         {option}`agentServers` options are merged in on top of this under their
@@ -90,15 +90,15 @@ iteraLib.programs.mkCuratedProgram {
     let
       editor = config.itera.desktop.editor;
       nixLsp = editor.enable && editor.nixLanguageServer.enable;
-      # Follow the appearance battery (`itera.desktop.theme`) explicitly instead
-      # of leaning on Zed's default `mode = "system"`. Zed is not a GTK app, so
-      # neither GTK_THEME nor the dconf `color-scheme` reaches it — under
+      # Follow the system look's starting mode (auto starts dark) explicitly
+      # instead of leaning on Zed's default `mode = "system"`. Zed is not a GTK
+      # app, so the dconf `color-scheme` does not reach it — under
       # `"system"` it asks xdg-desktop-portal for `org.freedesktop.appearance`
       # and silently falls back to LIGHT whenever no portal answers. Naming the
       # mode makes the editor match the rest of the desktop from a cold start,
       # with no portal in the loop.
-      themeCfg = config.itera.desktop.theme;
-      followsTheme = config.itera.enable && themeCfg.enable;
+      followsTheme = config.itera.enable && config.itera.desktop.theme.enable;
+      inherit (iteraLib.look.resolve config null) startMode;
       # When the Claude ACP battery is on and Zed is installed, register the
       # adapter as an external agent so it shows up in Zed's agent panel with no
       # further config. `mkDefault` lets an explicit system/per-user value win.
@@ -114,9 +114,9 @@ iteraLib.programs.mkCuratedProgram {
       // lib.optionalAttrs followsTheme {
         # `light`/`dark` name the theme used in each mode; `mode` pins which one
         # is active. Both are Zed's own built-in defaults, so flipping
-        # `itera.desktop.theme.dark` needs no theme extension installed.
+        # `look.mode` needs no theme extension installed.
         theme = mkDefault {
-          mode = if themeCfg.dark then "dark" else "light";
+          mode = startMode;
           light = "One Light";
           dark = "One Dark";
         };

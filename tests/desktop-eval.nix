@@ -55,10 +55,10 @@ let
     { itera.desktop.dankMaterialShell.enable = false; }
   ];
 
-  # The appearance battery flipped to light, and switched off entirely, to assert
+  # The look flipped to light, and the GTK battery switched off, to assert
   # Zed's color scheme follows it in both directions.
   cfgLightTheme = mkConfig [
-    { itera.desktop.theme.dark = false; }
+    { itera.look.mode = "light"; }
   ];
   cfgNoTheme = mkConfig [
     { itera.desktop.theme.enable = false; }
@@ -229,10 +229,10 @@ let
     "mango-session target is absent without the compositor" =
       !(cfgNoDesktop.systemd.user.targets ? "mango-session");
 
-    # Zed follows itera.desktop.theme rather than Zed's own `mode = "system"`,
+    # Zed follows the system look rather than Zed's own `mode = "system"`,
     # which asks the portal and falls back to LIGHT when nothing answers.
     "zed pins the dark color scheme by default" = cfg.itera.programs.zed.settings.theme.mode == "dark";
-    "zed follows theme.dark = false" = cfgLightTheme.itera.programs.zed.settings.theme.mode == "light";
+    "zed follows look.mode = light" = cfgLightTheme.itera.programs.zed.settings.theme.mode == "light";
     "zed sets no theme when the theme battery is off" =
       !(cfgNoTheme.itera.programs.zed.settings ? theme);
 

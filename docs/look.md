@@ -142,12 +142,12 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 - **Ownership:** DMS owns the live mode, and `syncModeWithPortal = true`. `look.mode` (`dark` | `light` | `auto`, default `dark`, per-user overridable) is a **seed**.
 - **The seeder:** a per-user oneshot ordered before `dms.service`.
   - It **merges** the seeded keys into `~/.local/state/DankMaterialShell/session.json` (it never replaces the file) and writes the user's dconf `color-scheme`.
-  - A stamp records what was seeded. It writes again only when the tokens behind it change (mode, schedule, coordinates, wallpapers), so live toggles survive logins.
+  - A stamp records what was seeded. It writes again only when the tokens behind it change (mode, schedule, coordinates, wallpapers), so live toggles survive logins. It lives in `modules/hjem/look-seed.nix`; other slices add their keys through the internal per-user `itera.sessionSeed` option.
 - **Auto mode:**
   - It seeds `themeModeAutoEnabled = true`.
-  - **Time mode (default):** dark from 18:00 and light from 06:00 (tokens), with `themeModeShareGammaSettings = false`.
-  - **Location mode:** used when the lat/long tokens are set. It seeds `themeModeAutoMode = "location"`, with `nightModeUseIPLocation` off.
-  - **dconf under auto:** set for the time of login.
+  - **Time mode (default):** dark from 18:00 and light from 06:00 (`darkFrom` and `lightFrom`), with `themeModeShareGammaSettings = false`.
+  - **Location mode:** used when `latitude` and `longitude` are both set. It seeds `themeModeAutoMode = "location"`, with `nightModeUseIPLocation` off.
+  - **dconf under auto:** set for the time of login, from the time schedule even in location mode; DMS corrects it once it starts.
 - **DMS disabled:** `auto` falls back to dark with an eval warning.
 - **System dconf floor:** `color-scheme` from the system `look.mode`, set by the `theme.nix` GTK battery, which also ships adw-gtk3.
 
