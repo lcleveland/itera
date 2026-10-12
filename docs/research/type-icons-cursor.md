@@ -1,0 +1,160 @@
+# Research: typography, icon and cursor candidates
+
+Answers [#181](https://github.com/lcleveland/itera/issues/181) for the itera look map ([#177](https://github.com/lcleveland/itera/issues/177)).
+Facts and trade-offs only; the pick happens later (#185).
+
+**Method.** nixpkgs facts (attr, version, `meta.license`) were evaluated against the nixpkgs rev pinned in itera's `flake.lock`
+(`6510408d147d8c5e6d76043e899e9251756f6a75`, nixos-unstable). Override arguments come from `pkgs.<attr>.override.__functionArgs`.
+Upstream activity is the GitHub API `pushed_at` date as of 2026-10-11. DMS and mango facts come from source at the revs itera pins
+(DMS `60736a7`, its `dank-qml-common` input `bd90e4b`, mango `08a78c9`).
+
+## What the desktop already needs
+
+- **DMS bundles its own fonts and loads them with `FontLoader`**, so the shell renders without anything installed system-wide
+  (`dank-qml-common/DCommon/Common/Fonts.qml`):
+  - UI sans: **Google Sans Flex** (`Theme.defaultFontFamily`)
+  - mono: **FiraCode Nerd Font** (`Theme.defaultMonoFontFamily = "Fira Code"`)
+  - icons: **Material Symbols Rounded** (variable font with FILL, GRAD, opsz and wght axes)
+  - display and novelty fonts: DM Serif Display, Notable, Gochi Hand
+  - These are private to the DMS process. Other apps (GTK, Qt, WezTerm, Zed, Vivaldi) cannot see them unless the same families are also put in `fonts.packages`.
+- DMS lets the user change `fontFamily` and `monoFontFamily` to any installed family, and has a separate `lockScreenFontFamily` that the greeter uses.
+- **Icon theme:** DMS keeps `iconThemeDark` and `iconThemeLight` with an `iconThemePerMode` switch (`SettingsData.qml`). It writes the choice to
+  gsettings `org.gnome.desktop.interface icon-theme` and to qtengine. "System Default" leaves the theme unmanaged. That suits themes
+  that ship separate `-Dark` and `-Light` variants.
+- **Cursor:** mango loads XCursor themes only, via `wlr_xcursor_manager_create(config.cursor_theme, config.cursor_size)`. It exports
+  `XCURSOR_THEME` and `XCURSOR_SIZE` (default 24) to its children and implements `cursor-shape-v1`, which lets clients delegate shape
+  drawing to the compositor. DMS writes `cursor_theme`/`cursor_size` into mango's `dms/cursor.conf` (`MangoService.generateCursorConfig`).
+  It also writes `Xcursor.theme`/`Xcursor.size` into `~/.Xresources` for XWayland, and sets `XCURSOR_*`/`HYPRCURSOR_*` for the processes it launches.
+  **Hyprcursor-only themes do nothing on mango.** A theme has to ship XCursor format.
+- itera today: Adwaita icons (`modules/nixos/desktop/icon-theme.nix`), JetBrainsMono Nerd Font (`modules/nixos/desktop/terminal.nix`,
+  used only by WezTerm), no cursor theme, no `fonts.fontconfig.defaultFonts`.
+
+## UI sans
+
+| Name | nixpkgs attr | Licence | Maintenance | Notes |
+|---|---|---|---|---|
+| Google Sans Flex | **not packaged standalone**. Upstream is in `google/fonts` at `ofl/googlesansflex`. `google-fonts` (snapshot 2026-03-13) takes a `fonts` filter, so `google-fonts.override { fonts = [ "GoogleSansFlex" ]; }` should work, but I did not build it | OFL-1.1, no Reserved Font Name | Google, current | DMS's own default, so the system and the shell would match exactly. Variable axes: ROND, opsz, slnt, wdth, wght. `TRADEMARKS.md`: "Google" and "Google Sans" are trademarks, so the font can be used but not the name in itera branding |
+| Roboto Flex | `roboto-flex` 3.200 | OFL-1.1 | googlefonts, pushed 2026-06 | The canonical Material 3 type family. Variable font with many axes |
+| Roboto | `roboto` 3.016 | OFL-1.1 | googlefonts | Classic Material. Static plus variable |
+| Inter | `inter` 4.1 | OFL-1.1 | rsms, last push 2024-11 (stable, slow) | Neutral UI workhorse, wide script coverage, tabular figures |
+| Adwaita Sans | `adwaita-fonts` 50.0 | OFL-1.1 | GNOME | Inter-derived. Ships with Adwaita Mono, so one package covers both |
+| Noto Sans | `noto-fonts` 2026.10.01 | OFL-1.1 | Google, very active | Best script coverage. Mostly useful as the fallback chain alongside `noto-fonts-color-emoji` (OFL-1.1 + Apache-2.0) |
+| Geist | `geist-font` 1.7.0 | OFL-1.1 | Vercel, pushed 2026-07 | Has a matching Geist Mono |
+| IBM Plex Sans | `ibm-plex` | OFL-1.1 | IBM | Has a matching Plex Mono. Looks less like Material |
+| Lexend | `lexend` (2022 snapshot) | OFL-1.1 | stale package | Readability-focused. Not recommended: the nixpkgs package is old |
+
+## Monospace (Nerd Font variants)
+
+Every `nerd-fonts.*` attr is Nerd Fonts 3.5.0 patched over the upstream font, under licences `[OFL-1.1, MIT]` (plus Apache-2.0 for Roboto Mono).
+`nerd-fonts.symbols-only` (3.5.0) adds just the glyphs, as a fontconfig fallback for any unpatched mono.
+
+| Name | Plain attr | Nerd attr | Licence | Maintenance | Notes |
+|---|---|---|---|---|---|
+| JetBrains Mono | `jetbrains-mono` 2.304 | `nerd-fonts.jetbrains-mono` | OFL-1.1 | upstream last push 2025-01 (stable) | itera's current terminal font. Already installed |
+| Fira Code | `fira-code` 6.2 | `nerd-fonts.fira-code` | OFL-1.1 | tonsky, pushed 2026-07 | **What DMS bundles** (`FiraCodeNerdFont-Regular`). Choosing it gives shell and terminal the same mono |
+| Roboto Mono | `roboto-mono` 3.001 | `nerd-fonts.roboto-mono` | OFL-1.1 / Apache-2.0 | googlefonts | Fits Roboto Flex or Google Sans as a Material set. No ligatures |
+| Geist Mono | (in `geist-font`) | `nerd-fonts.geist-mono` | OFL-1.1 | Vercel | Pairs with Geist |
+| Cascadia Code | `cascadia-code` 2407.24 | `nerd-fonts.caskaydia-cove` | OFL-1.1 | Microsoft | The Nerd version is renamed (Caskaydia Cove) |
+| Maple Mono | `maple-mono.NF` 7.9 (NF build packaged directly) | same | OFL-1.1 | very active (pushed 2026-10-11) | Rounded shapes, which suit Material's rounded style. Ships official NF and CN builds |
+| Monaspace | `monaspace` 1.400 | `nerd-fonts.monaspace` | OFL-1.1 | githubnext, pushed 2026-03 | Five related faces ("texture healing") |
+| Iosevka | `iosevka` 34.7.0 | `nerd-fonts.iosevka` | OFL-1.1 | very active | Narrow. Can be customised through a nixpkgs build plan (costly to build) |
+| Commit Mono | `commit-mono` 1.143 | `nerd-fonts.commit-mono` | OFL-1.1 | small project | Neutral |
+| Adwaita Mono | `adwaita-fonts` | none (use `symbols-only`) | OFL-1.1 | GNOME | Pairs with Adwaita Sans |
+
+## Material Symbols / icon fonts
+
+| Name | nixpkgs attr | Licence | Notes |
+|---|---|---|---|
+| Material Symbols (Outlined/Rounded/Sharp, variable) | `material-symbols` 4.0.0-unstable-2026-10-02 | Apache-2.0 | DMS already bundles Rounded, so this only matters if other itera surfaces (lock or boot screens, docs, custom QML) need the glyphs. Upstream `google/material-design-icons` is very active |
+| Material Design Icons (Pictogrammers community set) | `material-design-icons` 7.4.47 | Apache-2.0 | A different project from Google's Material Symbols. Nerd Fonts already includes this set as the `nf-md-*` range |
+
+## Icon themes
+
+All of these are freedesktop icon themes and work through `QS_ICON_THEME` and gsettings. "Recolour" means accent-coloured folders and places.
+None of them recolours dynamically from matugen: DMS's matugen templates cover GTK/Qt/terminal colours, not icons. A brand accent therefore has to
+be picked at build time from a fixed palette, or added with a custom derivation.
+
+| Name | nixpkgs attr | Licence | Maintenance | Recolour (nixpkgs override) | Notes |
+|---|---|---|---|---|---|
+| Papirus | `papirus-icon-theme` 20260801 | GPL-3.0-only | very active (pushed 2026-09), ~8.1k stars | `color` arg runs `papirus-folders` at build. About 20 folder colours, plus `catppuccin-papirus-folders` (MIT) | Widest app coverage of anything here. Ships `Papirus`, `Papirus-Dark` and `Papirus-Light`, which matches DMS per-mode icons. Flat style that is not specifically Material |
+| Colloid | `colloid-icon-theme` 2026-08-10 | GPL-3.0-only | active (vinceliuice) | `colorVariants` (default/blue, purple, pink, red, orange, yellow, green, teal, grey), `schemeVariants` (default, nord, dracula, gruvbox, everforest, catppuccin) | The **most Material-adjacent** of the set: rounded and flat, made to pair with the Colloid GTK theme. Light and dark variants. Covers fewer apps than Papirus |
+| Tela / Tela-circle | `tela-icon-theme`, `tela-circle-icon-theme` 2026-07-07 | GPL-3.0-only | active | Tela: no override args (all colours installed). Tela-circle: `colorVariants`, `allColorVariants`, `circularFolder` | Upstream colours: standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, dracula. Circle variant has round app icons |
+| Fluent | `fluent-icon-theme` 2025-08-21 | GPL-3.0-or-later | active upstream, nixpkgs a year behind | `colorVariants`, `allColorVariants`, `roundedIcons`, `blackPanelIcons` | Windows-11 look, so it leans away from Material |
+| MoreWaita | `morewaita-icon-theme` 49 | GPL-3.0-only | very active (pushed 2026-10-10), mostly one maintainer | none. Accent folders need the separate Adwaita-colors theme (not checked in nixpkgs) | Adds to Adwaita without overriding it. **Needs `adwaita-icon-theme` installed.** The smallest step from itera's current Adwaita |
+| Adwaita | `adwaita-icon-theme` 50.0 | CC-BY-SA-3.0 | GNOME | none | Current itera default. Poor coverage for third-party and tray icons (the reason MoreWaita exists) |
+| Qogir | `qogir-icon-theme` 0-unstable-2025-11-04 | GPL-3.0-only | slow | `colorVariants`, `themeVariants` | |
+| Kora | `kora-icon-theme` 1.6.5 | GPL-3.0-or-later | active | none | Semi-3D, does not fit Material |
+| WhiteSur | `whitesur-icon-theme` | GPL-3.0-or-later | active | `themeVariants`, `alternativeIcons`, `boldPanelIcons` | macOS look. Off-brand for Material |
+| Breeze | `kdePackages.breeze-icons` 6.30.0 | LGPL / CC-BY-SA mix | KDE | follows KDE colour scheme only | Qt-native, Plasma look |
+
+## Cursor themes
+
+| Name | nixpkgs attr | Licence | Maintenance | XCursor sizes | Notes |
+|---|---|---|---|---|---|
+| Bibata | `bibata-cursors` 2.0.7 | GPL-3.0-only | active (pushed 2026-09), ~4.2k stars | 16, 20, 22, 24, 28, 32, 40, 48, 56, 64, 72, 80, 88, 96 | Modern (rounded) and Original (sharp), each in Amber/Classic/Ice, plus right-handed variants. Rounded Modern suits Material. **Custom colours** are possible through upstream `cbmp`/`ctgen`, but that means building our own derivation (not a nixpkgs override). `bibata-cursors-translucent` is a fork |
+| Phinger | `phinger-cursors` 2.2 | CC-BY-SA-4.0 | active (pushed 2026-10-09) | 24, 32, 48, 64, 96, 128 | dark, light and left-handed variants. Designed on a pixel grid, so it stays sharp at its listed sizes. Built from release tarball. The non-GPL licence may matter for branded redistribution |
+| Adwaita | in `adwaita-icon-theme` 50.0 | CC-BY-SA-3.0 | GNOME | 24, 30, 36, 48, 72, 96 (read from the installed `cursors/default` header) | Already installed. Currently the de-facto fallback because itera sets no cursor theme |
+| Catppuccin | `catppuccin-cursors` 2.0.0 | GPL-2.0 | active | (Bibata-derived) | Fixed to the Catppuccin palette, so it only makes sense if the palette is Catppuccin |
+| Nordzy | `nordzy-cursor-theme` 2.4.0 | GPL-3.0 | active (2026-04) | | Nord palette |
+| Capitaine | `capitaine-cursors` 4 / `capitaine-cursors-themed` 5 | LGPL-3.0 | upstream dormant since 2022 | | macOS-like |
+| Material cursors | `material-cursors` 2023-11-30 | GPL-3.0-only | dormant since 2022 | | Name sounds right, but the project is dormant |
+| Posy | `posy-cursors` 1.6 | **CC-BY-NC-4.0** | | | Non-commercial licence, so not suitable as a default |
+| Apple | `apple-cursor` 2.0.1 | GPL-3.0 + **unfree** | | | Excluded |
+| Rose Pine hyprcursor | `rose-pine-hyprcursor` | GPL-3.0 | | | **Hyprcursor format, so mango ignores it.** `rose-pine-cursor` is the XCursor version |
+
+### HiDPI and Wayland/XWayland consistency
+
+- When a size is missing, XCursor scales the nearest one and looks blurry. Bibata has the most sizes (14). Phinger goes highest (128). Adwaita has 6.
+- Native Wayland clients that use `cursor-shape-v1` (GTK4, Qt 6.x, Chromium/Electron with it enabled) get the cursor drawn by mango with mango's
+  theme and size. That is the consistent path.
+- XWayland clients read `XCURSOR_THEME`/`XCURSOR_SIZE` (mango exports both) and `~/.Xresources` (DMS writes it). Under fractional scaling an XWayland
+  cursor can come out a different physical size from a native one. That is a general XWayland limit, not specific to any theme.
+- GTK3 apps read gsettings `cursor-theme`/`cursor-size`. If itera sets the cursor in the mango config and DMS settings but not in dconf,
+  GTK3 apps fall back to Adwaita. **One cursor value has to reach mango, `XCURSOR_*`, dconf and DMS `cursorSettings`.**
+
+## Suggested pairings (to choose from, not decided)
+
+| Pairing | Sans | Mono | Icons | Cursor | Rationale |
+|---|---|---|---|---|---|
+| A. Match DMS | Google Sans Flex | FiraCode Nerd Font | Colloid (accent via `colorVariants`) | Bibata Modern (Classic dark / Ice light) | System apps match the shell's built-in fonts exactly. Colloid and Bibata Modern share Material's rounded geometry. Google Sans Flex needs a `google-fonts` override (not built yet) |
+| B. Canonical Material | Roboto Flex | Roboto Mono Nerd Font | Papirus (`color` = nearest accent) | Bibata Modern | Every piece is a first-class nixpkgs attr. Papirus maximises tray and app coverage (the reason `icon-theme.nix` exists). Set DMS `fontFamily` to Roboto Flex to keep the shell consistent |
+| C. Least change | Inter or Adwaita Sans | JetBrainsMono Nerd Font (current) | MoreWaita + Adwaita | Adwaita | Smallest change from today. GNOME-flavoured rather than Material. Accent folders need extra work |
+| D. Distinctive brand | Geist or Google Sans Flex | Maple Mono NF | Colloid or Tela-circle | Phinger | More visibly "itera" than a stock Material look. Phinger licence (CC-BY-SA) and pixel-grid sizes are worth weighing |
+
+In every pairing, add `noto-fonts` + `noto-fonts-color-emoji` as fallbacks, and `nerd-fonts.symbols-only` if the mono is not Nerd-patched.
+
+## Implications for itera
+
+- **Fonts are new ground.** itera sets no `fonts.fontconfig.defaultFonts`. Choosing a look means installing sans, mono and emoji system-wide and
+  setting `defaultFonts.{sansSerif,monospace,emoji}`. The DMS `fontFamily`/`monoFontFamily`/`lockScreenFontFamily` settings (through
+  `modules/hjem/programs/dankmaterialshell.nix`) can then point at the same families. Per-app font options (`wezterm.fontFamily`, Zed) become token consumers.
+- **Matching DMS's bundled fonts costs least visually but has a packaging gap.** Google Sans Flex is not a standalone nixpkgs attr. Fira Code
+  replaces JetBrains Mono, which is the current terminal default.
+- **No icon theme follows a runtime matugen accent.** An itera accent needs either (a) choosing the nearest fixed folder colour at build time
+  (Papirus `color`, Colloid/Tela-circle `colorVariants`), or (b) our own derivation that recolours SVGs from the palette tokens. Option (a) fits the
+  existing `mkPackageOption` pattern in `icon-theme.nix`: just override the package.
+- **Per-mode icons already exist in DMS** (`iconThemeDark`/`iconThemeLight`). Themes with paired dark/light variants (Papirus, Colloid, Tela) plug straight in.
+  `icon-theme.nix` currently sets one name (`QS_ICON_THEME`) and would need a light/dark pair.
+- **Cursor needs a new battery.** Nothing sets it today. It has to write one theme/size to mango config (or DMS `cursorSettings`), `XCURSOR_*`, and dconf
+  `org.gnome.desktop.interface cursor-theme/size`, or GTK3 and XWayland drift. XCursor format is mandatory (mango uses no hyprcursor).
+- **Licences:** fonts are all OFL-1.1 or Apache-2.0. Icon themes are GPL-3.0 except Adwaita (CC-BY-SA-3.0). Bibata is GPL-3.0, Phinger CC-BY-SA-4.0.
+  Avoid Posy (non-commercial) and Apple (unfree). Do not use the "Google" or "Google Sans" names in itera branding.
+- **Upkeep risk:** dormant upstreams are Capitaine, material-cursors and Lexend (stale package). Fluent and Qogir lag in nixpkgs. Papirus, Colloid, Tela,
+  MoreWaita, Bibata, Phinger, Maple Mono and Nerd Fonts are all active as of 2026-09/10.
+- **Per-user overrides** fit the existing `itera.<x>` → `itera.users.<name>.<x>` pattern for names and sizes. Packages still install system-wide
+  (fonts and icon themes are cheap; installing every pairing's packages would let users switch without a rebuild).
+
+## Sources
+
+- nixpkgs at `6510408d147d8c5e6d76043e899e9251756f6a75`: `meta.license`, `version`, `override.__functionArgs` for every attr above (evaluated locally).
+- DMS `AvengeMedia/DankMaterialShell@60736a7`: `quickshell/Common/Theme.qml` (default families, resolution), `quickshell/Common/SettingsData.qml`
+  (icon theme per mode, gsettings/qtengine apply, cursor Xresources/env), `quickshell/Services/MangoService.qml` (`generateCursorConfig`),
+  `quickshell/matugen/templates/` (no icon templates).
+- `AvengeMedia/dank-qml-common@bd90e4b`: `DCommon/Common/Fonts.qml` and `DCommon/assets/fonts/` (bundled fonts).
+- mango `mangowm/mango@08a78c9`: `src/main.c` (xcursor manager, `cursor-shape-v1`), `src/config/reapply.c` (`set_xcursor_env`).
+- `google/fonts` `ofl/googlesansflex/{METADATA.pb,OFL.txt,TRADEMARKS.md}`.
+- Upstream READMEs: [Bibata](https://github.com/ful1e5/Bibata_Cursor) (variants, sizes, cbmp/ctgen), [Phinger](https://github.com/phisch/phinger-cursors) (sizes 24 to 128),
+  [papirus-folders](https://github.com/PapirusDevelopmentTeam/papirus-folders), [Colloid](https://github.com/vinceliuice/Colloid-icon-theme) (scheme/colour variants),
+  [Tela](https://github.com/vinceliuice/Tela-icon-theme) (colour variants), [MoreWaita](https://github.com/somepaulo/MoreWaita) (needs Adwaita, accent via Adwaita-colors).
+- GitHub API repo metadata (`pushed_at`, `archived`, licence) for each upstream, fetched 2026-10-11.
+- Adwaita cursor sizes: Xcursor header of `/run/current-system/sw/share/icons/Adwaita/cursors/default` (adwaita-icon-theme 50).

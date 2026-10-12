@@ -156,7 +156,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 ([brand identity](https://github.com/lcleveland/itera/issues/195), [mark and motif](https://github.com/lcleveland/itera/issues/198), [ADR 0003](adr/0003-brand-assets-generated-from-tokens.md))
 
 - **Generation:** every asset is an SVG template filled with token hex values and rendered to PNG by **resvg** at build time, in both modes.
-- **Reference geometry:** the `<script id="gen">` builders in `modules/nixos/desktop/brand.prototype.html` on the throwaway [`prototype/brand`](https://github.com/lcleveland/itera/tree/prototype/brand) branch (open it with `?mark=R&motif=18`).
+- **Reference geometry:** the `<script id="gen">` builders in `modules/nixos/desktop/brand.prototype.html` in the archived [`archive/prototype/brand`](https://github.com/lcleveland/itera/tree/archive/prototype/brand) tag (open it with `?mark=R&motif=18`).
 - **Name:** the look is called **itera**. The palette is called Tide.
 - **Mark ("Flow"):** in a 100×100 box, angles clockwise from 3 o'clock.
   - **Strokes:** tapered arcs on radius 35 around (50, 50), width 1.2 → 11, round ends. The teal stroke (`accent`) runs 135°→280°; the coral stroke (`accentTertiary`) runs −45°→100°.

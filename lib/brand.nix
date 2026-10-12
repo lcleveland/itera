@@ -5,9 +5,10 @@
 # renders through resvg.
 #
 # The geometry is ported from the `<script id="gen">` builders of the
-# throwaway `prototype/brand` branch (mark R, motif 18). Coordinates are
-# computed here at eval time; Nix has no trig, so sin is a Taylor series. No
-# <text>: the wordmark is paths, so nothing depends on a font.
+# throwaway prototype, archived as the `archive/prototype/brand` tag (mark R,
+# motif 18). Coordinates are computed here at eval time; Nix has no trig, so
+# sin is a Taylor series. No <text>: the wordmark is paths, so nothing depends
+# on a font.
 { lib }:
 let
   inherit (lib.strings) concatMapStrings concatMapStringsSep;
