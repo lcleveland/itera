@@ -17,7 +17,7 @@ The complete set of colour token values for both modes. itera ships exactly one,
 _Avoid_: colour scheme, theme
 
 **Mode**:
-Dark or light. Each mode has its own hand-authored token values; dark is the default.
+Dark or light. Each mode has its own hand-authored token values; dark is the default. Auto mode is not a third mode.
 _Avoid_: variant, flavour
 
 **Delivery lane**:
@@ -31,3 +31,11 @@ _Avoid_: monitor type, screen size
 **Brand asset**:
 The itera logo, wallpapers or greeter image. Each is generated from colour tokens for each mode, not drawn or sourced as a fixed file.
 _Avoid_: artwork, branding
+
+**Auto mode**:
+The look switching between dark and light on its own, by time of day or by the sun at the user's location.
+_Avoid_: system mode, adaptive theme
+
+**Seed**:
+A starting value itera writes into state the user can change live, such as the current mode or a display's wallpaper. A seed is written again only when the setting behind it changes, so the user's own changes survive in between.
+_Avoid_: default, pin
