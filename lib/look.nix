@@ -149,8 +149,8 @@ let
         single = 0.6;
       };
       superUltrawide = {
-        new = 0.33;
-        single = 0.5;
+        new = 0.55;
+        single = 0.55;
       };
     };
     presets = [
