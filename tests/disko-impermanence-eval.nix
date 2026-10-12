@@ -379,6 +379,13 @@ let
       cfg.networking.networkmanager.wifi.macAddress == "stable"
       && cfg.networking.networkmanager.ethernet.macAddress == "stable";
     "nix-mineral random-mac is disabled" = cfg.nix-mineral.settings.network.random-mac == false;
+    # Hardening defaults to nix-mineral's `performance` preset: SMT stays on
+    # with the kernel's default mitigations, and forced PTI and slab debugging
+    # are off. Infix matches so an upstream respelling can't pass vacuously.
+    "hardening keeps CPU mitigations" = builtins.elem "mitigations=auto" cfg.boot.kernelParams;
+    "hardening keeps SMT on" = !(builtins.any (lib.hasInfix "nosmt") cfg.boot.kernelParams);
+    "hardening skips slab debug" = !(builtins.any (lib.hasInfix "slab_debug") cfg.boot.kernelParams);
+    "hardening skips forced PTI" = !(builtins.elem "pti=on" cfg.boot.kernelParams);
 
     # binary-cache battery (auto-on with itera.enable)
     "nix-community substituter is configured" =

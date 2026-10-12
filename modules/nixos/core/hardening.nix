@@ -54,7 +54,11 @@ in
 
     preset = mkOption {
       type = either presetEnum (listOf presetEnum);
-      default = "default";
+      # Not nix-mineral's own `default`: halving CPU threads (SMT off) and
+      # slowing every syscall/allocation costs more than it buys on a desktop.
+      # The trade: weaker DMA isolation (IOMMU passthrough, early PCI DMA left
+      # on) and no PTI on CPUs that don't need it.
+      default = [ "performance" ];
       example = [
         "compatibility"
         "performance"
@@ -63,10 +67,16 @@ in
         nix-mineral preset (or ordered list of presets, all layered on top of
         `default`) controlling how aggressive the hardening is:
 
-        - `default`: baseline hardening — the safest starting point.
+        - `default`: baseline hardening — the safest starting point, but costly:
+          it disables SMT (hyperthreading), forces page-table isolation, and
+          enables slab debugging.
         - `compatibility`: relaxes the settings most likely to break desktop or
           uncommon hardware.
-        - `performance`: relaxes settings with a performance cost.
+        - `performance` (itera's default): relaxes settings with a performance
+          cost — keeps SMT on and the kernel's default CPU mitigations, skips
+          forced PTI and slab debugging. Also enables IOMMU passthrough and
+          leaves early-boot PCI DMA on, weakening protection against
+          DMA attacks from malicious devices.
         - `maximum`: enables every optional protection.
 
         For a list, presets later in the list take priority. Fine-grained
