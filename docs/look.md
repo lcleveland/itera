@@ -181,7 +181,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 ([ultrawide strategy](https://github.com/lcleveland/itera/issues/187))
 
 - **Strategy:** global defaults work at any width. Each declared monitor with a known width/height gets overrides by **aspect class**, computed from width/height after rotation: standard (< 2.0), ultrawide (2.0–2.8) or super-ultrawide (≥ 2.8). Undeclared, hot-plugged and size-less monitors get the global defaults. The merged per-user monitors drive the per-user rules.
-- **Scroller proportions:** per-monitor mango `tag_rule`s (`monitor_name` regex, `id:*`, `scroller_ignore_proportion_single:0`). New column / lone window: standard 0.9/1.0, ultrawide 0.5/0.6, super-ultrawide 0.33/0.5.
+- **Scroller proportions:** per-monitor mango `tag_rule`s (`monitor_name` regex, `id:*`, `scroller_ignore_proportion_single:0`). New column / lone window: standard 0.9/1.0, ultrawide 0.5/0.6, super-ultrawide 0.55/0.55 (center tile's master width).
 - **Cycle presets:** one global set, `0.33, 0.5, 0.67, 0.9, 1.0`.
 - **Bar:** one `["all"]` bar with a global length token (default `full`).
   - **Per-class bars:** an opt-in token. It makes one bar per declared output (full, full, percent 60), and undeclared outputs then get no bar.

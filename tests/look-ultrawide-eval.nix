@@ -104,7 +104,7 @@ let
     "2.8 is super-ultrawide" = mango.aspectClass 2800 1000 == "superUltrawide";
     "16:9 is standard" = mango.aspectClass 3840 2160 == "standard";
 
-    "a 5120x1440 monitor gets the super-ultrawide tag_rule" = lib.hasInfix (rule "DP-1" "0.33" "0.5") (
+    "a 5120x1440 monitor gets the super-ultrawide tag_rule" = lib.hasInfix (rule "DP-1" "0.55" "0.55") (
       mangoConf "alice"
     );
     "an ultrawide monitor gets the ultrawide tag_rule" = lib.hasInfix (rule "HDMI-A-1" "0.5" "0.6") (
