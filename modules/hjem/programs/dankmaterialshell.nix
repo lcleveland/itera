@@ -100,6 +100,10 @@ let
     fontFamily = look.fonts.sans;
     monoFontFamily = look.fonts.mono;
     lockScreenFontFamily = look.fonts.sans;
+    # Layout tokens (docs/look.md#ultrawide). DMS writes the gap to mango's
+    # dms/layout.conf; itera never sets a mango gaps line.
+    notificationPopupPosition = notificationPositions.${look.layout.notifications};
+    mangoLayoutGapsOverride = look.gaps;
   }
   # Icons and cursor only while their batteries install them.
   // lib.optionalAttrs (batteryOn "iconTheme") {
@@ -116,9 +120,56 @@ let
   }
   // (sys.settings or { })
   // (usr.settings or { });
+  # DMS's notificationPopupPosition values (its NotificationsTab), by token.
+  notificationPositions = {
+    top-right = 0;
+    bottom-left = 1;
+    top-left = 2;
+    bottom-right = 3;
+    bottom-center = 5;
+    top-center = -1;
+  };
+
+  # The bar (docs/look.md#ultrawide): the look's length on every bar, under
+  # any keys a bar already sets. With `bar.perOutput`, the first bar is copied
+  # once per declared output instead, sized by its aspect class; that needs
+  # every declared monitor to have an exact connector name and a size.
+  barLength =
+    l:
+    if builtins.isInt l then
+      {
+        barLengthMode = "percent";
+        barLengthPercent = l;
+      }
+    else
+      { barLengthMode = l; };
+  classLength = {
+    standard = "full";
+    ultrawide = "full";
+    superUltrawide = 60;
+  };
+  outputs = iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name);
+  perOutputWanted = look.layout.bar.perOutput;
+  perOutput =
+    perOutputWanted && outputs != [ ] && lib.all (o: o.connector != null && o.class != null) outputs;
+  globalBars = map (b: barLength look.layout.bar.length // barWithLogo b) settings.barConfigs;
+  outputBars = map (
+    o:
+    barWithLogo (builtins.head settings.barConfigs)
+    // {
+      id = "itera-${o.connector}";
+      name = o.connector;
+      screenPreferences = [ o.connector ];
+      showOnLastDisplay = false;
+    }
+    // barLength classLength.${o.class}
+  ) outputs;
+
   finalSettings =
     settings
-    // lib.optionalAttrs (settings ? barConfigs) { barConfigs = map barWithLogo settings.barConfigs; };
+    // lib.optionalAttrs (settings ? barConfigs && settings.barConfigs != [ ]) {
+      barConfigs = if perOutput then outputBars else globalBars;
+    };
 
   # Plugins: per-name merge (a per-user entry of the same name replaces the system
   # one wholesale), same model as settings and mango's monitors/gestures.
@@ -139,6 +190,12 @@ let
 in
 {
   config = mkIf enable {
+    warnings = lib.optional (perOutputWanted && !perOutput) ''
+      the look's bar.perOutput needs every declared mango monitor to have an
+      exact connector name and a width and height; keeping one bar on every
+      output.
+    '';
+
     xdg.config.files = {
       "DankMaterialShell/config.d/00-itera.json" = {
         text = builtins.toJSON finalSettings;

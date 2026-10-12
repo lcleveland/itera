@@ -135,6 +135,38 @@ let
     };
   };
 
+  # The shipped layout tokens (docs/look.md#ultrawide): scroller proportions
+  # (new column / lone window) per aspect class, the global cycle presets,
+  # where notifications pop up, and the bar.
+  shippedLayout = {
+    proportions = {
+      standard = {
+        new = 0.9;
+        single = 1.0;
+      };
+      ultrawide = {
+        new = 0.5;
+        single = 0.6;
+      };
+      superUltrawide = {
+        new = 0.33;
+        single = 0.5;
+      };
+    };
+    presets = [
+      0.33
+      0.5
+      0.67
+      0.9
+      1.0
+    ];
+    notifications = "top-center";
+    bar = {
+      length = "full";
+      perOutput = false;
+    };
+  };
+
   # Replace every alias with the hex value it names, following chains.
   resolveAliases =
     palette:
@@ -606,6 +638,7 @@ let
       fonts = recursiveUpdate (recursiveUpdate shippedFonts sys.fonts) (usr.fonts or { });
       cursor = merge "cursor";
       icons = merge "icons";
+      layout = deepMerge (deepMerge shippedLayout sys.layout) (usr.layout or { });
     };
 
   # A resolved look as a DMS custom theme, both modes, through the DMS mapping
@@ -755,7 +788,41 @@ in
             type = types.ints.unsigned;
             # DMS's own mango gap (its layout.conf default).
             default = 5;
-            description = "Gap between windows in pixels.";
+            description = ''
+              Gap between windows in pixels, set as DankMaterialShell's mango
+              gaps override (DMS writes it to {file}`mango/dms/layout.conf`).
+            '';
+          };
+          layout = {
+            type = types.attrsOf types.anything;
+            attrs = true;
+            example = {
+              bar.perOutput = true;
+              proportions.superUltrawide.new = 0.25;
+            };
+            description = ''
+              Layout tokens, merged one key at a time (system, then per user).
+              Each declared monitor with a width and height gets an aspect class
+              from its size after rotation: standard (< 2.0), ultrawide
+              (2.0–2.8) or super-ultrawide (≥ 2.8).
+
+              - `proportions.{standard,ultrawide,superUltrawide}.{new,single}`:
+                mango's scroller width for a new column and a lone window on that
+                monitor (0.9/1.0, 0.5/0.6, 0.33/0.5). Other monitors keep mango's
+                global defaults.
+              - `presets`: the scroller widths SUPER+r cycles through
+                (`[ 0.33 0.5 0.67 0.9 1.0 ]`).
+              - `notifications`: where DankMaterialShell pops notifications up:
+                `top-center` (default), `top-left`, `top-right`, `bottom-center`,
+                `bottom-left` or `bottom-right`.
+              - `bar.length`: the bar's length, `"full"` (default), `"fit"` or a
+                percentage (an integer).
+              - `bar.perOutput`: one bar per declared monitor instead of one bar
+                on every output (full, full and 60% wide by aspect class).
+                Outputs that aren't declared then get no bar. If a declared
+                monitor has a regex `name` or no width/height, the single bar is
+                kept and evaluation warns.
+            '';
           };
           opacity = {
             type = types.numbers.between 0 1;

@@ -510,6 +510,86 @@ let
   # all built-in layouts).
   mkCircleLayoutLine =
     layouts: if layouts == [ ] then "" else "circle_layout=${concatStringsSep "," layouts}";
+
+  # Declared outputs (docs/look.md#ultrawide): each enabled monitor with its
+  # size after rotation, its aspect class (null without a width and height:
+  # it gets the global defaults) and its connector name (null when `name` is a
+  # regex rather than one exact, anchored connector).
+  rotated = [
+    "90"
+    "270"
+    "flipped-90"
+    "flipped-270"
+  ];
+  aspectClass =
+    width: height:
+    let
+      r = width * 1.0 / height;
+    in
+    if r >= 2.8 then
+      "superUltrawide"
+    else if r >= 2.0 then
+      "ultrawide"
+    else
+      "standard";
+  declaredOutputs =
+    monitors:
+    map (
+      m:
+      let
+        sized = (m.width or null) != null && (m.height or null) != null;
+        turn = builtins.elem (m.transform or null) rotated;
+        width = if turn then m.height else m.width;
+        height = if turn then m.width else m.height;
+        connector = builtins.match "\\^([A-Za-z0-9_-]+)\\$" (m.name or "");
+      in
+      {
+        monitor = m;
+        connector = if connector == null then null else builtins.head connector;
+        class = if sized then aspectClass width height else null;
+      }
+      // lib.optionalAttrs sized { inherit width height; }
+    ) (lib.filter (m: m.enable or true) (lib.attrValues monitors));
+
+  # This user's monitors: the system set, with per-user entries of the same
+  # key replacing it wholesale.
+  userMonitors =
+    osConfig: name:
+    (osConfig.itera.programs.mango.monitors or { })
+    // (osConfig.itera.users.${name}.programs.mango.monitors or { });
+
+  # Per-monitor scroller proportions by aspect class: one `tag_rule` for every
+  # tag of each sized output, matched on its `name` regex (and make, model,
+  # serial). `proportions.<class>` is `{ new; single; }`.
+  mkAspectTagRules =
+    proportions: outputs:
+    concatStringsSep "\n" (
+      map (
+        o:
+        let
+          m = o.monitor;
+          p = proportions.${o.class};
+        in
+        concatStringsSep "," (
+          [
+            "tag_rule=id:*"
+            "monitor_name:${m.name}"
+          ]
+          ++ lib.optional ((m.make or null) != null) "monitor_make:${m.make}"
+          ++ lib.optional ((m.model or null) != null) "monitor_model:${m.model}"
+          ++ lib.optional ((m.serial or null) != null) "monitor_serial:${m.serial}"
+          ++ [
+            "scroller_default_proportion:${fmtNum p.new}"
+            "scroller_default_proportion_single:${fmtNum p.single}"
+            "scroller_ignore_proportion_single:0"
+          ]
+        )
+      ) (lib.filter (o: o.class != null) outputs)
+    );
+
+  # The scroller widths `switch_proportion_preset` cycles through.
+  mkProportionPresetLine =
+    presets: "scroller_proportion_preset=${lib.concatMapStringsSep "," fmtNum presets}";
 in
 {
   inherit
@@ -526,6 +606,11 @@ in
     supportedLayouts
     mkTagLayoutLines
     mkCircleLayoutLine
+    aspectClass
+    declaredOutputs
+    userMonitors
+    mkAspectTagRules
+    mkProportionPresetLine
     monitorRuleType
     mkMonitorRuleLine
     renderMonitorRules

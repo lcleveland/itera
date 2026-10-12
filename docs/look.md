@@ -12,7 +12,7 @@ Where this spec and the code disagree, the code is out of date.
   - `mode`, `colors.{dark,light}`, `fonts.{sans,mono,emoji,size.{sans,mono}}`, `radius`, `gaps`, `opacity`
   - `cursor.{name,package,size}` (name per mode) and `icons` (package, name per mode)
   - the auto-mode schedule and coordinates
-  - the layout tokens (see [Ultrawide](#ultrawide))
+  - the layout tokens `layout.{proportions,presets,notifications,bar.{length,perOutput}}` (see [Ultrawide](#ultrawide))
 - **Merge:**
   - A per-user scalar (`nullOr`) wins when it is set.
   - Colours merge one token at a time, per mode (`sys // usr`).
@@ -187,7 +187,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
   - **Per-class bars:** an opt-in token. It makes one bar per declared output (full, full, percent 60), and undeclared outputs then get no bar.
   - **Fallback:** if any declared monitor is regex-named or size-less, itera keeps the global bar and emits an eval warning.
 - **Notifications:** global, default top-center.
-- **Gaps:** seeded into DMS's own spacing setting through `config.d`. DMS keeps writing `dms/layout.conf`, and itera never sets a mango gaps line.
+- **Gaps:** set as DMS's own mango gaps setting (`mangoLayoutGapsOverride`) through `config.d`. DMS keeps writing `dms/layout.conf`, and itera never sets a mango gaps line.
 - **Wallpapers:** the seeder writes each declared output's variant, with the global 16:9 variant for everything else, and re-seeds only when the wallpaper token changes.
 - **Lock screen:** reuses the session wallpapers.
 
