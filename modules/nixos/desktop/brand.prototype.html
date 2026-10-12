@@ -2,7 +2,7 @@
 <!--
   PROTOTYPE, throwaway. Answers "What do the itera logo mark and the wallpaper motif look like?"
   (issue #198). Four marks are shown side by side; four wallpaper motifs are switchable with ?motif=
-  (arrow keys), ?mark= picks the mark they carry (keys L-Q), M flips dark/light.
+  (arrow keys), ?mark= picks the mark they carry (keys P-T), M flips dark/light.
   The <script id="gen"> block is pure SVG-string generation, so the same code can be fed to resvg.
 -->
 <html lang="en">
@@ -38,7 +38,7 @@
 <body>
 <main>
   <p class="note">PROTOTYPE. Every image below is an SVG string built from Tide tokens, with no &lt;text&gt;, so it can go
-    straight to resvg. Click a mark card (or press L–Q) to put that mark into the wallpapers. ← → cycle motifs, M flips mode.
+    straight to resvg. Click a mark card (or press P–T) to put that mark into the wallpapers. ← → cycle motifs, M flips mode.
     All motif geometry scales with the output's <em>height</em>, so wider outputs get more of the pattern, never a stretched one.</p>
   <h2>Marks</h2>
   <div class="marks" id="marks"></div>
@@ -70,41 +70,32 @@ const wordmark = (c) => `<g ${stroke(c, 9)}>
   <path d="M5 60V100M24 42V90Q24 100 34 100M15 60H34M42 80H82A20 20 0 1 0 76.14 94.14M96 60V100M96 80A20 20 0 0 1 116 60M162 80A20 20 0 1 1 122 80A20 20 0 1 1 162 80M162 60V100"/>
 </g><circle cx="5" cy="45" r="6" fill="${c}"/>`;
 
-// Round 4: Twin flow (L, the round-3 pick) with a defined notion of steps.
-// Rejected so far: round 1 Loop/Tide/Tile/Spiral; round 2 Echo/Converge/i++; round 3 Sweep/Dots/Orbit; every motif 1-12.
+// Round 5: Flow with lead-in (P, the round-4 pick) with smaller tails, read two ways.
+// Rejected so far: round 1 Loop/Tide/Tile/Spiral; round 2 Echo/Converge/i++; round 3 Sweep/Dots/Orbit; round 4 Segmented/Stepped/Three passes.
 const lerp = (a, b, f) => a + (b - a) * f;
 const pt = (cx, cy, r, a) => [cx + r * Math.cos(a * Math.PI / 180), cy + r * Math.sin(a * Math.PI / 180)];
 const xy = ([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`;
-const arc = (cx, cy, r, a0, a1) => `M${xy(pt(cx, cy, r, a0))}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${xy(pt(cx, cy, r, a1))}`;
-const ring = (r, a0, a1) => arc(50, 50, r, a0, a1);
 // Filled arc whose width tapers from w0 (tail) to w1 (head), with round ends.
 const taper = (cx, cy, r, a0, a1, w0, w1) => {
   const out = [], inn = [];
   for (let k = 0; k <= 24; k++) { const f = k / 24, a = lerp(a0, a1, f), w = lerp(w0, w1, f) / 2; out.push(pt(cx, cy, r + w, a)); inn.push(pt(cx, cy, r - w, a)); }
   return `M${out.map(xy).join('L')}A${w1 / 2} ${w1 / 2} 0 0 1 ${xy(inn[24])}L${inn.reverse().map(xy).join('L')}A${w0 / 2} ${w0 / 2} 0 0 1 ${xy(out[0])}Z`;
 };
-// A taper cut into n pieces with gap (degrees) between them; width keeps growing across the pieces.
-const steps = (cx, cy, r, a0, a1, w0, w1, n, gap) => {
-  const len = (a1 - a0 - gap * (n - 1)) / n;
-  return Array.from({ length: n }, (_, k) => { const s = a0 + k * (len + gap), fs = (s - a0) / (a1 - a0), fe = (s + len - a0) / (a1 - a0);
-    return taper(cx, cy, r, s, s + len, lerp(w0, w1, fs), lerp(w0, w1, fe)); });
-};
 const iGlyph = (t) => `<path d="M50 47V64" ${stroke(t.text, 8)}/><circle cx="50" cy="35" r="5" fill="${t.text}"/>`;
 
+// Two strokes, each led in by growing dots. tail: stroke width at its tail; dots: [angle before tail, radius].
+const leadIn = (t, tail, dots) => [[135, t.accent], [-45, t.accentTertiary]].map(([a, c]) =>
+  dots.map(([da, r]) => { const [x, y] = pt(50, 50, 35, a + da); return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}" fill="${c}"/>`; }).join('') +
+  `<path d="${taper(50, 50, 35, a, a + 145, tail, 11)}" fill="${c}"/>`).join('');
 const MARKS = {
-  L: { name: 'Twin flow (round 3)', note: 'The round-3 pick, kept for comparison: two tapered strokes chasing each other round.',
-    flow: (t) => `<path d="${taper(50, 50, 35, 125, 285, 1, 11)}" fill="${t.accent}"/><path d="${taper(50, 50, 35, -55, 105, 1, 11)}" fill="${t.accentTertiary}"/>` },
-  M: { name: 'Segmented flow', note: 'Each stroke keeps its taper but is cut into three passes, so the growth reads as steps.',
-    flow: (t) => [[125, t.accent], [-55, t.accentTertiary]].map(([a, c]) => steps(50, 50, 35, a, a + 160, 1.5, 11, 3, 10).map((d) => `<path d="${d}" fill="${c}"/>`).join('')).join('') },
-  N: { name: 'Stepped flow', note: 'Three passes per stroke at fixed widths (thin, medium, full): a staircase rather than a ramp.',
-    flow: (t) => [[125, t.accent], [-55, t.accentTertiary]].map(([a, c]) => [4, 7, 11].map((w, k) =>
-      `<path d="${ring(35, a + k * 56 + w / 2, a + k * 56 + 44 - w / 2)}" ${stroke(c, w)}/>`).join('')).join('') },
-  P: { name: 'Flow with lead-in', note: 'The continuous strokes, each led in by two growing dots: steps that build up into a pass.',
-    flow: (t) => [[135, t.accent], [-45, t.accentTertiary]].map(([a, c]) =>
-      [[-28, 1.4], [-15, 2.6]].map(([da, r]) => { const [x, y] = pt(50, 50, 35, a + da); return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}" fill="${c}"/>`; }).join('') +
-      `<path d="${taper(50, 50, 35, a, a + 145, 4, 11)}" fill="${c}"/>`).join('') },
-  Q: { name: 'Three passes', note: 'Three tapered strokes, one per pass (teal, sage, coral), each a defined step round the cycle.',
-    flow: (t) => [[t.accent, -70], [t.accentSecondary, 50], [t.accentTertiary, 170]].map(([c, a]) => `<path d="${taper(50, 50, 35, a, a + 100, 1, 10)}" fill="${c}"/>`).join('') },
+  P: { name: 'Flow with lead-in (round 4)', note: 'The round-4 pick, kept for comparison: tail 4 wide, dots 1.4 and 2.6.',
+    flow: (t) => leadIn(t, 4, [[-28, 1.4], [-15, 2.6]]) },
+  R: { name: 'Thin tail', note: 'Same dots; the stroke now starts as a hairline (1.2) so its tail is smaller than the dot before it.',
+    flow: (t) => leadIn(t, 1.2, [[-28, 1.4], [-15, 2.6]]) },
+  S: { name: 'Small dots', note: 'Same stroke; the lead-in dots shrink (0.9, 1.7) and sit closer to the tail.',
+    flow: (t) => leadIn(t, 4, [[-22, 0.9], [-12, 1.7]]) },
+  T: { name: 'Thin tail + small dots', note: 'Both: hairline tail, small dots, so the whole lead-in is lighter and the head carries the weight.',
+    flow: (t) => leadIn(t, 1.2, [[-22, 0.9], [-12, 1.7]]) },
 };
 for (const m of Object.values(MARKS)) m.svg = (t) => m.flow(t) + iGlyph(t);
 
@@ -123,29 +114,40 @@ const hero = (id, t, W, H, y, greeter, size) =>
   greeter ? placeLockup(id, t, W / 2, y, H * 0.09) : placeMark(id, t, W / 2, y, size);
 
 
-// Round 4 motifs: quiet, built only from the mark's own strokes. Round 3's rings, vortex, sweep and orbits read as busy.
+// Round 5 motifs: Two glows (round-4 pick) plus one kind of detail each. Rejected: motifs 1-13, 15, 16.
 const centre = (W, H, g) => [W / 2, g ? H * 0.36 : H / 2];
 const flowAt = (id, t, x, y, size, extra = '') =>
   `<g transform="translate(${x - size / 2} ${y - size / 2}) scale(${size / 100})" ${extra}>${MARKS[id].flow(t)}</g>`;
+// The two glows: teal up-left, coral down-right of the mark. Returns [defs, layers, teal centre, coral centre].
+const glows = (t, W, H, cx, cy) => {
+  const dx = Math.max(H * 0.7, W * 0.28), a = [cx - dx, cy - H * 0.4], b = [cx + dx, cy + H * 0.4];
+  const g = (n, [x, y], c, o) => `<radialGradient id="${n}" cx="${x}" cy="${y}" r="${H * 0.9}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c}" stop-opacity="${o}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`;
+  return [g('ga', a, t.accent, 0.2) + g('gb', b, t.accentTertiary, 0.13),
+    `<rect width="${W}" height="${H}" fill="${t.background}"/><rect width="${W}" height="${H}" fill="url(#ga)"/><rect width="${W}" height="${H}" fill="url(#gb)"/>`, a, b];
+};
 const MOTIFS = {
-  13: { name: 'Ghost flow', note: 'The mark\'s strokes blown up to fill the height, barely there behind the mark itself.',
-    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g);
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${flowAt(id, t, cx, cy, H * 2.2, 'opacity=".07"')}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
-  14: { name: 'Two glows', note: 'Two soft light pools, teal and coral, placed where the strokes\' heads sit; nothing else but the mark.',
-    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g);
-      const glow = (n, x, y, c, o) => `<radialGradient id="${n}" cx="${x}" cy="${y}" r="${H * 0.9}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c}" stop-opacity="${o}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`;
-      return `<defs>${glow('ga', cx - H * 0.7, cy - H * 0.4, t.accent, 0.2)}${glow('gb', cx + H * 0.7, cy + H * 0.4, t.accentTertiary, 0.13)}</defs>
-        <rect width="${W}" height="${H}" fill="${t.background}"/><rect width="${W}" height="${H}" fill="url(#ga)"/><rect width="${W}" height="${H}" fill="url(#gb)"/>${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
-  15: { name: 'Echoes', note: 'Three larger copies of the strokes, each turned one step further and fainter: the mark, iterated.',
-    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g);
-      const echo = [[0.36, 25, 0.3], [0.62, 50, 0.16], [1, 75, 0.08]].map(([s, rot, o]) =>
-        `<g transform="rotate(${rot} ${cx} ${cy})">${flowAt(id, t, cx, cy, H * s, `opacity="${o}"`)}</g>`).join('');
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${echo}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
-  16: { name: 'Horizon flow', note: 'The two strokes unrolled into long, stepped arcs across the screen: teal below growing leftward, coral above growing rightward.',
-    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), R = Math.max(H * 2.5, W * 2), phi = Math.asin(Math.min(0.95, (0.44 * W) / R)) * 180 / Math.PI;
-      const band = (y, a0, a1, c) => steps(cx, y, R, a0, a1, H * 0.002, H * 0.012, 3, phi * 0.05).map((d) => `<path d="${d}" fill="${c}"/>`).join('');
-      return `<rect width="${W}" height="${H}" fill="${t.background}"/>
-        ${band(cy + H * 0.3 - R, 90 - phi, 90 + phi, t.accent)}${band(cy - H * 0.3 + R, -90 - phi, -90 + phi, t.accentTertiary)}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
+  14: { name: 'Two glows (round 4)', note: 'The round-4 pick, kept for comparison.',
+    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), [defs, bg] = glows(t, W, H, cx, cy);
+      return `<defs>${defs}</defs>${bg}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
+  17: { name: 'Glows + ghost flow', note: 'The glows, with the mark\'s strokes faintly drawn at full height so each glow sits on its stroke\'s head.',
+    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), [defs, bg] = glows(t, W, H, cx, cy);
+      return `<defs>${defs}</defs>${bg}${flowAt(id, t, cx, cy, H * 2.2, 'opacity=".06"')}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
+  18: { name: 'Glows + lead-in trails', note: 'From each glow, a curved trail of dots growing toward the mark: the mark\'s lead-in, at wallpaper scale.',
+    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), [defs, bg] = glows(t, W, H, cx, cy);
+      const trail = (rot, c) => Array.from({ length: 9 }, (_, k) => { const f = k / 8, [x, y] = pt(cx, cy, lerp(H * 0.95, H * 0.2, f), rot + lerp(0, 70, f));
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(H * lerp(0.002, 0.009, f)).toFixed(1)}" fill="${c}" opacity="${lerp(0.25, 0.9, f).toFixed(2)}"/>`; }).join('');
+      return `<defs>${defs}</defs>${bg}${trail(150, t.accent)}${trail(-30, t.accentTertiary)}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
+  19: { name: 'Glows + grid', note: 'A fine dot grid that only shows where the glows light it, tinted by each glow: a quiet technical texture.',
+    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), [defs, bg, a, b] = glows(t, W, H, cx, cy), s = H / 32;
+      const lit = (n, [x, y]) => `<radialGradient id="l${n}" cx="${x}" cy="${y}" r="${H * 0.8}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="m${n}"><rect width="${W}" height="${H}" fill="url(#l${n})"/></mask>`;
+      const dots = (n, c) => `<pattern id="d${n}" width="${s}" height="${s}" x="${(W / 2) % s - s / 2}" y="${(H / 2) % s - s / 2}" patternUnits="userSpaceOnUse"><circle cx="${s / 2}" cy="${s / 2}" r="${H * 0.0018}" fill="${c}"/></pattern>`;
+      return `<defs>${defs}${lit('a', a)}${lit('b', b)}${dots('a', t.accent)}${dots('b', t.accentTertiary)}</defs>${bg}
+        <rect width="${W}" height="${H}" fill="url(#da)" mask="url(#ma)"/><rect width="${W}" height="${H}" fill="url(#db)" mask="url(#mb)"/>
+        ${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
+  20: { name: 'Glows + ripples', note: 'A few thin rings spreading from each glow\'s centre, fading out: each stroke\'s head sends out passes.',
+    svg: (id, t, W, H, g) => { const [cx, cy] = centre(W, H, g), [defs, bg, a, b] = glows(t, W, H, cx, cy);
+      const rings = ([x, y], c) => [0.18, 0.32, 0.48, 0.66].map((f, k) => `<circle cx="${x}" cy="${y}" r="${H * f}" fill="none" stroke="${c}" stroke-width="${H * 0.0018}" opacity="${lerp(0.45, 0.1, k / 3).toFixed(2)}"/>`).join('');
+      return `<defs>${defs}</defs>${bg}${rings(a, t.accent)}${rings(b, t.accentTertiary)}${hero(id, t, W, H, cy, g, H * 0.14)}`; } },
 };
 
 const wallpaperSvg = (motif, mark, mode, cls) => {
@@ -156,8 +158,10 @@ const wallpaperSvg = (motif, mark, mode, cls) => {
 
 <script>
 const q = new URLSearchParams(location.search);
-let state = { motif: q.get('motif') || '13', mark: q.get('mark') || 'M', mode: q.get('mode') || 'dark' };
+let state = { motif: q.get('motif') || '17', mark: q.get('mark') || 'T', mode: q.get('mode') || 'dark' };
 const motifs = Object.keys(MOTIFS);
+// SVG ids are page-global in HTML, so suffix them per wallpaper or every image picks up the first one's gradients.
+const uniq = (svg, k) => svg.replace(/id="([^"]+)"/g, `id="$1-${k}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-${k})`);
 
 function render() {
   const t = TOKENS[state.mode];
@@ -179,7 +183,7 @@ function render() {
   const crops = [['16:10', 3456 / 3840, 1, '#f0f'], ['21:9', 1, 3840 * 9 / 21 / 2160, '#ff0'], ['32:9', 1, 0.5, '#f80']];
   document.getElementById('wps').innerHTML = `<p class="note">${m.note}</p>` + Object.entries(SIZES).map(([cls, [W, H]]) => `
     <div class="wp"><div class="label">${cls} ${W}×${H}${cls === 'greeter' ? ' (dashed: what survives cropping to each aspect class)' : ''}</div>
-      <div style="position:relative">${wallpaperSvg(state.motif, state.mark, state.mode, cls)}
+      <div style="position:relative">${uniq(wallpaperSvg(state.motif, state.mark, state.mode, cls), cls)}
       ${cls === 'greeter' ? crops.map(([n, w, h, c]) => `<div class="crop" style="left:${(1 - w) * 50}%;top:${(1 - h) * 50}%;width:${w * 100}%;height:${h * 100}%;border-color:${c};box-sizing:border-box"><span style="color:${c}">${n}</span></div>`).join('') : ''}</div></div>`).join('');
   document.getElementById('lbl').textContent = `motif ${state.motif} (${m.name}) · mark ${state.mark} · ${state.mode}`;
 }
