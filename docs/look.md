@@ -9,7 +9,7 @@ Where this spec and the code disagree, the code is out of date.
 ([theming contract](https://github.com/lcleveland/itera/issues/184))
 
 - **The tree:** one `itera.look` tree with a per-user mirror at `itera.users.<name>.look`, declared with the existing `mkCuratedProgram` (no second framework). It contains:
-  - `mode`, `colors.{dark,light}`, `fonts.{sans,mono,emoji,size}`, `radius`, `gaps`, `opacity`
+  - `mode`, `colors.{dark,light}`, `fonts.{sans,mono,emoji,size.{sans,mono}}`, `radius`, `gaps`, `opacity`
   - `cursor.{name,package,size}` (name per mode) and `icons` (package, name per mode)
   - the auto-mode schedule and coordinates
   - the layout tokens (see [Ultrawide](#ultrawide))
@@ -131,7 +131,7 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 
 - **itera Mono:** an itera-built derivation. Ligaturizer (fontforge) copies Fira Code's ligatures into Roboto Mono, and `nerd-font-patcher` adds the Nerd glyphs. It ships under OFL with every copyright notice kept, and it replaces the JetBrains Mono Nerd Font that `terminal.nix` installs today.
 - **Fonts:** installed system-wide and set as `fonts.fontconfig.defaultFonts.{sansSerif,monospace,emoji}`. DMS `fontFamily`, `monoFontFamily` and `lockScreenFontFamily` point at the same families.
-- **WezTerm and Zed:** take font, size and opacity defaults from the tokens as `mkDefault` values in their `settings`. Their own `settings` keys stay as per-app escape hatches.
+- **WezTerm and Zed:** take their font and size defaults (and WezTerm its opacity) from `resolve` in their batteries, so per-user tokens reach them. Their own `settings` keys win, as per-app escape hatches; WezTerm's `settings.font` names a family.
 - **Icons:** the `iconTheme` battery stays. It installs the package from `look.icons` and sets `QS_ICON_THEME` (starting mode), dconf, and DMS `iconThemeDark`/`iconThemeLight` with `iconThemePerMode`.
 - **Cursor:** one battery sends each mode's theme and size to mango (DMS `cursorSettings`), `XCURSOR_*`, dconf `cursor-theme`/`cursor-size` and `~/.Xresources`. GTK3 and XWayland apps pick up a mode change only when they relaunch.
 

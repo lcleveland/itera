@@ -60,27 +60,59 @@
           extraFilter = "grep -vE '^[^:]+:[0-9]+:[[:space:]]*#'";
         };
       };
+
+      # The look's font families exist under exactly the names the font tokens
+      # use, and itera Mono carries ligatures, Nerd glyphs and its OFL notices.
+      iteraMono = (import ../pkgs { inherit pkgs; }).itera-mono;
+      fontsCheck =
+        pkgs.runCommand "look-fonts"
+          {
+            nativeBuildInputs = [
+              pkgs.fontconfig
+              pkgs.fontforge
+            ];
+          }
+          ''
+            family() { fc-scan --format '%{family}\n' "$1" | grep -qxF "$2" || { echo "no '$2' in $1"; exit 1; }; }
+            family ${pkgs.roboto-flex}/share/fonts 'Roboto Flex'
+            family ${iteraMono}/share/fonts 'itera Mono'
+            family ${pkgs.noto-fonts-color-emoji}/share/fonts 'Noto Color Emoji'
+            for l in RobotoMono-OFL.txt FiraCode-OFL.txt nerd-fonts/octicons-LICENSE; do
+              test -s ${iteraMono}/share/licenses/itera-mono/$l || { echo "missing notice $l"; exit 1; }
+            done
+            cat > check.py <<'EOF'
+            import fontforge, sys
+            f = fontforge.open(sys.argv[1])
+            calt = [l for l in f.gsub_lookups if any(t[0] == "calt" for t in f.getLookupInfo(l)[2])]
+            assert len(calt) >= 80, "only %d calt lookups" % len(calt)
+            assert 0xE0B0 in f, "no Nerd powerline glyph"
+            EOF
+            for f in ${iteraMono}/share/fonts/truetype/*.ttf; do fontforge -lang=py -script check.py "$f"; done
+            touch $out
+          '';
     in
     {
-      checks =
-        lib.mapAttrs mkLint lints
-        # Each lint also runs on a planted violation (tests/lint-planted) and
-        # must fail on it.
-        // lib.mapAttrs' (
-          name: lint:
-          lib.nameValuePair "${name}-planted" (
-            pkgs.testers.testBuildFailure (mkLint name (lint // { src = ../tests/lint-planted; }))
-          )
-        ) lints
-        //
-          # Auto-discovered VM tests under tests/nixos.
-          (import ../tests {
-            inherit pkgs lib;
-            inherit (inputs) self;
-            # VM boot tests need KVM; hosted aarch64 runners have none, so only
-            # discover them on x86_64. The eval checks below still run everywhere.
-            testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
-          })
-        // evalChecks;
+      checks = {
+        look-fonts = fontsCheck;
+      }
+      // lib.mapAttrs mkLint lints
+      # Each lint also runs on a planted violation (tests/lint-planted) and
+      # must fail on it.
+      // lib.mapAttrs' (
+        name: lint:
+        lib.nameValuePair "${name}-planted" (
+          pkgs.testers.testBuildFailure (mkLint name (lint // { src = ../tests/lint-planted; }))
+        )
+      ) lints
+      //
+        # Auto-discovered VM tests under tests/nixos.
+        (import ../tests {
+          inherit pkgs lib;
+          inherit (inputs) self;
+          # VM boot tests need KVM; hosted aarch64 runners have none, so only
+          # discover them on x86_64. The eval checks below still run everywhere.
+          testDirectory = if pkgs.stdenv.hostPlatform.isx86_64 then ../tests/nixos else ../tests/nonexistent;
+        })
+      // evalChecks;
     };
 }
