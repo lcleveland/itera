@@ -38,7 +38,7 @@ Where this spec and the code disagree, the code is out of date.
 | Surface                 | Lane      | Delivery                                                                                                                                                       |
 | ----------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DMS                     | source    | `currentThemeName = "custom"`, generated `customThemeFile` (dark + light), and `config.d` keys for fonts, `cornerRadius`, per-mode icons and `cursorSettings`. |
-| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped and `GTK_THEME` is never set.                                                                                       |
+| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped, the seeder runs DMS's GTK apply at each login, and `GTK_THEME` is never set.                                       |
 | Qt                      | DMS       | DMS kcolorscheme/qtengine.                                                                                                                                     |
 | mango                   | DMS       | Sources `dms/colors.conf`. Radius from `resolve`; gaps are seeded into DMS's spacing setting (see [Ultrawide](#ultrawide)).                                    |
 | WezTerm                 | DMS       | `color_scheme = "dank-theme"`. Font, size and opacity defaults from `resolve`.                                                                                 |
