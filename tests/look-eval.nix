@@ -36,8 +36,14 @@ let
       programs.wezterm.settings.font = "Fira Code";
     };
     itera.users.alice = {
-      look.colors.dark.accent = "#c0ffee";
-      look.fonts.mono = "Iosevka";
+      look = {
+        colors.dark.accent = "#c0ffee";
+        fonts.mono = "Iosevka";
+        cursor = {
+          name.dark = "Bibata-Modern-Amber";
+          size = 32;
+        };
+      };
       programs.wezterm.settings.font_size = 14;
       programs.zed.settings.ui_font_size = 20;
     };
@@ -53,11 +59,31 @@ let
   # The removed WezTerm font option, set system-wide and per user.
   cfgOldFont = mkConfig [ { itera.programs.wezterm.fontFamily = "Iosevka"; } ];
   cfgOldUserFont = mkConfig [ { itera.users.dave.programs.wezterm.fontFamily = "Iosevka"; } ];
+  # The old icon-theme options, which now set the look's icon tokens.
+  cfgNoIconsCursor = mkConfig [
+    users
+    {
+      itera.desktop.iconTheme.enable = false;
+      itera.desktop.cursor.enable = false;
+    }
+  ];
+  cfgOldIcons = mkConfig [
+    users
+    {
+      itera.desktop.iconTheme = {
+        name = "Adwaita";
+        package = pkgs.adwaita-icon-theme;
+      };
+    }
+  ];
 
   files = c: user: c.hjem.users.${user}.xdg.config.files;
   theme = user: builtins.fromJSON (files cfg user)."DankMaterialShell/itera-theme.json".text;
   dmsSettings =
     user: builtins.fromJSON (files cfg user)."DankMaterialShell/config.d/00-itera.json".text;
+  homeFiles = user: cfg.hjem.users.${user}.files;
+  # The user's look database: the first (highest-priority) one after user-db.
+  dconfDb = user: (builtins.head cfg.programs.dconf.profiles."itera-${user}".databases).settings;
 
   wezterm = user: (files cfg user)."wezterm/wezterm.lua".text;
   zed = user: builtins.fromJSON (builtins.readFile (files cfg user)."zed/settings.json".source);
@@ -134,4 +160,59 @@ mkCheckDrv "itera-look-eval" {
         cfgOldFont
         cfgOldUserFont
       ];
+  # Icons and cursor (docs/look.md#typography-icons-cursor).
+  "the default icon theme is Papirus with teal folders" =
+    lib.any (p: lib.getName p == "papirus-icon-theme") cfg.environment.systemPackages
+    && cfg.environment.sessionVariables.QS_ICON_THEME == "Papirus-Dark";
+  "DMS swaps the icon theme per mode" =
+    (dmsSettings "bob").iconThemePerMode
+    && (dmsSettings "bob").iconThemeDark == "Papirus-Dark"
+    && (dmsSettings "bob").iconThemeLight == "Papirus-Light";
+  "the old iconTheme.name sets both modes" =
+    let
+      s = builtins.fromJSON (files cfgOldIcons "bob")."DankMaterialShell/config.d/00-itera.json".text;
+    in
+    s.iconThemeDark == "Adwaita" && s.iconThemeLight == "Adwaita";
+  "the old icon options warn" =
+    builtins.any (lib.hasPrefix "itera.desktop.iconTheme.name") cfgOldIcons.warnings
+    && builtins.any (lib.hasPrefix "itera.desktop.iconTheme.package") cfgOldIcons.warnings;
+  "the old iconTheme.package installs the icon package" =
+    lib.any (p: lib.getName p == "adwaita-icon-theme") cfgOldIcons.environment.systemPackages
+    && !(lib.any (p: lib.getName p == "papirus-icon-theme") cfgOldIcons.environment.systemPackages);
+  "the default cursor is Bibata" =
+    lib.any (p: lib.getName p == "bibata-cursors") cfg.environment.systemPackages
+    && (dmsSettings "bob").cursorSettings.theme == "Bibata-Modern-Ice"
+    && (dmsSettings "bob").cursorSettings.size == 24;
+  "a per-user cursor reaches DMS" =
+    (dmsSettings "alice").cursorSettings.theme == "Bibata-Modern-Amber"
+    && (dmsSettings "alice").cursorSettings.size == 32;
+  "a per-user cursor reaches Xresources" =
+    lib.hasInfix "Xcursor.theme: Bibata-Modern-Amber" (homeFiles "alice").".Xresources".text
+    && lib.hasInfix "Xcursor.size: 32" (homeFiles "alice").".Xresources".text;
+  "a per-user cursor reaches the session environment" =
+    lib.hasInfix "XCURSOR_THEME=Bibata-Modern-Amber"
+      (files cfg "alice")."environment.d/60-itera-look.conf".text
+    &&
+      lib.hasInfix "QS_ICON_THEME=Papirus-Dark"
+        (files cfg "alice")."environment.d/60-itera-look.conf".text;
+  "a per-user cursor reaches that user's dconf" =
+    (dconfDb "alice")."org/gnome/desktop/interface".cursor-theme == "Bibata-Modern-Amber"
+    && (dconfDb "alice")."org/gnome/desktop/interface".cursor-size.value == 32
+    && (dconfDb "alice")."org/gnome/desktop/interface".icon-theme == "Papirus-Dark"
+    && builtins.any (lib.hasInfix "%t/dconf/profile") cfg.systemd.user.tmpfiles.users.alice.rules;
+  "a per-user cursor reaches mango before DMS writes its own" =
+    lib.hasInfix "cursor_theme=Bibata-Modern-Amber\ncursor_size=32\nsource_optional=./dms/colors.conf"
+      (builtins.readFile (files cfg "alice")."mango/config.conf".source);
+  "Xresources is a writable copy DMS can update" = (homeFiles "alice").".Xresources".type == "copy";
+  "DMS gets no icon or cursor keys without their batteries" =
+    let
+      s =
+        builtins.fromJSON
+          (files cfgNoIconsCursor "bob")."DankMaterialShell/config.d/00-itera.json".text;
+    in
+    !(s ? cursorSettings) && !(s ? iconThemeDark);
+  "the system dconf floor carries the system cursor" =
+    (lib.foldl' lib.recursiveUpdate { } (
+      map (d: d.settings or { }) cfg.programs.dconf.profiles.user.databases
+    ))."org/gnome/desktop/interface".cursor-theme == "Bibata-Modern-Ice";
 }

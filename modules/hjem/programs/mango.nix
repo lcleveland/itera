@@ -170,6 +170,13 @@ let
   # so itera's monitors win) and before xkb/layout (later scalar lines win, so
   # itera's keyboard layout and tag layouts win). `dms/binds.conf` is left out:
   # DMS's binds would collide with itera's and trip mango's conflict check.
+  # The look's starting cursor (the cursor battery). mango exports XCURSOR_*
+  # from it, so the session gets this user's cursor even before DMS first writes
+  # dms/cursor.conf, which is sourced after it and wins once it exists.
+  cursorConfig = lib.optionalString (
+    (osConfig.itera.enable or false) && (osConfig.itera.desktop.cursor.enable or false)
+  ) "cursor_theme=${look.cursor.name.${look.startMode}}\ncursor_size=${toString look.cursor.size}";
+
   dmsSourcesConfig = lib.optionalString (osConfig.itera.desktop.dankMaterialShell.enable or false) (
     lib.concatMapStringsSep "\n" (f: "source_optional=./dms/${f}.conf") [
       "colors"
@@ -211,7 +218,7 @@ let
     ]
   );
 
-  # Order: autostart (exec_once) → monitors → DMS fragments → xkb → layout →
+  # Order: autostart (exec_once) → monitors → cursor → DMS fragments → xkb → layout →
   # options → keybinds → mousebinds → gestures → freeform extraConfig. Order
   # matters twice: mango applies the FIRST matching monitor rule, so itera's
   # rules precede DMS's outputs fragment; and later scalar lines win, so
@@ -219,6 +226,7 @@ let
   configText = lib.concatStringsSep "\n" (
     lib.optional autostart autostartConfig
     ++ lib.optional (monitorsConfig != "") monitorsConfig
+    ++ lib.optional (cursorConfig != "") cursorConfig
     ++ lib.optional (dmsSourcesConfig != "") dmsSourcesConfig
     ++ lib.optional (xkbConfig != "") xkbConfig
     ++ lib.optional (layoutConfig != "") layoutConfig
