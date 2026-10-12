@@ -215,10 +215,10 @@ The DMS theme picker stays usable, best effort. If a user picks a wallpaper or s
 ([boot and console](https://github.com/lcleveland/itera/issues/201)) System tokens and the Nix lane: changes show after a rebuild and reboot.
 
 - **Plymouth:** an itera-built script theme, enabled by default by `itera.boot` (with an opt-out).
-  - **Look:** the Flow mark centred on `surface`, its lead-in dots growing in sequence as the busy indicator. resvg renders one large PNG, and the script scales it to a fixed fraction of screen height.
+  - **Look:** the Flow mark centred on `surface`, its lead-in dots growing in sequence as the busy indicator. resvg renders one large PNG per animation step (the last is the whole mark), and the script scales them to a fifth of the screen height.
   - **Mode:** follows the system `look.mode`, and auto shows dark.
   - **Prompts:** password and message prompts in token colours, in Roboto Flex through `boot.plymouth.font`.
-  - **Silent boot:** `quiet loglevel=3 udev.log_level=3 rd.systemd.show_status=auto` as `mkDefault`s.
+  - **Silent boot:** `quiet udev.log_level=3 rd.systemd.show_status=auto`, on with the splash and off with its opt-out (a `mkDefault` list would lose to any other `kernelParams`). The kernel log level stays nix-mineral's `loglevel=0`, quieter than 3.
 - **systemd-boot/lanzaboote:** untouched. A UKI `.splash` is measured into PCRs 4 and 11.
 - **Console:** set in `modules/nixos/core/keyboard.nix`.
   - **Colours:** `console.colors` always comes from the **dark** terminal tokens.

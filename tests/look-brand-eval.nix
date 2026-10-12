@@ -133,7 +133,7 @@ let
         h = 2160;
       }
       {
-        png = brand.plymouth pkgs c;
+        png = "${brand.plymouthTheme pkgs c}/share/plymouth/themes/itera/frame-11.png";
         w = 1024;
         h = 1024;
       }

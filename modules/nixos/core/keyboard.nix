@@ -13,9 +13,14 @@
 # The mango wiring lives in the renderer (modules/hjem/programs/mango.nix) and the
 # greeter battery (modules/nixos/desktop/dankmaterialshell.nix), which read the
 # resulting `services.xserver.xkb.*` values — so there is no per-user duplication.
+#
+# It also gives the console the look: colours and Terminus size from system
+# tokens and monitors, which per-user overrides don't reach.
 {
   config,
   lib,
+  pkgs,
+  iteraLib,
   ...
 }:
 let
@@ -58,6 +63,42 @@ in
 
     # Make the virtual console follow the XKB config above instead of its own
     # separate keymap, so the layout is identical from the TTY to the desktop.
-    console.useXkbConfig = mkDefault true;
+    console = {
+      useXkbConfig = mkDefault true;
+
+      # The look on the TTY (docs/look.md#boot-and-console): always the system
+      # look's dark terminal tokens, and Terminus sized from the system-declared
+      # mango monitors.
+      colors =
+        let
+          term = (iteraLib.look.resolve config null).colors.dark.terminal;
+          slots = [
+            "black"
+            "red"
+            "green"
+            "yellow"
+            "blue"
+            "magenta"
+            "cyan"
+            "white"
+          ];
+        in
+        mkDefault (
+          map (lib.removePrefix "#") (map (s: term.${s}) slots ++ map (s: term.bright.${s}) slots)
+        );
+      packages = [ pkgs.terminus_font ];
+      font =
+        let
+          monitors = lib.attrValues config.itera.programs.mango.monitors;
+        in
+        mkDefault (
+          if monitors == [ ] then
+            "ter-v24n"
+          else if lib.any (m: m.scale != null && m.scale >= 1.5) monitors then
+            "ter-v32n"
+          else
+            "ter-v20n"
+        );
+    };
   };
 }

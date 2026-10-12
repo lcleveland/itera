@@ -15,6 +15,7 @@
   options,
   lib,
   pkgs,
+  iteraLib,
   ...
 }:
 let
@@ -112,6 +113,19 @@ in
       '';
     };
 
+    plymouth.enable = mkOption {
+      type = bool;
+      default = true;
+      description = ''
+        Show the itera Plymouth theme at boot (the Flow mark on the system look's
+        `surface`, in its starting mode, with prompts in Roboto Flex) and boot
+        silently: `quiet`, `udev.log_level=3` and `rd.systemd.show_status=auto`
+        (the kernel log level stays the hardening layer's
+        {option}`boot.consoleLogLevel`, 0). Per-user look overrides don't reach it,
+        and token changes show after a rebuild and reboot.
+      '';
+    };
+
     trustBootloaderEntropy = mkOption {
       type = bool;
       default = true;
@@ -158,10 +172,31 @@ in
         timeout = mkDefault cfg.loader.systemd-boot.timeout;
       };
 
-      # Override nix-mineral's `random.trust_bootloader=off`. kernel bool params
-      # take their last occurrence, so appending with mkAfter wins. See the
-      # option description for the boot-time entropy stall this fixes.
-      kernelParams = mkIf cfg.trustBootloaderEntropy (mkAfter [ "random.trust_bootloader=on" ]);
+      kernelParams = lib.mkMerge [
+        # Override nix-mineral's `random.trust_bootloader=off`. kernel bool params
+        # take their last occurrence, so appending with mkAfter wins. See the
+        # option description for the boot-time entropy stall this fixes.
+        (mkIf cfg.trustBootloaderEntropy (mkAfter [ "random.trust_bootloader=on" ]))
+        # Silent boot behind the splash. A mkDefault list would be dropped by any
+        # other kernelParams definition, so these follow the opt-out instead.
+        # The kernel log level is nix-mineral's (`boot.consoleLogLevel = 0`,
+        # quieter than 3), so it is left alone.
+        (mkIf cfg.plymouth.enable [
+          "quiet"
+          "udev.log_level=3"
+          "rd.systemd.show_status=auto"
+        ])
+      ];
+
+      # The system look's starting mode (auto starts dark).
+      plymouth = mkIf cfg.plymouth.enable {
+        enable = mkDefault true;
+        theme = mkDefault "itera";
+        themePackages = [
+          (iteraLib.brand.plymouthTheme pkgs (iteraLib.look.resolve config null).startColors)
+        ];
+        font = mkDefault "${pkgs.roboto-flex}/share/fonts/truetype/RobotoFlex[GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght].ttf";
+      };
 
       tmp = {
         useTmpfs = mkDefault cfg.tmp.useTmpfs;
