@@ -40,17 +40,20 @@ let
     "DP-1" = {
       width = 5120;
       height = 1440;
+      refresh = 60;
     };
     # Ultrawide, but rotated to portrait: standard.
     "DP-2" = {
       width = 3440;
       height = 1440;
+      refresh = 60;
       transform = "90";
     };
     # Ultrawide.
     "HDMI-A-1" = {
       width = 2560;
       height = 1080;
+      refresh = 60;
     };
   };
   cfg = mkConfig [
@@ -68,6 +71,7 @@ let
         name = "HDMI-A-[2-9]";
         width = 1920;
         height = 1080;
+        refresh = 60;
       };
     })
     # Only the mode differs from bob's look, then only the wallpaper.

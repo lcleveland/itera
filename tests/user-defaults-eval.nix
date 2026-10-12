@@ -74,6 +74,7 @@ let
               "DP-2" = {
                 width = 2560;
                 height = 1440;
+                refresh = 60;
                 x = 1920;
                 y = 0;
               };
@@ -440,7 +441,7 @@ let
     "monitor default reaches user (bob HDMI-1)" =
       lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
     "monitor default reaches user (bob DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" bobMango;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" bobMango;
 
     # ── mango monitors: per-user override wins per KEY, sibling still inherits ──
     "per-user monitor override wins (alice HDMI-1)" =
@@ -448,7 +449,7 @@ let
     "per-user override replaces the system rule (alice)" =
       !(lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920" aliceMango);
     "sibling monitor still inherited (alice DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" aliceMango;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" aliceMango;
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
     "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
 
@@ -467,7 +468,7 @@ let
     "greeter gets system-wide monitors (HDMI-1)" =
       lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
     "greeter gets system-wide monitors (DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,x:1920,y:0" greeterMonitors;
+      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" greeterMonitors;
 
     # ── mango gestures: system default reaches every user, per-user adds ──
     "gesture default reaches user (bob)" =

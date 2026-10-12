@@ -316,19 +316,19 @@ let
           type = lib.types.nullOr lib.types.int;
           default = null;
           example = 1920;
-          description = "Mode width in pixels.";
+          description = "Mode width in pixels. Set width, height and refresh together or not at all (mango rejects a partial mode).";
         };
         height = lib.mkOption {
           type = lib.types.nullOr lib.types.int;
           default = null;
           example = 1080;
-          description = "Mode height in pixels.";
+          description = "Mode height in pixels. Set width, height and refresh together or not at all (mango rejects a partial mode).";
         };
         refresh = lib.mkOption {
           type = lib.types.nullOr (lib.types.either lib.types.int lib.types.float);
           default = null;
           example = 59.951;
-          description = "Refresh rate in Hz.";
+          description = "Refresh rate in Hz. Set width, height and refresh together or not at all (mango rejects a partial mode).";
         };
         x = lib.mkOption {
           type = lib.types.nullOr lib.types.int;
