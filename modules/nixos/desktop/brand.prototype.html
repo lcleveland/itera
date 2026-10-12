@@ -1,0 +1,196 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway. Answers "What do the itera logo mark and the wallpaper motif look like?"
+  (issue #198). Four marks are shown side by side; four wallpaper motifs are switchable with ?motif=
+  (arrow keys), ?mark= picks the mark they carry (keys A-D), M flips dark/light.
+  The <script id="gen"> block is pure SVG-string generation, so the same code can be fed to resvg.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>itera brand prototype</title>
+<style>
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--background); color: var(--text); }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px 16px 96px; }
+  h2 { font-size: 15px; margin: 28px 0 10px; color: var(--textMuted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .marks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--surface-low); border: 2px solid var(--border); border-radius: 14px; padding: 14px; cursor: pointer; }
+  .card.sel { border-color: var(--accent); }
+  .card h3 { margin: 0 0 10px; font-size: 14px; }
+  .lockup svg { width: 100%; height: auto; display: block; }
+  .bar { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; margin: 12px 0; border-radius: 10px; background: var(--surface-base); font-size: 12px; color: var(--textMuted); }
+  .bar .clock { margin-left: auto; }
+  .sizes { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+  .sizes div { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--textMuted); }
+  .wp { position: relative; margin-bottom: 14px; }
+  .wp svg { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .wp .label { font-size: 12px; color: var(--textMuted); margin-bottom: 4px; }
+  .crop { position: absolute; border: 2px dashed; pointer-events: none; }
+  .crop span { position: absolute; top: 2px; left: 6px; font-size: 11px; }
+  .note { color: var(--textMuted); font-size: 13px; max-width: 900px; }
+  #switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center;
+    background: #111; color: #fff; padding: 6px 10px; border-radius: 999px; box-shadow: 0 4px 18px #0008; font-size: 13px; white-space: nowrap; }
+  #switcher button { background: #333; color: #fff; border: 0; border-radius: 999px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  #switcher .lbl { min-width: 190px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <p class="note">PROTOTYPE. Every image below is an SVG string built from Tide tokens, with no &lt;text&gt;, so it can go
+    straight to resvg. Click a mark card (or press A–D) to put that mark into the wallpapers. ← → cycle motifs, M flips mode.
+    All motif geometry scales with the output's <em>height</em>, so wider outputs get more of the pattern, never a stretched one.</p>
+  <h2>Marks</h2>
+  <div class="marks" id="marks"></div>
+  <h2 id="wph">Wallpapers</h2>
+  <div id="wps"></div>
+</main>
+<div id="switcher"><button id="prev">←</button><span class="lbl" id="lbl"></span><button id="next">→</button><button id="mode">M</button></div>
+
+<script id="gen">
+const TOKENS = {
+  dark: { background: '#0a1318', 'surface.lowest': '#040c12', 'surface.low': '#0f191e', 'surface.base': '#151e24',
+    'surface.high': '#1e282e', 'surface.highest': '#283238', surfaceVariant: '#2a3a44', text: '#e2e9ed', textMuted: '#a9b3b9',
+    accent: '#4eccd3', accentContainer: '#034649', textOnAccent: '#01282a', accentSecondary: '#96c1c3',
+    accentTertiary: '#eba295', border: '#3f4950', borderStrong: '#68747b' },
+  light: { background: '#f6fbfe', 'surface.lowest': '#ffffff', 'surface.low': '#e8f6fe', 'surface.base': '#e2eff7',
+    'surface.high': '#dbe8f1', 'surface.highest': '#d3e0e8', surfaceVariant: '#c7dbe7', text: '#141c20', textMuted: '#4f5a61',
+    accent: '#057176', accentContainer: '#b8e9eb', textOnAccent: '#ffffff', accentSecondary: '#396669',
+    accentTertiary: '#944b40', border: '#c0cdd5', borderStrong: '#7c8890' },
+};
+
+const SIZES = {
+  standard: [3840, 2160], ultrawide: [5120, 2160], 'super-ultrawide': [5120, 1440], greeter: [3840, 2160],
+};
+
+const stroke = (c, w) => `fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`;
+
+// Monoline geometric "itera", x-height 60..100, baseline 100. Strokes only; no fonts needed.
+const wordmark = (c) => `<g ${stroke(c, 9)}>
+  <path d="M5 60V100M24 42V90Q24 100 34 100M15 60H34M42 80H82A20 20 0 1 0 76.14 94.14M96 60V100M96 80A20 20 0 0 1 116 60M162 80A20 20 0 1 1 122 80A20 20 0 1 1 162 80M162 60V100"/>
+</g><circle cx="5" cy="45" r="6" fill="${c}"/>`;
+
+const MARKS = {
+  A: { name: 'Loop', note: 'An open ring with the coral dot sitting in the gap: one turn of an iteration, and the dot of the i.',
+    svg: (t) => `<path d="M77.71 34A32 32 0 1 1 44.44 18.49" ${stroke(t.accent, 10)}/><circle cx="63.5" cy="21" r="6" fill="${t.accentTertiary}"/>` },
+  B: { name: 'Tide', note: 'Three stacked waves in accent, secondary and tertiary: the palette name, drawn.',
+    svg: (t) => [[32, t.accent], [50, t.accentSecondary], [68, t.accentTertiary]]
+      .map(([y, c]) => `<path d="M16 ${y}C28 ${y - 14} 40 ${y - 14} 50 ${y}S72 ${y + 14} 84 ${y}" ${stroke(c, 9)}/>`).join('') },
+  C: { name: 'Tile', note: 'A filled squircle carrying a geometric i: an app-icon shape that holds up at 16 px.',
+    svg: (t) => `<rect x="8" y="8" width="84" height="84" rx="24" fill="${t.accent}"/><path d="M50 46V74" ${stroke(t.textOnAccent, 11)}/><circle cx="50" cy="29" r="7" fill="${t.textOnAccent}"/>` },
+  D: { name: 'Spiral', note: 'A squared spiral winding inward to a coral dot: iteration as repeated, tightening passes.',
+    svg: (t) => `<path d="M22 78V22H78V78H38V38H62V62" ${stroke(t.accent, 8)}/><circle cx="50" cy="50" r="4.5" fill="${t.accentTertiary}"/>` },
+};
+
+const markSvg = (id, t, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${MARKS[id].svg(t)}</svg>`;
+const lockupInner = (id, t) => `${MARKS[id].svg(t)}<g transform="translate(118 -21)">${wordmark(t.text)}</g>`;
+const lockupSvg = (id, t) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 302 112">${lockupInner(id, t)}</svg>`;
+
+// Place the mark (size = its box) or the lockup (size = its height) centred on (x, y).
+const placeMark = (id, t, x, y, size, extra = '') =>
+  `<g transform="translate(${x - size / 2} ${y - size / 2}) scale(${size / 100})" ${extra}>${MARKS[id].svg(t)}</g>`;
+const placeLockup = (id, t, x, y, h) =>
+  `<g transform="translate(${x - 1.45 * h} ${y - h / 2}) scale(${h / 100})">${lockupInner(id, t)}</g>`;
+
+// Hero: the mark on desktops, the lockup on the greeter, kept inside the 32:9 band (middle half of the height).
+const hero = (id, t, W, H, y, greeter, size) =>
+  greeter ? placeLockup(id, t, W / 2, y, H * 0.09) : placeMark(id, t, W / 2, y, size);
+
+const wave = (W, y, P, A, phase) => {
+  let d = `M0 ${H0(y)}`;
+  for (let x = 0; x <= W + P / 24; x += P / 24) d += `L${x.toFixed(1)} ${(y + A * Math.sin((x / P) * 2 * Math.PI + phase)).toFixed(1)}`;
+  return d;
+};
+const H0 = (y) => y.toFixed(1);
+
+const MOTIFS = {
+  1: { name: 'Halo', note: 'A soft accent glow behind the centred mark, with a giant ghost of the mark filling the frame.',
+    svg: (id, t, W, H, g) => `<defs><radialGradient id="glow" cx="${W / 2}" cy="${H / 2}" r="${H * 0.75}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="${t.accentContainer}" stop-opacity=".7"/><stop offset="1" stop-color="${t.background}" stop-opacity="0"/></radialGradient></defs>
+      <rect width="${W}" height="${H}" fill="${t.background}"/><rect width="${W}" height="${H}" fill="url(#glow)"/>
+      ${placeMark(id, t, W / 2, H / 2, H * 1.4, 'opacity=".06"')}
+      ${hero(id, t, W, H, g ? H * 0.36 : H / 2, g, H * 0.13)}` },
+  2: { name: 'Tide bands', note: 'Layered waves across the lower third; the wave period follows height, so ultrawides get more waves.',
+    svg: (id, t, W, H, g) => {
+      const bands = [[0.6, 0.95, 0, t.surfaceVariant, 0.5], [0.68, 0.8, 1.3, t.accentContainer, 1], [0.76, 0.7, 2.4, t['surface.high'], 1], [0.86, 0.6, 0.7, t['surface.lowest'], 1]];
+      return `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${t.background}"/><stop offset="1" stop-color="${t['surface.low']}"/></linearGradient></defs>
+      <rect width="${W}" height="${H}" fill="url(#sky)"/>
+      ${bands.map(([y, p, ph, c, o], i) => `<path d="${wave(W, H * y, H * p, H * 0.025, ph)}V${H}H0Z" fill="${c}" opacity="${o}"/>` +
+        (i === 1 ? `<path d="${wave(W, H * y, H * p, H * 0.025, ph)}" fill="none" stroke="${t.accent}" stroke-width="${H * 0.003}"/>` : '')).join('')}
+      ${hero(id, t, W, H, g ? H * 0.36 : H * 0.4, g, H * 0.11)}`;
+    } },
+  3: { name: 'Dot grid', note: 'A fine dot grid fading out from the centre, the mark large in the middle; quiet, technical.',
+    svg: (id, t, W, H, g) => {
+      const s = H / 24;
+      return `<defs><pattern id="dots" width="${s}" height="${s}" x="${(W / 2) % s - s / 2}" y="${(H / 2) % s - s / 2}" patternUnits="userSpaceOnUse">
+        <circle cx="${s / 2}" cy="${s / 2}" r="${H * 0.0024}" fill="${t.borderStrong}"/></pattern>
+        <radialGradient id="fade" cx="${W / 2}" cy="${H / 2}" r="${H * 0.95}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+        <mask id="m"><rect width="${W}" height="${H}" fill="url(#fade)"/></mask></defs>
+      <rect width="${W}" height="${H}" fill="${t.background}"/><rect width="${W}" height="${H}" fill="url(#dots)" mask="url(#m)"/>
+      ${hero(id, t, W, H, g ? H * 0.36 : H / 2, g, H * 0.22)}`;
+    } },
+  4: { name: 'Horizon arcs', note: 'Concentric arcs rising from below the bottom edge like a sunrise; one accent ring, one coral.',
+    svg: (id, t, W, H, g) => {
+      const cy = H * 1.15, reach = Math.hypot(W / 2, cy);
+      let arcs = '';
+      for (let i = 0, r = H * 0.35; r < reach; i++, r += H * 0.12) {
+        const [c, w, o] = i === 3 ? [t.accent, 0.004, 1] : i === 5 ? [t.accentTertiary, 0.002, 1] : [t.border, 0.002, 0.8];
+        arcs += `<circle cx="${W / 2}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="${H * w}" opacity="${o}"/>`;
+      }
+      return `<rect width="${W}" height="${H}" fill="${t.background}"/>${arcs}
+      ${hero(id, t, W, H, H * 0.36, g, H * 0.12)}`;
+    } },
+};
+
+const wallpaperSvg = (motif, mark, mode, cls) => {
+  const [W, H] = SIZES[cls], t = TOKENS[mode];
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${MOTIFS[motif].svg(mark, t, W, H, cls === 'greeter')}</svg>`;
+};
+</script>
+
+<script>
+const q = new URLSearchParams(location.search);
+let state = { motif: q.get('motif') || '1', mark: q.get('mark') || 'A', mode: q.get('mode') || 'dark' };
+const motifs = Object.keys(MOTIFS);
+
+function render() {
+  const t = TOKENS[state.mode];
+  for (const [k, v] of Object.entries(t)) document.documentElement.style.setProperty('--' + k.replace('.', '-'), v);
+  history.replaceState(null, '', '?' + new URLSearchParams(state));
+
+  document.getElementById('marks').innerHTML = Object.entries(MARKS).map(([id, m]) => `
+    <div class="card ${id === state.mark ? 'sel' : ''}" data-mark="${id}">
+      <h3>${id} · ${m.name}</h3>
+      <div class="lockup">${lockupSvg(id, t)}</div>
+      <div class="bar">${markSvg(id, t, 20)}<span>workspaces · · ·</span><span class="clock">10:42</span></div>
+      <div class="sizes">${[16, 24, 32, 48, 64, 128].map((px) => `<div>${markSvg(id, t, px)}${px}</div>`).join('')}</div>
+      <p class="note">${m.note}</p>
+    </div>`).join('');
+  document.querySelectorAll('[data-mark]').forEach((el) => el.onclick = () => { state.mark = el.dataset.mark; render(); });
+
+  const m = MOTIFS[state.motif];
+  document.getElementById('wph').textContent = `Wallpapers · ${state.motif} ${m.name} · mark ${state.mark} · ${state.mode}`;
+  const crops = [['16:10', 3456 / 3840, 1, '#f0f'], ['21:9', 1, 3840 * 9 / 21 / 2160, '#ff0'], ['32:9', 1, 0.5, '#f80']];
+  document.getElementById('wps').innerHTML = `<p class="note">${m.note}</p>` + Object.entries(SIZES).map(([cls, [W, H]]) => `
+    <div class="wp"><div class="label">${cls} ${W}×${H}${cls === 'greeter' ? ' (dashed: what survives cropping to each aspect class)' : ''}</div>
+      <div style="position:relative">${wallpaperSvg(state.motif, state.mark, state.mode, cls)}
+      ${cls === 'greeter' ? crops.map(([n, w, h, c]) => `<div class="crop" style="left:${(1 - w) * 50}%;top:${(1 - h) * 50}%;width:${w * 100}%;height:${h * 100}%;border-color:${c};box-sizing:border-box"><span style="color:${c}">${n}</span></div>`).join('') : ''}</div></div>`).join('');
+  document.getElementById('lbl').textContent = `motif ${state.motif} (${m.name}) · mark ${state.mark} · ${state.mode}`;
+}
+
+const step = (d) => { state.motif = motifs[(motifs.indexOf(state.motif) + d + motifs.length) % motifs.length]; render(); };
+const flip = () => { state.mode = state.mode === 'dark' ? 'light' : 'dark'; render(); };
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+document.getElementById('mode').onclick = flip;
+addEventListener('keydown', (e) => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key.toLowerCase() === 'm') flip();
+  else if (MARKS[e.key.toUpperCase()]) { state.mark = e.key.toUpperCase(); render(); }
+});
+render();
+</script>
+</body>
+</html>
