@@ -25,6 +25,8 @@ let
   inherit (lib.modules) mkIf;
 
   enable = osConfig.itera.desktop.dankMaterialShell.enable or false;
+  gtkOn = (osConfig.itera.enable or false) && (osConfig.itera.desktop.theme.enable or false);
+  gtkScript = "${osConfig.programs.dank-material-shell.package}/share/quickshell/dms/scripts/gtk.sh";
   look = iteraLib.look.resolve osConfig name;
 
   hm = t: map lib.toIntBase10 (lib.splitString ":" t);
@@ -106,8 +108,20 @@ let
         pkgs.diffutils
         pkgs.jq
         pkgs.dconf
+        pkgs.gnused
+        pkgs.gnugrep
       ]
     }
+    ${lib.optionalString gtkOn ''
+      # DMS themes GTK only once its "Apply GTK colors" has run: that makes the
+      # user copy of adw-gtk3 that DMS patches (and then sets `gtk-theme` to)
+      # after each colour run, and adds the GTK4 gtk.css import. Every login,
+      # so an adw-gtk3 update is copied again.
+      # ponytail: the GTK4 import needs DMS's dank-colors.css, so a new user's
+      # GTK4 apps get their accent from the second login; run after dms.service
+      # if that matters.
+      ${pkgs.bash}/bin/bash ${gtkScript} "''${XDG_CONFIG_HOME:-$HOME/.config}" apply false >&2 || true
+    ''}
     state=''${XDG_STATE_HOME:-$HOME/.local/state}
     session=$state/DankMaterialShell/session.json
     stamp=$state/itera/session-seed.json
