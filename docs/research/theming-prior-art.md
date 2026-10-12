@@ -86,7 +86,7 @@ toggle in cosmic-settings, not forced.
 so a toggle swaps which one is active at runtime, with no regeneration.
 
 **Branding.** The accent is picked from a curated palette list (or custom). The
-Pop!_OS look is the default data shipped, not a separate theme mechanism [C2][C3].
+Pop OS look is the default data shipped, not a separate theme mechanism [C2][C3].
 
 ## Bazzite / Universal Blue (ublue-os/bazzite, ublue-os/artwork)
 

@@ -156,7 +156,7 @@ focuscolor  = 0x{{colors.primary…}}ff
 urgentcolor = 0x{{colors.error…}}ff
 ```
 
-`layout.conf` contains `border_radius`, the border width, and gaps (legacy `gappih…` or snake_case `gap_inner_*`). `dms config` detects the dialect (`core/internal/mangoconf`). itera's mango battery sources `dms/{colors,layout,cursor,…}.conf` with `source_optional`, placed so itera's own monitor, XKB and layout lines win (`modules/hjem/programs/mango.nix` ~L158–171). The colours template only runs inside a live mango session (`RequiredEnv: MANGO_INSTANCE_SIGNATURE`).
+`layout.conf` contains `border_radius`, the border width, and gaps (legacy `gappih…` or snake-case `gap_inner_*`). `dms config` detects the dialect (`core/internal/mangoconf`). itera's mango battery sources `dms/{colors,layout,cursor,…}.conf` with `source_optional`, placed so itera's own monitor, XKB and layout lines win (`modules/hjem/programs/mango.nix` ~L158–171). The colours template only runs inside a live mango session (`RequiredEnv: MANGO_INSTANCE_SIGNATURE`).
 
 ## 6. Greeter theme sync
 
