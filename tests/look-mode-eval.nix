@@ -53,7 +53,17 @@ let
   cfgGtkTheme = mkConfig [ { environment.sessionVariables.GTK_THEME = "Adwaita:dark"; } ];
 
   unit = c: name: c.hjem.users.${name}.systemd.services.itera-look-seed or null;
-  seed = name: cfg.hjem.users.${name}.itera.sessionSeed;
+  # The mode keys; the wallpaper keys are tested in look-ultrawide-eval.nix.
+  seed =
+    name:
+    removeAttrs cfg.hjem.users.${name}.itera.sessionSeed [
+      "perModeWallpaper"
+      "perMonitorWallpaper"
+      "wallpaperPathDark"
+      "wallpaperPathLight"
+      "monitorWallpapersDark"
+      "monitorWallpapersLight"
+    ];
   floor =
     c:
     lib.findFirst (s: s."org/gnome/desktop/interface".color-scheme or null != null) { } (

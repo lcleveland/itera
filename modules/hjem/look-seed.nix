@@ -4,13 +4,14 @@
 #
 # DMS owns the live mode, kept in ~/.local/state/DankMaterialShell/session.json.
 # The seeder merges `itera.sessionSeed` into that file (never replacing it) and
-# writes the user's dconf `color-scheme`, then stamps what it seeded. It runs
-# again only when the seed changes, so a live toggle survives every login until
-# the configuration itself changes. An unreadable session.json fails the unit
-# and is left alone.
+# writes the user's dconf `color-scheme`, then stamps what it seeded. It writes
+# a key again only when its seeded value changes, so a live toggle or a
+# wallpaper picked in the GUI survives every login until the tokens behind it
+# change. An unreadable session.json fails the unit and is left alone.
 #
-# `itera.sessionSeed` is the extension point: this module seeds the mode, and
-# other look slices (wallpapers) add their session.json keys to it.
+# `itera.sessionSeed` is the extension point: this module seeds the mode and
+# the wallpapers (docs/look.md#ultrawide); other slices add their session.json
+# keys to it.
 {
   config,
   lib,
@@ -73,6 +74,29 @@ let
       in
       ''$(now=$(date +%H%M); if [ ${l} -le ${d} ]; then [ "$now" -ge ${l} ] && [ "$now" -lt ${d} ]; else [ "$now" -ge ${l} ] || [ "$now" -lt ${d} ]; fi && echo true || echo false)'';
 
+  # Wallpapers (docs/look.md#ultrawide): each declared output's variant at its
+  # size after rotation, keyed by connector, and the 16:9 variant for every
+  # other output. Per mode, so DMS swaps them with the mode.
+  outputs = lib.filter (o: o.connector != null && o.class != null) (
+    iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name)
+  );
+  png =
+    mode: w: h:
+    "${iteraLib.brand.wallpaperPng pkgs look.colors.${mode} w h}";
+  wallpaperSeed = {
+    perModeWallpaper = true;
+    perMonitorWallpaper = outputs != [ ];
+    wallpaperPathDark = png "dark" 3840 2160;
+    wallpaperPathLight = png "light" 3840 2160;
+    monitorWallpapersDark = lib.listToAttrs (
+      map (o: lib.nameValuePair o.connector (png "dark" o.width o.height)) outputs
+    );
+    monitorWallpapersLight = lib.listToAttrs (
+      map (o: lib.nameValuePair o.connector (png "light" o.width o.height)) outputs
+    );
+  };
+  wallpaperKeys = builtins.toJSON (lib.attrNames wallpaperSeed);
+
   seed = pkgs.writeText "itera-session-seed.json" (builtins.toJSON config.itera.sessionSeed);
   seeder = pkgs.writeShellScript "itera-look-seed" ''
     set -eu
@@ -88,14 +112,28 @@ let
     session=$state/DankMaterialShell/session.json
     stamp=$state/itera/session-seed.json
     cmp -s ${seed} "$stamp" && exit 0
+    old=$stamp
+    [ -s "$old" ] || old=/dev/null
 
     light=${isLight}
     mkdir -p "$(dirname "$session")" "$(dirname "$stamp")"
     [ -s "$session" ] || echo '{}' > "$session"
-    jq --slurpfile seed ${seed} --argjson light "$light" \
-      '. + {isLightMode: $light} + $seed[0]' "$session" > "$session.tmp"
+    # Only keys whose seeded value changed since the stamp are written, so a
+    # mode change keeps a wallpaper picked in the GUI and the reverse. The mode
+    # (isLightMode) is seeded with any mode key; new wallpapers also become
+    # the current ones for the session's mode.
+    jq --slurpfile seed ${seed} --slurpfile old "$old" --argjson light "$light" \
+      --argjson wallpaperKeys '${wallpaperKeys}' '
+      ($seed[0] | with_entries(select(.value != $old[0][.key]))) as $new
+      | ($new | keys) as $changed
+      | . + (if ($changed - $wallpaperKeys) == [] then {} else {isLightMode: $light} end) + $new
+      | if ($changed - ($changed - $wallpaperKeys)) == [] then . else
+          (if .isLightMode then "Light" else "Dark" end) as $m
+          | .wallpaperPath = .["wallpaperPath" + $m]
+          | .monitorWallpapers = .["monitorWallpapers" + $m]
+        end' "$session" > "$session.tmp"
     mv "$session.tmp" "$session"
-    if $light; then scheme=default; else scheme=prefer-dark; fi
+    if [ "$(jq '.isLightMode == true' "$session")" = true ]; then scheme=default; else scheme=prefer-dark; fi
     dconf write /org/gnome/desktop/interface/color-scheme "'$scheme'"
     install -m 644 ${seed} "$stamp"
   '';
@@ -109,7 +147,7 @@ in
   };
 
   config = mkIf enable {
-    itera.sessionSeed = modeSeed;
+    itera.sessionSeed = modeSeed // wallpaperSeed;
 
     systemd.services.itera-look-seed = {
       description = "Seed the itera look into DankMaterialShell's session";

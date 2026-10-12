@@ -86,7 +86,7 @@ let
 
   # monitors: system-wide output rules merged with this user's. A per-user
   # monitor of the same key replaces the system entry wholesale; new keys add.
-  monitors = (sys.monitors or { }) // (usr.monitors or { });
+  monitors = iteraLib.mango.userMonitors osConfig name;
 
   # gestures / mouse binds: same merge model as keybinds.
   gestures = mergeBinds gestureTrigger useDefaultGestures (sys.gestures or { }) (usr.gestures or { });
@@ -216,12 +216,16 @@ let
     options = xkb.options or "";
   };
 
-  # Tiling layout: the per-tag default (`tag_rule` lines) plus the `circle_layout`
-  # cycle list.
+  # Tiling layout: the per-tag default (`tag_rule` lines), the `circle_layout`
+  # cycle list, the look's scroller cycle presets, and per-monitor scroller
+  # proportions by aspect class (docs/look.md#ultrawide). The class rules come
+  # after the per-tag defaults; mango applies every matching tag_rule in order.
   layoutConfig = lib.concatStringsSep "\n" (
     lib.filter (line: line != "") [
       (iteraLib.mango.mkTagLayoutLines { inherit layout; })
       (iteraLib.mango.mkCircleLayoutLine layoutCycle)
+      (iteraLib.mango.mkProportionPresetLine look.layout.presets)
+      (iteraLib.mango.mkAspectTagRules look.layout.proportions (iteraLib.mango.declaredOutputs monitors))
     ]
   );
 
