@@ -13,6 +13,10 @@
   # per-user (`itera.users.<name>.programs.<app>`). See lib/programs.nix.
   programs = import ./programs.nix { inherit lib; };
 
+  # The itera look: `itera.look` options, the Tide palette, `look.resolve` and
+  # the contrast check. See lib/look.nix and docs/look.md.
+  look = import ./look.nix { inherit lib; };
+
   # FDE-aware installer builder: `mkInstaller pkgs { flake = "github:you/config"; }`
   # returns a package a downstream flake exposes so `nix run <flake>#installer`
   # does the whole disko-install (+ passwordless TPM2 enrollment) from a live ISO,

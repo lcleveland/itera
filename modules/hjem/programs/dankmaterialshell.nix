@@ -34,6 +34,7 @@
 # registration); enablement follows the system desktop toggle.
 {
   lib,
+  iteraLib,
   osConfig ? null,
   name,
   ...
@@ -48,7 +49,48 @@ let
   sys = osConfig.itera.programs.dankMaterialShell or { };
   usr = osConfig.itera.users.${name}.programs.dankMaterialShell or { };
 
-  finalSettings = (sys.settings or { }) // (usr.settings or { });
+  # The DMS lane's source: this user's look as a DMS custom theme, both modes,
+  # through the DMS mapping in docs/look.md#palette-tide. DMS picks the mode.
+  look = iteraLib.look.resolve osConfig name;
+  themeFile = "DankMaterialShell/itera-theme.json";
+  dmsTheme = c: {
+    primary = c.accent;
+    primaryText = c.textOnAccent;
+    primaryContainer = c.accentContainer;
+    primaryContainerText = c.textOnAccentContainer;
+    secondary = c.accentSecondary;
+    tertiary = c.accentTertiary;
+    surfaceTint = c.accent;
+    surface = c.background;
+    surfaceContainerLowest = c.surface.lowest;
+    surfaceContainerLow = c.surface.low;
+    surfaceContainer = c.surface.base;
+    surfaceContainerHigh = c.surface.high;
+    surfaceContainerHighest = c.surface.highest;
+    inherit (c) surfaceVariant;
+    surfaceText = c.text;
+    surfaceVariantText = c.textMuted;
+    inherit (c) background;
+    backgroundText = c.text;
+    inherit (c) inverseSurface;
+    inverseOnSurface = c.inverseText;
+    outline = c.border;
+    inherit (c)
+      error
+      warning
+      success
+      info
+      scrim
+      ;
+  };
+
+  # Look keys first, so a consumer's own `currentThemeName` still wins.
+  finalSettings = {
+    currentThemeName = "custom";
+    customThemeFile = "~/.config/${themeFile}";
+  }
+  // (sys.settings or { })
+  // (usr.settings or { });
 
   # Plugins: per-name merge (a per-user entry of the same name replaces the system
   # one wholesale), same model as settings and mango's monitors/gestures.
@@ -70,8 +112,17 @@ in
 {
   config = mkIf enable {
     xdg.config.files = {
-      "DankMaterialShell/config.d/00-itera.json" = mkIf (finalSettings != { }) {
+      "DankMaterialShell/config.d/00-itera.json" = {
         text = builtins.toJSON finalSettings;
+        inherit clobber;
+      };
+
+      ${themeFile} = {
+        text = builtins.toJSON {
+          name = "itera";
+          dark = dmsTheme look.colors.dark;
+          light = dmsTheme look.colors.light;
+        };
         inherit clobber;
       };
 
