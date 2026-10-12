@@ -34,6 +34,7 @@
 # registration); enablement follows the system desktop toggle.
 {
   lib,
+  pkgs,
   iteraLib,
   osConfig ? null,
   name,
@@ -85,9 +86,45 @@ let
       ;
   };
 
+  # The launcher shows this user's Flow mark (docs/look.md#brand-assets) in
+  # their starting mode: DMS takes one logo path, so it doesn't follow a live
+  # mode switch. DMS keeps logo options on each bar's `launcherButton` entry,
+  # so every one gets them, under any keys the entry already sets.
+  logo = iteraLib.brand.render pkgs "itera-launcher-logo" 256 256 (
+    iteraLib.brand.mark look.startColors
+  );
+  withLogo =
+    w:
+    let
+      entry =
+        if builtins.isString w then
+          {
+            id = w;
+            enabled = true;
+          }
+        else
+          w;
+    in
+    if entry.id or null == "launcherButton" then
+      {
+        launcherLogoMode = "custom";
+        launcherLogoCustomPath = "${logo}";
+      }
+      // entry
+    else
+      w;
+  barWithLogo =
+    bar:
+    bar
+    // lib.genAttrs (lib.filter (k: bar ? ${k}) [
+      "leftWidgets"
+      "centerWidgets"
+      "rightWidgets"
+    ]) (k: map withLogo bar.${k});
+
   # Look keys first, so a consumer's own DMS settings (`currentThemeName`,
   # `fontFamily`, …) still win.
-  finalSettings = {
+  settings = {
     currentThemeName = "custom";
     customThemeFile = "~/.config/${themeFile}";
     fontFamily = look.fonts.sans;
@@ -109,6 +146,9 @@ let
   }
   // (sys.settings or { })
   // (usr.settings or { });
+  finalSettings =
+    settings
+    // lib.optionalAttrs (settings ? barConfigs) { barConfigs = map barWithLogo settings.barConfigs; };
 
   # Plugins: per-name merge (a per-user entry of the same name replaces the system
   # one wholesale), same model as settings and mango's monitors/gestures.

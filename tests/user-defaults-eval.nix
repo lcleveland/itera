@@ -179,8 +179,12 @@ let
   aliceFiles = cfg.hjem.users.alice.xdg.config.files;
   bobFiles = cfg.hjem.users.bob.xdg.config.files;
 
-  aliceDms = builtins.fromJSON aliceFiles."DankMaterialShell/config.d/00-itera.json".text;
-  bobDms = builtins.fromJSON bobFiles."DankMaterialShell/config.d/00-itera.json".text;
+  aliceDms = builtins.fromJSON (
+    builtins.unsafeDiscardStringContext aliceFiles."DankMaterialShell/config.d/00-itera.json".text
+  );
+  bobDms = builtins.fromJSON (
+    builtins.unsafeDiscardStringContext bobFiles."DankMaterialShell/config.d/00-itera.json".text
+  );
 
   # plugin_settings.json carries string context: the update-indicator plugin's
   # `checkCommand` is an absolute store path, which is what keeps its helper in

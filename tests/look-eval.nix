@@ -80,7 +80,10 @@ let
   files = c: user: c.hjem.users.${user}.xdg.config.files;
   theme = user: builtins.fromJSON (files cfg user)."DankMaterialShell/itera-theme.json".text;
   dmsSettings =
-    user: builtins.fromJSON (files cfg user)."DankMaterialShell/config.d/00-itera.json".text;
+    user:
+    builtins.fromJSON (
+      builtins.unsafeDiscardStringContext (files cfg user)."DankMaterialShell/config.d/00-itera.json".text
+    );
   homeFiles = user: cfg.hjem.users.${user}.files;
   # The user's look database: the first (highest-priority) one after user-db.
   dconfDb = user: (builtins.head cfg.programs.dconf.profiles."itera-${user}".databases).settings;
@@ -170,7 +173,10 @@ mkCheckDrv "itera-look-eval" {
     && (dmsSettings "bob").iconThemeLight == "Papirus-Light";
   "the old iconTheme.name sets both modes" =
     let
-      s = builtins.fromJSON (files cfgOldIcons "bob")."DankMaterialShell/config.d/00-itera.json".text;
+      s = builtins.fromJSON (
+        builtins.unsafeDiscardStringContext
+          (files cfgOldIcons "bob")."DankMaterialShell/config.d/00-itera.json".text
+      );
     in
     s.iconThemeDark == "Adwaita" && s.iconThemeLight == "Adwaita";
   "the old icon options warn" =
@@ -206,9 +212,10 @@ mkCheckDrv "itera-look-eval" {
   "Xresources is a writable copy DMS can update" = (homeFiles "alice").".Xresources".type == "copy";
   "DMS gets no icon or cursor keys without their batteries" =
     let
-      s =
-        builtins.fromJSON
-          (files cfgNoIconsCursor "bob")."DankMaterialShell/config.d/00-itera.json".text;
+      s = builtins.fromJSON (
+        builtins.unsafeDiscardStringContext
+          (files cfgNoIconsCursor "bob")."DankMaterialShell/config.d/00-itera.json".text
+      );
     in
     !(s ? cursorSettings) && !(s ? iconThemeDark);
   "the system dconf floor carries the system cursor" =

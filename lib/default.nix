@@ -17,6 +17,10 @@
   # the contrast check. See lib/look.nix and docs/look.md.
   look = import ./look.nix { inherit lib; };
 
+  # Brand assets from tokens: the Flow mark, lockup, wallpapers and greeter
+  # image as SVG, rendered by resvg. See lib/brand.nix and ADR 0003.
+  brand = import ./brand.nix { inherit lib; };
+
   # FDE-aware installer builder: `mkInstaller pkgs { flake = "github:you/config"; }`
   # returns a package a downstream flake exposes so `nix run <flake>#installer`
   # does the whole disko-install (+ passwordless TPM2 enrollment) from a live ISO,
