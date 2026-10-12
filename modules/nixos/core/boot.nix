@@ -30,7 +30,8 @@ let
     ;
 
   cfg = config.itera.boot;
-  mineralQuiet = (config.nix-mineral.enable or false) && (config.nix-mineral.settings.debug.quiet-boot or false);
+  mineralQuiet =
+    (config.nix-mineral.enable or false) && (config.nix-mineral.settings.debug.quiet-boot or false);
 in
 {
   # The systemd initrd is NixOS's own default since 26.05; set
