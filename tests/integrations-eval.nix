@@ -401,10 +401,10 @@ let
       !builtins.elem "/var/lib/bluetooth" (persistDirs batteriesOff);
 
     # --- dark mode by default ---
-    "GTK apps default to dark" = base.environment.sessionVariables.GTK_THEME == "Adwaita:dark";
-    "DMS shell defaults to dark (portal sync off)" =
-      base.itera.programs.dankMaterialShell.settings.syncModeWithPortal == false;
-    # Zed reads neither GTK_THEME nor dconf, so it needs its own pinned mode —
+    "GTK_THEME is left to DMS" = !(base.environment.sessionVariables ? GTK_THEME);
+    "DMS writes its mode to the portal" =
+      base.itera.programs.dankMaterialShell.settings.syncModeWithPortal;
+    # Zed doesn't read dconf, so it needs its own pinned mode —
     # otherwise it asks the portal and falls back to light when none answers.
     "Zed defaults to dark" = base.itera.programs.zed.settings.theme.mode == "dark";
 

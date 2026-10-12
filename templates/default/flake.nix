@@ -159,8 +159,9 @@
               #                         corrupt the picture on a two-GPU machine)
               #                         — desktop.videoPlayer.hardwareDecoding
               #                         = true after checking it on yours
-              #   desktop.theme         dark mode for GTK/Flatpak apps
-              #                         (theme.dark = false for a light session)
+              #   desktop.theme         adw-gtk3 and the GTK/Flatpak color-scheme
+              #                         (look.mode = "light" or "auto" for a
+              #                         light or scheduled session)
               #
               # OFF by default (opt-in):
               #   sops.enable = true;            # sops-nix secrets — the

@@ -1,66 +1,75 @@
-# itera's appearance / color-scheme battery.
+# itera's GTK battery (docs/look.md#light-dark-and-auto).
 #
-# itera's desktop defaults to DARK. The Quickshell shell (DankMaterialShell)
-# already renders dark by itself (see `itera.desktop.dankMaterialShell`, which
-# pins `syncModeWithPortal = false` so DMS uses its dark `isLightMode = false`
-# default). This battery extends the same dark default to the GTK apps itera
-# ships — Nemo (`itera.desktop.fileManager`), virt-manager
-# (`itera.virtualisation`), file-roller — and to any GTK/Flatpak app that follows
-# the freedesktop color-scheme preference:
+# DankMaterialShell owns the live light/dark mode, seeded per user from
+# `look.mode` (modules/hjem/look-seed.nix), and themes GTK itself: it writes
+# `dank-colors.css` and picks the adw-gtk3 variant for the mode. This battery
+# supplies what that needs system-wide, for the GTK apps itera ships (Nemo,
+# virt-manager, file-roller) and any GTK/Flatpak app:
 #
-#   - GTK_THEME=Adwaita:dark forces GTK2/3 apps to the dark Adwaita variant
-#     (built into GTK — no extra theme package needed).
-#   - the dconf `color-scheme = prefer-dark` is the signal libadwaita/GTK4 apps
-#     and the xdg-desktop-portal settings interface (hence Flatpak apps) read to
-#     pick their dark palette.
+#   - adw-gtk3, the GTK3 theme DMS colours.
+#   - the system dconf `color-scheme`, from the system look: a floor under every
+#     user, for users itera doesn't manage and the moment before the seeder runs.
+#     Auto starts dark.
 #
-# Opt-out like the other desktop batteries: gated on the master `itera.enable`
-# with `mkDefault` values. Flip `itera.desktop.theme.dark = false` for a light
-# session, or `itera.desktop.theme.enable = false` to manage GTK theming yourself.
+# GTK_THEME is never set: it would pin GTK3 apps past DMS's theme and mode, so an
+# assertion keeps it out while DMS is on.
+#
+# Opt-out like the other desktop batteries: gated on the master `itera.enable`.
+# Set `itera.desktop.theme.enable = false` to manage GTK theming yourself.
 {
   config,
   lib,
+  pkgs,
+  iteraLib,
   ...
 }:
 let
   inherit (lib.options) mkOption;
-  inherit (lib.modules) mkIf mkDefault;
+  inherit (lib.modules) mkIf mkMerge mkDefault;
   inherit (lib.types) bool;
 
   cfg = config.itera.desktop.theme;
 in
 {
-  options.itera.desktop.theme = {
-    enable = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Apply itera's system-wide GTK color-scheme preference so bundled GTK apps
-        (Nemo, virt-manager, …) match the desktop. On by default whenever
-        {option}`itera.enable` is set.
-      '';
-    };
+  imports = [
+    # Dropped at NixOS 26.11.
+    (lib.mkChangedOptionModule [ "itera" "desktop" "theme" "dark" ] [ "itera" "look" "mode" ] (
+      config: if config.itera.desktop.theme.dark then "dark" else "light"
+    ))
+  ];
 
-    dark = mkOption {
-      type = bool;
-      default = true;
-      description = ''
-        Prefer a dark color scheme for GTK/Flatpak apps (matching DankMaterialShell's
-        own dark default). Set to `false` for a light session.
-      '';
-    };
+  options.itera.desktop.theme.enable = mkOption {
+    type = bool;
+    default = true;
+    description = ''
+      Ship adw-gtk3 and set the system-wide dconf color-scheme from the system
+      look, so GTK apps (Nemo, virt-manager, …) match the desktop. On by default
+      whenever {option}`itera.enable` is set.
+    '';
   };
 
-  config = mkIf (config.itera.enable && cfg.enable) {
-    # GTK2/3 apps: force the Adwaita dark/light variant directly.
-    environment.sessionVariables.GTK_THEME = mkDefault (if cfg.dark then "Adwaita:dark" else "Adwaita");
+  config = mkIf config.itera.enable (mkMerge [
+    (mkIf cfg.enable {
+      environment.systemPackages = [ pkgs.adw-gtk3 ];
 
-    # libadwaita/GTK4 apps + the settings portal (Flatpak) follow this preference.
-    programs.dconf.enable = mkDefault true;
-    programs.dconf.profiles.user.databases = [
-      {
-        settings."org/gnome/desktop/interface".color-scheme = if cfg.dark then "prefer-dark" else "default";
-      }
-    ];
-  };
+      # libadwaita/GTK4 apps + the settings portal (Flatpak) follow this preference.
+      programs.dconf.enable = mkDefault true;
+      programs.dconf.profiles.user.databases = [
+        {
+          settings."org/gnome/desktop/interface".color-scheme =
+            if (iteraLib.look.resolve config null).startMode == "light" then "default" else "prefer-dark";
+        }
+      ];
+    })
+
+    {
+      assertions = [
+        {
+          assertion =
+            !(config.itera.desktop.dankMaterialShell.enable && config.environment.sessionVariables ? GTK_THEME);
+          message = "itera: GTK_THEME pins GTK apps past DankMaterialShell's theme and mode; leave it unset while DMS is on (docs/look.md#delivery-lanes).";
+        }
+      ];
+    }
+  ]);
 }
