@@ -70,6 +70,7 @@ let
     "/var/lib/NetworkManager" # NM leases, seen-bssids, secret_key
     "/var/lib/systemd/timesync" # timesyncd clock state
     "/var/lib/systemd/timers" # Persistent= timer stamps (gc, nh clean, fstrim catch-up)
+    "/var/lib/systemd/backlight" # systemd-backlight: screen and keyboard brightness across reboots
     "/var/lib/hjem" # hjem's last manifest: without it, files dropped from hjem are never unlinked
   ];
   curatedFiles = [
