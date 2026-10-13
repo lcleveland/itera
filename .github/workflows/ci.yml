@@ -63,3 +63,12 @@ jobs:
         run: >-
           nix flake check --print-build-logs --system ${{ matrix.system }}
           ${{ matrix.channel == 'stable' && '--no-write-lock-file --override-input nixpkgs github:NixOS/nixpkgs/nixos-26.05' || '' }}
+
+  # The single required status check: its name never changes when the matrix
+  # does, so branch protection can't drift onto check names that no longer run.
+  ci-ok:
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.check.result }}" = success

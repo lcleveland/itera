@@ -45,15 +45,18 @@ let
   # reproducible — no `carapace | save` on every shell startup). The script defines
   # the completer closure and wires it into `$env.config.completions`; it invokes
   # `carapace` at runtime, which the system battery puts on PATH.
-  carapaceInit = pkgs.runCommand "carapace-init.nu" {
-    nativeBuildInputs = [ carapacePkg ];
-  } ''
-    # nushell >= 0.116 deprecates the positional `spans` completer input; carapace
-    # still emits it. Bind the named `place` field and rebuild `spans` from it.
-    carapace _carapace nushell \
-      | sed 's/{|spans|/{|place|\n    let spans = $place.command/' > $out
-    grep -q 'let spans = $place.command' $out
-  '';
+  carapaceInit =
+    pkgs.runCommand "carapace-init.nu"
+      {
+        nativeBuildInputs = [ carapacePkg ];
+      }
+      ''
+        # nushell >= 0.116 deprecates the positional `spans` completer input; carapace
+        # still emits it. Bind the named `place` field and rebuild `spans` from it.
+        carapace _carapace nushell \
+          | sed 's/{|spans|/{|place|\n    let spans = $place.command/' > $out
+        grep -q 'let spans = $place.command' $out
+      '';
 
   # config.nu — mutate individual fields so carapace's external-completer assignment
   # (sourced below) is preserved.
