@@ -124,6 +124,18 @@ iteraLib.programs.mkCuratedProgram {
       '';
     };
 
+    scrollerFocusCenter = {
+      type = bool;
+      default = true;
+      example = false;
+      description = ''
+        Center the focused column in the scroller layout (MangoWC's
+        `scroller_focus_center`). mango only re-centers when the strip has to
+        scroll, so a column that is already fully on screen keeps its place.
+        Set `false` for mango's default edge-aligned scrolling.
+      '';
+    };
+
     monitors = {
       type = attrsOf monitorRuleType;
       attrs = true;

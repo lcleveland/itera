@@ -114,6 +114,7 @@ let
               };
               mango = {
                 layout = "tile";
+                scrollerFocusCenter = false;
                 # A NEW name on a key a default holds (SUPER+SHIFT+f, fullscreen),
                 # modifiers in a different order: must displace the default
                 # rather than render both and trip mango's conflict check.
@@ -410,6 +411,10 @@ let
     # Empty default cycle: no circle_layout line, so switch_layout reaches every layout.
     "no circle_layout by default (bob)" = !(lib.hasInfix "circle_layout=" bobMango);
     "per-user layout override wins (alice)" = lib.hasInfix "tag_rule=id:1,layout_name:tile" aliceMango;
+    "scroller centers focus by default (bob)" = lib.hasInfix "\nscroller_focus_center=1" bobMango;
+    "per-user scroller centering opt-out (alice)" =
+      lib.hasInfix "\nscroller_focus_center=0" aliceMango
+      && !(lib.hasInfix "scroller_focus_center=1" aliceMango);
     "switch-layout bind rendered (SUPER+SHIFT+n)" =
       lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
     # Move-to-monitor needs SUPER; bare CTRL+SHIFT+j/k would steal app shortcuts.

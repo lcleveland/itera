@@ -47,6 +47,11 @@ let
   layout = if (usr.layout or null) != null then usr.layout else (sys.layout or "scroller");
   layoutCycle =
     if (usr.layoutCycle or null) != null then usr.layoutCycle else (sys.layoutCycle or [ ]);
+  scrollerFocusCenter =
+    if (usr.scrollerFocusCenter or null) != null then
+      usr.scrollerFocusCenter
+    else
+      (sys.scrollerFocusCenter or true);
 
   # per-user-only knobs (fall back to the schema defaults for plain users).
   autostart = usr.autostart or true;
@@ -202,9 +207,12 @@ let
   #
   # border_radius: the look's radius (docs/look.md#delivery-lanes), after the
   # DMS fragments so it wins over DMS's layout.conf.
+  #
+  # scroller_focus_center: the curated `scrollerFocusCenter` knob (on by default).
   optionsConfig = ''
     focus_cross_monitor=1
-    border_radius=${toString look.radius}'';
+    border_radius=${toString look.radius}
+    scroller_focus_center=${if scrollerFocusCenter then "1" else "0"}'';
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
   gesturesConfig = iteraLib.mango.renderGestures gestures;
