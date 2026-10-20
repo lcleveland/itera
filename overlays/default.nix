@@ -28,4 +28,11 @@ in
   # element, so the man builder never runs and the `man` output is missing. A
   # space-separated string survives the hook; drop once the hook reads arrays.
   khal = prev.khal.overrideAttrs { sphinxBuilders = "html man"; };
+
+  # ponytail: same structuredAttrs fallout — open-webui passes makeWrapperArgs as
+  # one "--set NAME VALUE" string, which arrives as a single argv element and
+  # makeWrapper dies on it. Split into separate args; drop once nixpkgs does.
+  open-webui = prev.open-webui.overridePythonAttrs (o: {
+    makeWrapperArgs = prev.lib.concatMap (prev.lib.splitString " ") o.makeWrapperArgs;
+  });
 }
