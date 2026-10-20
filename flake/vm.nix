@@ -21,6 +21,7 @@
     specialArgs = { inherit inputs; };
     modules = [
       inputs.self.nixosModules.default
+      { nixpkgs.overlays = [ inputs.self.overlays.default ]; }
       ../dev/vm.nix
       # The standardized `itera` login user (dev-only, shared with the testhost).
       ../dev/test-user.nix

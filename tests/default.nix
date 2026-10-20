@@ -36,6 +36,9 @@ let
 
       defaults = {
         imports = [ self.nixosModules.default ];
+        # Consumers add itera's overlay themselves (templates/default); do the same
+        # so its package fixes reach the test nodes.
+        nixpkgs.overlays = [ self.overlays.default ];
 
         # disko and impermanence are opt-out (on with itera.enable), but both
         # fight the NixOS test framework's managed disk/root — and disko's
