@@ -22,4 +22,10 @@ in
 
   buildFHSEnv = keepFHSAppsAlive prev.buildFHSEnv;
   buildFHSEnvBubblewrap = keepFHSAppsAlive prev.buildFHSEnvBubblewrap;
+
+  # ponytail: khal (pulled in by DMS's calendar) now builds with structuredAttrs,
+  # where sphinx-hook.sh's `eval "(…($sphinxBuilders))"` sees only the list's first
+  # element, so the man builder never runs and the `man` output is missing. A
+  # space-separated string survives the hook; drop once the hook reads arrays.
+  khal = prev.khal.overrideAttrs { sphinxBuilders = "html man"; };
 }
