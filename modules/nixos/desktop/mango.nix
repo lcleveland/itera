@@ -25,6 +25,7 @@
   config,
   lib,
   pkgs,
+  iteraInputs,
   ...
 }:
 let
@@ -36,6 +37,25 @@ let
     ;
 
   cfg = config.itera.desktop.mango;
+
+  # wlroots hard-codes "Unknown" as wl_output's make/model, so Qt (and with it
+  # DMS) can only tell outputs apart by connector name, and DP-MST docks renumber
+  # their connectors on every replug. Send the real make/model so DMS can key
+  # bars and wallpapers on the model (see declaredOutputs in lib/mango.nix).
+  # scenefx links wlroots too, so it is rebuilt against the same copy.
+  wlroots = pkgs.wlroots_0_20.overrideAttrs (o: {
+    postPatch = (o.postPatch or "") + ''
+      substituteInPlace types/output/output.c --replace-fail \
+        '"Unknown", "Unknown", output->transform' \
+        'output->make ? output->make : "Unknown", output->model ? output->model : "Unknown", output->transform'
+    '';
+  });
+  upstream = iteraInputs.mango.packages.${pkgs.stdenv.hostPlatform.system}.mango;
+  scenefx =
+    iteraInputs.mango.inputs.scenefx.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
+      (o: {
+        buildInputs = map (d: if (d.pname or "") == "wlroots" then wlroots else d) o.buildInputs;
+      });
 in
 {
   options.itera.desktop.mango = {
@@ -113,7 +133,15 @@ in
   };
 
   config = mkIf (config.itera.enable && cfg.enable) {
-    programs.mango.enable = mkDefault true;
+    programs.mango = {
+      enable = mkDefault true;
+      package = mkDefault (
+        upstream.override {
+          wlroots_0_20 = wlroots;
+          inherit scenefx;
+        }
+      );
+    };
 
     # Tools the default media/brightness keybinds shell out to. Without these on
     # PATH the XF86 keys are silent no-ops. brightnessctl needs the `video`

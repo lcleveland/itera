@@ -513,8 +513,10 @@ let
 
   # Declared outputs (docs/look.md#ultrawide): each enabled monitor with its
   # size after rotation, its aspect class (null without a width and height:
-  # it gets the global defaults) and its connector name (null when `name` is a
-  # regex rather than one exact, anchored connector).
+  # it gets the global defaults) and the `screen` DMS knows it by: its
+  # connector when `name` is one exact, anchored connector, else its `model`
+  # (DMS matches either; mango's wlroots is patched to send the model, see
+  # modules/nixos/desktop/mango.nix), else null.
   rotated = [
     "90"
     "270"
@@ -545,7 +547,7 @@ let
       in
       {
         monitor = m;
-        connector = if connector == null then null else builtins.head connector;
+        screen = if connector != null then builtins.head connector else m.model or null;
         class = if sized then aspectClass width height else null;
       }
       // lib.optionalAttrs sized { inherit width height; }

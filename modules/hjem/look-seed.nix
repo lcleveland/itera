@@ -77,9 +77,9 @@ let
       ''$(now=$(date +%H%M); if [ ${l} -le ${d} ]; then [ "$now" -ge ${l} ] && [ "$now" -lt ${d} ]; else [ "$now" -ge ${l} ] || [ "$now" -lt ${d} ]; fi && echo true || echo false)'';
 
   # Wallpapers (docs/look.md#ultrawide): each declared output's variant at its
-  # size after rotation, keyed by connector, and the 16:9 variant for every
-  # other output. Per mode, so DMS swaps them with the mode.
-  outputs = lib.filter (o: o.connector != null && o.class != null) (
+  # size after rotation, keyed by connector or model, and the 16:9 variant for
+  # every other output. Per mode, so DMS swaps them with the mode.
+  outputs = lib.filter (o: o.screen != null && o.class != null) (
     iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name)
   );
   png =
@@ -91,10 +91,10 @@ let
     wallpaperPathDark = png "dark" 3840 2160;
     wallpaperPathLight = png "light" 3840 2160;
     monitorWallpapersDark = lib.listToAttrs (
-      map (o: lib.nameValuePair o.connector (png "dark" o.width o.height)) outputs
+      map (o: lib.nameValuePair o.screen (png "dark" o.width o.height)) outputs
     );
     monitorWallpapersLight = lib.listToAttrs (
-      map (o: lib.nameValuePair o.connector (png "light" o.width o.height)) outputs
+      map (o: lib.nameValuePair o.screen (png "light" o.width o.height)) outputs
     );
   };
   wallpaperKeys = builtins.toJSON (lib.attrNames wallpaperSeed);

@@ -74,6 +74,22 @@ let
         refresh = 60;
       };
     })
+    # A regex-named monitor with a model (a DP-MST dock): keyed by the model.
+    (user "hank" {
+      look.layout.bar.perOutput = true;
+      programs.mango.monitors = {
+        "DP-1".enable = false;
+        "DP-2".enable = false;
+        "HDMI-A-1".enable = false;
+        dock = {
+          name = "^DP-[0-9]+$";
+          model = "XG49DH16C";
+          width = 5120;
+          height = 1440;
+          refresh = 165;
+        };
+      };
+    })
     # Only the mode differs from bob's look, then only the wallpaper.
     (user "frank" { look.mode = "light"; })
     (user "gina" {
@@ -153,6 +169,13 @@ let
       warned "carol" cfg.warnings && (builtins.head (bars "carol")).screenPreferences == [ "all" ];
     "a regex-named monitor falls back with a warning" =
       warned "dave" cfg.warnings && lib.length (bars "dave") == 1;
+
+    "a regex-named monitor with a model gets a bar keyed by model" =
+      !warned "hank" cfg.warnings
+      && map (b: b.screenPreferences) (bars "hank") == [ [ "XG49DH16C" ] ]
+      && (builtins.head (bars "hank")).barLengthPercent == 60;
+    "a regex-named monitor with a model gets a wallpaper keyed by model" =
+      lib.attrNames (seed cfg "hank").monitorWallpapersDark == [ "XG49DH16C" ];
 
     "each declared output gets its own wallpaper" =
       lib.attrNames bob.monitorWallpapersDark == [

@@ -133,7 +133,8 @@ let
   # The bar (docs/look.md#ultrawide): the look's length on every bar, under
   # any keys a bar already sets. With `bar.perOutput`, the first bar is copied
   # once per declared output instead, sized by its aspect class; that needs
-  # every declared monitor to have an exact connector name and a size.
+  # every declared monitor to have an exact connector name or a model, and a
+  # size.
   barLength =
     l:
     if builtins.isInt l then
@@ -151,15 +152,15 @@ let
   outputs = iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name);
   perOutputWanted = look.layout.bar.perOutput;
   perOutput =
-    perOutputWanted && outputs != [ ] && lib.all (o: o.connector != null && o.class != null) outputs;
+    perOutputWanted && outputs != [ ] && lib.all (o: o.screen != null && o.class != null) outputs;
   globalBars = map (b: barLength look.layout.bar.length // barWithLogo b) settings.barConfigs;
   outputBars = map (
     o:
     barWithLogo (builtins.head settings.barConfigs)
     // {
-      id = "itera-${o.connector}";
-      name = o.connector;
-      screenPreferences = [ o.connector ];
+      id = "itera-${o.screen}";
+      name = o.screen;
+      screenPreferences = [ o.screen ];
       showOnLastDisplay = false;
     }
     // barLength classLength.${o.class}
@@ -192,7 +193,7 @@ in
   config = mkIf enable {
     warnings = lib.optional (perOutputWanted && !perOutput) ''
       the look's bar.perOutput needs every declared mango monitor to have an
-      exact connector name and a width and height; keeping one bar on every
+      exact connector name or a model, and a width and height; keeping one bar on every
       output.
     '';
 
