@@ -89,7 +89,7 @@ let
             # wallpaper; set only in the greeter's copy.
             lockScreenWallpaperPath = "${iteraLib.brand.greeterPng pkgs greeterLook.startColors}";
           }
-          // config.itera.programs.dankMaterialShell.settings
+          // userSettings null
       )
       // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
         lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
