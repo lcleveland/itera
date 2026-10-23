@@ -86,14 +86,13 @@ let
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
-  # udiskie's tray icon SVG, reached through its autostart line and the config
-  # file that line points at with `-c`.
+  # udiskie's tray icon SVG, reached through its unit's ExecStart and the config
+  # file that points at with `-c`.
+  udiskieExec = c: c.hjem.users.alice.systemd.services.udiskie.serviceConfig.ExecStart;
   udiskieIconOf =
     c:
     let
-      conf = userFile c "alice" "mango/config.conf";
-      line = lib.findFirst (lib.hasInfix "bin/udiskie") "" (lib.splitString "\n" conf);
-      udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " line));
+      udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " (udiskieExec c)));
     in
     builtins.readFile (
       lib.head (builtins.match ".*- (/nix/store/[^\n]*udiskie-tray-icon\\.svg).*" udiskieConfig)
@@ -337,6 +336,15 @@ let
     "udiskie tray icon color is configurable" = lib.hasInfix "fill=\"#1a1c20\"" (
       udiskieIconOf cfgTrayColor
     );
+    "udiskie runs as a session-bound user unit" =
+      let
+        u = cfg.hjem.users.alice.systemd.services.udiskie;
+      in
+      u.wantedBy == [ "mango-session.target" ]
+      && u.partOf == [ "mango-session.target" ]
+      && u.after == [ "dms.service" ]
+      && lib.hasInfix " --appindicator " (udiskieExec cfg);
+    "mango config.conf has no udiskie line" = !(lib.hasInfix "udiskie" mangoConf);
 
     # Layout chooser: DMS's built-in `layout` widget (current layout, click for a
     # chooser) on the bar, plus a `#layout` launcher plugin and a key to open it.

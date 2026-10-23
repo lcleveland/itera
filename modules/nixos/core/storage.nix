@@ -2,8 +2,8 @@
 #
 # udisks2 is the D-Bus service that lets an unprivileged session mount USB
 # drives and other removable media; without it, plugging in a stick does
-# nothing. DMS ships no automount agent, so we also install udiskie — the mango
-# home battery autostarts it in the session (see `modules/hjem/programs/mango.nix`),
+# nothing. DMS ships no automount agent, so we also install udiskie, which a
+# per-user systemd unit runs in the mango session (`modules/hjem/storage.nix`),
 # gated on this option, so drives mount automatically on insert.
 #
 # Opt-out like the other core batteries: gated on the master `itera.enable`
