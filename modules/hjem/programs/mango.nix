@@ -177,15 +177,12 @@ let
   # first; single-monitor machines are unaffected. Swaps stay per-monitor
   # (that is `exchange_cross_monitor`, left off). `focus_cross_tag` stays off:
   # in scroller most columns have nothing above/below, so j/k would switch tags.
-  # Override either in `extraConfig` (later lines win).
-  #
-  # border_radius: the look's radius (docs/look.md#delivery-lanes), after the
-  # DMS fragments so it wins over DMS's layout.conf.
+  # Override either in `extraConfig` (later lines win). The look's radius and
+  # gaps reach mango through DMS's layout.conf (docs/look.md#delivery-lanes).
   #
   # scroller_focus_center: the curated `scrollerFocusCenter` knob (on by default).
   optionsConfig = ''
     focus_cross_monitor=1
-    border_radius=${toString look.radius}
     scroller_focus_center=${if scrollerFocusCenter then "1" else "0"}'';
 
   keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;

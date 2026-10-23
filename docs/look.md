@@ -35,22 +35,22 @@ Where this spec and the code disagree, the code is out of date.
 - **Gating:** DMS-lane wiring and its assertions are gated on `itera.desktop.dankMaterialShell.enable`, following the `dmsEnabled` pattern in `modules/programs/mango.nix`. With DMS off, DMS-lane apps keep their stock colours; they never fall through to the Nix lane.
 - **Missing files:** include points must tolerate DMS's output not existing yet. Nix never seeds DMS's output files.
 
-| Surface                 | Lane      | Delivery                                                                                                                                                       |
-| ----------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DMS                     | source    | `currentThemeName = "custom"`, generated `customThemeFile` (dark + light), and `config.d` keys for fonts, `cornerRadius`, per-mode icons and `cursorSettings`. |
-| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped, the seeder runs DMS's GTK apply at each login, and `GTK_THEME` is never set.                                       |
-| Qt                      | DMS       | DMS kcolorscheme/qtengine.                                                                                                                                     |
-| mango                   | DMS       | Sources `dms/colors.conf`. Radius from `resolve`; gaps are seeded into DMS's spacing setting (see [Ultrawide](#ultrawide)).                                    |
-| WezTerm                 | DMS       | `color_scheme = "dank-theme"`. Font, size and opacity defaults from `resolve`.                                                                                 |
-| Zed                     | DMS       | DankShell Dark/Light theme (replacing One Dark/One Light). Font and size defaults from `resolve`.                                                              |
-| Nushell                 | inherited | ANSI colours from the terminal.                                                                                                                                |
-| Vivaldi                 | inherited | Portal `color-scheme`; fonts through fontconfig.                                                                                                               |
-| mpv                     | Nix       | `osc.conf` from `resolve`.                                                                                                                                     |
-| Plymouth, console       | Nix       | `resolve null` (see [Boot and console](#boot-and-console)).                                                                                                    |
-| Greeter                 | Nix/DMS   | System tokens (see [Greeter](#greeter)).                                                                                                                       |
-| Fonts, icons, cursor    | all       | See [Typography, icons, cursor](#typography-icons-cursor).                                                                                                     |
-| Flatpaks                | inherited | See [Flatpaks](#flatpaks).                                                                                                                                     |
-| systemd-boot/lanzaboote | none      | Left alone (see [Boot and console](#boot-and-console)).                                                                                                        |
+| Surface                 | Lane      | Delivery                                                                                                                                                                                |
+| ----------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DMS                     | source    | `currentThemeName = "custom"`, generated `customThemeFile` (dark + light), and `config.d` keys for fonts, the mango radius and gaps overrides, per-mode icons and `cursorSettings`.     |
+| GTK                     | DMS       | DMS `dank-colors.css`. adw-gtk3 is shipped, the seeder runs DMS's GTK apply at each login, and `GTK_THEME` is never set.                                                                |
+| Qt                      | DMS       | DMS kcolorscheme/qtengine.                                                                                                                                                              |
+| mango                   | DMS       | Sources `dms/colors.conf` and `dms/layout.conf`. Radius and gaps are DMS's mango overrides (`mangoLayoutRadiusOverride`, `mangoLayoutGapsOverride`), which DMS writes to `layout.conf`. |
+| WezTerm                 | DMS       | `color_scheme = "dank-theme"`. Font, size and opacity defaults from `resolve`.                                                                                                          |
+| Zed                     | DMS       | DankShell Dark/Light theme (replacing One Dark/One Light). Font and size defaults from `resolve`.                                                                                       |
+| Nushell                 | inherited | ANSI colours from the terminal.                                                                                                                                                         |
+| Vivaldi                 | inherited | Portal `color-scheme`; fonts through fontconfig.                                                                                                                                        |
+| mpv                     | Nix       | `osc.conf` from `resolve`.                                                                                                                                                              |
+| Plymouth, console       | Nix       | `resolve null` (see [Boot and console](#boot-and-console)).                                                                                                                             |
+| Greeter                 | Nix/DMS   | System tokens (see [Greeter](#greeter)).                                                                                                                                                |
+| Fonts, icons, cursor    | all       | See [Typography, icons, cursor](#typography-icons-cursor).                                                                                                                              |
+| Flatpaks                | inherited | See [Flatpaks](#flatpaks).                                                                                                                                                              |
+| systemd-boot/lanzaboote | none      | Left alone (see [Boot and console](#boot-and-console)).                                                                                                                                 |
 
 The DMS theme picker stays usable, best effort. If a user picks a wallpaper or stock theme, runtime apps follow it and Nix-lane surfaces keep the itera palette ([ADR 0001](adr/0001-hand-curated-palette.md)).
 

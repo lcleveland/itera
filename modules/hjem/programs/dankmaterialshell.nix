@@ -100,10 +100,12 @@ let
     fontFamily = look.fonts.sans;
     monoFontFamily = look.fonts.mono;
     lockScreenFontFamily = look.fonts.sans;
-    # Layout tokens (docs/look.md#ultrawide). DMS writes the gap to mango's
-    # dms/layout.conf; itera never sets a mango gaps line.
+    # Layout tokens (docs/look.md#ultrawide). DMS writes the gap and radius to
+    # mango's dms/layout.conf and uses the radius for its own surfaces; itera
+    # never sets a mango gaps or border_radius line.
     notificationPopupPosition = notificationPositions.${look.layout.notifications};
     mangoLayoutGapsOverride = look.gaps;
+    mangoLayoutRadiusOverride = look.radius;
   }
   # Icons and cursor only while their batteries install them.
   // lib.optionalAttrs (batteryOn "iconTheme") {

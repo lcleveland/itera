@@ -24,6 +24,7 @@ let
     mkCheckDrv
     hasPkgName
     userFile
+    mangoLines
     ;
 
   users = {
@@ -62,6 +63,7 @@ let
   zedTheme = c: c.itera.programs.zed.settings.theme;
   mango = c: user: userFile c user "mango/config.conf";
   osc = c: user: userFile c user "mpv/script-opts/osc.conf";
+  dms = user: builtins.fromJSON (userFile cfg user "DankMaterialShell/config.d/00-itera.json");
   zedAsserts = c: lib.filter (a: !a.assertion && lib.hasInfix "DankShell" a.message) c.assertions;
 in
 mkCheckDrv "itera-look-apps-eval" {
@@ -83,18 +85,13 @@ mkCheckDrv "itera-look-apps-eval" {
   "the default zed theme passes" = zedAsserts cfg == [ ];
   "stock zed themes pass without DMS" = zedAsserts cfgNoDms == [ ];
 
-  # mango: dms/colors.conf, and the look's radius after DMS's fragments.
+  # mango: dms/colors.conf; the look's radius reaches mango through DMS.
   "mango sources DMS's colours" = lib.hasInfix "source_optional=./dms/colors.conf" (mango cfg "bob");
   "mango names no DMS file without DMS" = !(lib.hasInfix "dms/" (mango cfgNoDms "bob"));
-  "mango radius comes from the look" =
-    lib.hasInfix "border_radius=${toString (look.resolve cfg "bob").radius}\n" (mango cfg "bob")
-    && lib.hasInfix "border_radius=4\n" (mango cfg "alice");
-  "mango radius follows DMS's layout fragment" =
-    let
-      text = mango cfg "bob";
-      after = lib.last (lib.splitString "source_optional=./dms/layout.conf" text);
-    in
-    lib.hasInfix "border_radius=" after;
+  "DMS carries the look's radius" =
+    (dms "bob").mangoLayoutRadiusOverride == 12 && (dms "alice").mangoLayoutRadiusOverride == 4;
+  "mango has no itera border_radius line" =
+    !(lib.any (l: l.key == "border_radius") (mangoLines (mango cfg "alice")));
 
   # Qt: DMS's kcolorscheme served through qtengine.
   "qt uses qtengine with DMS" =

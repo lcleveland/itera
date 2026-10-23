@@ -782,7 +782,11 @@ in
             type = types.ints.unsigned;
             # DMS's own window corner radius (its mango layout.conf default).
             default = 12;
-            description = "Corner radius in pixels.";
+            description = ''
+              Corner radius in pixels, set as DankMaterialShell's mango radius
+              override: DMS writes it to {file}`mango/dms/layout.conf` and rounds
+              its own surfaces with it.
+            '';
           };
           gaps = {
             type = types.ints.unsigned;
