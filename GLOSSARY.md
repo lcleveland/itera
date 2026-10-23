@@ -39,3 +39,25 @@ _Avoid_: system mode, adaptive theme
 **Seed**:
 A starting value itera writes into state the user can change live, such as the current mode or a display's wallpaper. A seed is written again only when the setting behind it changes, so the user's own changes survive in between.
 _Avoid_: default, pin
+
+## Programs
+
+**Curated program**:
+An app whose user-facing settings itera declares once, settable both as a system default and as a per-user override.
+_Avoid_: managed app, wrapped program
+
+**System default**:
+The value a curated program's setting takes for every user who doesn't override it.
+_Avoid_: global setting, base config
+
+**Per-user override**:
+One user's own value for a curated program's setting. It wins over the system default key by key; an override left unset inherits the system default.
+_Avoid_: user config, user setting
+
+**Plain user**:
+A user declared without an itera user entry. A plain user has no per-user overrides, so every setting is its system default.
+_Avoid_: non-itera user, unmanaged user
+
+**Resolved settings**:
+One user's effective settings for a curated program: the system defaults with that user's per-user overrides applied.
+_Avoid_: merged config, effective config
