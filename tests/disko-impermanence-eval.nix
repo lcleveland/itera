@@ -202,6 +202,25 @@ let
     services.flatpak.enable = true;
   };
 
+  # A non-default persistRoot: everything that prefixes the root follows it.
+  # Other checks keep the literal "/persist", which pins the default.
+  nixPersist = mkEval {
+    itera = {
+      impermanence.persistRoot = "/nix/persist";
+      sops = {
+        enable = true;
+        keyFile = "/var/lib/sops-nix/key.txt";
+      };
+      disko.encryption.enable = true;
+      disko.autoClaim.enable = true;
+    };
+    # disko's layout mounts /persist, not this; give the new root a filesystem.
+    fileSystems."/nix/persist" = {
+      device = "/dev/disk/by-label/persist";
+      fsType = "btrfs";
+    };
+  };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -259,6 +278,18 @@ let
     "bare services.flatpak persists /var/lib/flatpak" = builtins.elem "/var/lib/flatpak" (
       map (d: d.directory or d) bareFlatpak.environment.persistence."/persist".directories
     );
+
+    "non-default persistRoot carries the persistence set" =
+      nixPersist.environment.persistence ? "/nix/persist"
+      && !(nixPersist.environment.persistence ? "/persist");
+    "agenix identity follows persistRoot" =
+      nixPersist.age.identityPaths == [ "/nix/persist/etc/ssh/ssh_host_ed25519_key" ];
+    "sops sshKeyPaths follow persistRoot" =
+      nixPersist.sops.age.sshKeyPaths == [ "/nix/persist/etc/ssh/ssh_host_ed25519_key" ];
+    "sops keyFile follows persistRoot" =
+      nixPersist.sops.age.keyFile == "/nix/persist/var/lib/sops-nix/key.txt";
+    "autoClaim keyfile follows persistRoot" =
+      (claimEnv nixPersist).ITERA_CLAIM_KEYFILE == "/nix/persist/itera/claim-disks.key";
 
     # power-profiles-daemon (on via the default DMS desktop) keeps the bar's
     # profile choice in its own state.ini; persist it with the daemon on only.
