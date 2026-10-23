@@ -139,7 +139,11 @@ let
     "the cycle presets are global" = lib.hasInfix "\nscroller_proportion_preset=0.33,0.5,0.67,0.9,1\n" (
       mangoConf "alice"
     );
-    "itera sets no mango gaps line" = !lib.hasInfix "gappih" (mangoConf "alice");
+    "itera sets no mango gaps line" =
+      !lib.any (k: lib.hasInfix k (mangoConf "alice")) [
+        "gappih"
+        "gap_inner_horizontal"
+      ];
 
     "notifications pop up top-center" = (dms "alice").notificationPopupPosition == -1;
     "gaps go to DMS's mango gaps setting" =

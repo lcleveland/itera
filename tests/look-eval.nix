@@ -119,7 +119,7 @@ mkCheckDrv "itera-look-eval" {
   "radius defaults to DMS's pinned radius" =
     lib.hasInfix "border_radius=${toString cfg.itera.look.radius}\n" dmsLayout;
   "gaps default to DMS's pinned gaps" =
-    lib.hasInfix "gappih=${toString cfg.itera.look.gaps}\n" dmsLayout;
+    lib.hasInfix "gap_inner_horizontal=${toString cfg.itera.look.gaps}\n" dmsLayout;
   "opacity defaults to 1.0" = cfg.itera.look.opacity == 1.0;
 
   # Typography (docs/look.md#typography-icons-cursor): the tokens reach
