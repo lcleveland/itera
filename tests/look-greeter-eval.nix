@@ -42,6 +42,13 @@ let
     bob
     { itera.desktop.dankMaterialShell.greeter.syncUser = "bob"; }
   ];
+  cfgSyncFont = mkConfig [
+    bob
+    {
+      itera.users.bob.look.fonts.sans = "Inter";
+      itera.desktop.dankMaterialShell.greeter.syncUser = "bob";
+    }
+  ];
   cfgWallpaper = mkConfig [
     { itera.desktop.dankMaterialShell.greeter.wallpaper = "/etc/login.jpg"; }
   ];
@@ -74,6 +81,11 @@ mkCheckDrv "itera-look-greeter-eval" {
 
   "syncUser mirrors that user's DMS config" = cfgSync.programs.dms-greeter.configHome == "/home/bob";
   "syncUser mirrors that user's look" = (seed cfgSync).theme.dark.primary == "#c0ffee";
+  "syncUser carries that user's font override" =
+    (seed cfgSyncFont).settings.fontFamily == "Inter"
+    && (seed cfgSyncFont).settings.lockScreenFontFamily == "Inter"
+    && (seed cfgSyncFont).settings.monoFontFamily == "itera Mono"
+    && (seed cfgSyncFont).settings.currentThemeName == "custom";
   "syncUser keeps that user's mode and wallpaper" =
     (seed cfgSync).session == null && !((seed cfgSync).settings ? lockScreenWallpaperPath);
 

@@ -94,34 +94,31 @@ let
 
   # Look keys first, so a consumer's own DMS settings (`currentThemeName`,
   # `fontFamily`, …) still win.
-  settings = {
-    currentThemeName = "custom";
-    customThemeFile = "~/.config/${themeFile}";
-    fontFamily = look.fonts.sans;
-    monoFontFamily = look.fonts.mono;
-    lockScreenFontFamily = look.fonts.sans;
-    # Layout tokens (docs/look.md#ultrawide). DMS writes the gap and radius to
-    # mango's dms/layout.conf and uses the radius for its own surfaces; itera
-    # never sets a mango gaps or border_radius line.
-    notificationPopupPosition = notificationPositions.${look.layout.notifications};
-    mangoLayoutGapsOverride = look.gaps;
-    mangoLayoutRadiusOverride = look.radius;
-  }
-  # Icons and cursor only while their batteries install them.
-  // lib.optionalAttrs (batteryOn "iconTheme") {
-    iconThemePerMode = true;
-    iconThemeDark = look.icons.name.dark;
-    iconThemeLight = look.icons.name.light;
-  }
-  // lib.optionalAttrs (batteryOn "cursor") {
-    # DMS has one cursor theme, not one per mode: the starting mode's.
-    cursorSettings = {
-      theme = look.cursor.name.${look.startMode};
-      inherit (look.cursor) size;
-    };
-  }
-  // (sys.settings or { })
-  // (usr.settings or { });
+  settings =
+    iteraLib.look.dmsSettings look "~/.config/${themeFile}"
+    // {
+      # Layout tokens (docs/look.md#ultrawide). DMS writes the gap and radius to
+      # mango's dms/layout.conf and uses the radius for its own surfaces; itera
+      # never sets a mango gaps or border_radius line.
+      notificationPopupPosition = notificationPositions.${look.layout.notifications};
+      mangoLayoutGapsOverride = look.gaps;
+      mangoLayoutRadiusOverride = look.radius;
+    }
+    # Icons and cursor only while their batteries install them.
+    // lib.optionalAttrs (batteryOn "iconTheme") {
+      iconThemePerMode = true;
+      iconThemeDark = look.icons.name.dark;
+      iconThemeLight = look.icons.name.light;
+    }
+    // lib.optionalAttrs (batteryOn "cursor") {
+      # DMS has one cursor theme, not one per mode: the starting mode's.
+      cursorSettings = {
+        theme = look.cursor.name.${look.startMode};
+        inherit (look.cursor) size;
+      };
+    }
+    // (sys.settings or { })
+    // (usr.settings or { });
   # DMS's notificationPopupPosition values (its NotificationsTab), by token.
   notificationPositions = {
     top-right = 0;

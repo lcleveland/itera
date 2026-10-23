@@ -683,6 +683,16 @@ let
       light = toDms look.colors.light;
     };
 
+  # The DMS settings the session and the greeter share: the custom theme at
+  # `themeFile` and the look's fonts. Session-only keys stay in the session.
+  dmsSettings = look: themeFile: {
+    currentThemeName = "custom";
+    customThemeFile = themeFile;
+    fontFamily = look.fonts.sans;
+    monoFontFamily = look.fonts.mono;
+    lockScreenFontFamily = look.fonts.sans;
+  };
+
   clock = types.strMatching "([01][0-9]|2[0-3]):[0-5][0-9]";
 
   colorOverrides = mkOption {
@@ -697,6 +707,7 @@ in
     resolve
     contrastFailures
     dmsTheme
+    dmsSettings
     ;
 
   # `itera.look` and `itera.users.<name>.look`, spliced in like a curated

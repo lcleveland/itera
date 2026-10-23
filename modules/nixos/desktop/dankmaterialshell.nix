@@ -78,27 +78,24 @@ let
   greeterTheme = iteraLib.look.dmsTheme greeterLook;
   greeterSeed = {
     theme = greeterTheme;
-    settings = {
-      currentThemeName = "custom";
-      customThemeFile = "${pkgs.writeText "itera-dms-greeter-theme.json" (builtins.toJSON greeterTheme)}";
-      fontFamily = greeterLook.fonts.sans;
-      monoFontFamily = greeterLook.fonts.mono;
-      lockScreenFontFamily = greeterLook.fonts.sans;
-    }
-    // (
-      if sync != null then
-        userSettings sync
-      else
-        {
-          # The greeter prefers `lockScreenWallpaperPath` over the session
-          # wallpaper; set only in the greeter's copy.
-          lockScreenWallpaperPath = "${iteraLib.brand.greeterPng pkgs greeterLook.startColors}";
-        }
-        // config.itera.programs.dankMaterialShell.settings
-    )
-    // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
-      lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
-    };
+    settings =
+      iteraLib.look.dmsSettings greeterLook "${pkgs.writeText "itera-dms-greeter-theme.json" (
+        builtins.toJSON greeterTheme
+      )}"
+      // (
+        if sync != null then
+          userSettings sync
+        else
+          {
+            # The greeter prefers `lockScreenWallpaperPath` over the session
+            # wallpaper; set only in the greeter's copy.
+            lockScreenWallpaperPath = "${iteraLib.brand.greeterPng pkgs greeterLook.startColors}";
+          }
+          // config.itera.programs.dankMaterialShell.settings
+      )
+      // lib.optionalAttrs (cfg.greeter.wallpaper != null) {
+        lockScreenWallpaperPath = "${cfg.greeter.wallpaper}";
+      };
     # The mode lives in session.json; a synced user's copy carries their own.
     session = if sync != null then null else { isLightMode = greeterLook.startMode == "light"; };
   };
