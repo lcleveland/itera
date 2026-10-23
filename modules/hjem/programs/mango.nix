@@ -42,22 +42,7 @@ let
   # overrides, binds through the registration's merge hooks. A plain user (no
   # `itera.users.<name>` entry) resolves to the defaults.
   cfg = programs.mango.resolve osConfig name;
-  inherit (cfg)
-    layout
-    layoutCycle
-    scrollerFocusCenter
-    autostart
-    extraConfig
-    keybinds
-    mousebinds
-    gestures
-    monitors
-    ;
-
-  # Keyboard layout: driven by the system `itera.keyboard` battery
-  # (services.xserver.xkb). Emitting the `xkb_rules_*` lines here keeps the mango
-  # session's layout in lockstep with the console/greeter without a per-user knob.
-  xkb = osConfig.services.xserver.xkb or { };
+  look = iteraLib.look.resolve osConfig name;
 
   # itera's opinionated startup: bring the systemd/D-Bus user session up (so
   # portals and user services see WAYLAND_DISPLAY etc. and can actually start),
@@ -87,100 +72,32 @@ let
     ${pkgs.systemd}/bin/systemctl --user start mango-session.target
   '';
 
-  look = iteraLib.look.resolve osConfig name;
+  # The look's starting cursor, while the cursor battery is on.
+  cursorOn = (osConfig.itera.enable or false) && (osConfig.itera.desktop.cursor.enable or false);
 
-  autostartConfig = lib.concatStringsSep "\n" (
-    [ "exec_once=${sessionSetup}" ]
-    # systemd-cat so the shell's output lands in the journal (`journalctl --user -t dms`).
-    ++ lib.optional (
-      !(osConfig.programs.dank-material-shell.systemd.enable or false)
-    ) "exec_once=${pkgs.systemd}/bin/systemd-cat -t dms dms run"
-  );
-
-  # DankMaterialShell writes the look-and-feel it manages (theme colors, gaps,
-  # borders, cursor, touchpad/keyboard input, display layout, window rules) as
-  # fragments under mango/dms/ and expects config.conf to source them.
-  # `source_optional` so a fresh account (before DMS first runs) and the
-  # build-time `mango -p` check, which has no such files, parse cleanly.
-  # Placed after itera's monitor rules (mango applies the FIRST matching rule,
-  # so itera's monitors win) and before xkb/layout (later scalar lines win, so
-  # itera's keyboard layout and tag layouts win). `dms/binds.conf` is left out:
-  # DMS's binds would collide with itera's and trip mango's conflict check.
-  # The look's starting cursor (the cursor battery). mango exports XCURSOR_*
-  # from it, so the session gets this user's cursor even before DMS first writes
-  # dms/cursor.conf, which is sourced after it and wins once it exists.
-  cursorConfig = lib.optionalString (
-    (osConfig.itera.enable or false) && (osConfig.itera.desktop.cursor.enable or false)
-  ) "cursor_theme=${look.cursor.name.${look.startMode}}\ncursor_size=${toString look.cursor.size}";
-
-  dmsSourcesConfig = lib.optionalString (osConfig.itera.desktop.dankMaterialShell.enable or false) (
-    lib.concatMapStringsSep "\n" (f: "source_optional=./dms/${f}.conf") [
-      "colors"
-      "layout"
-      "cursor"
-      "input"
-      "outputs"
-      "windowrules"
-    ]
-  );
-
-  # itera's opinionated compositor options (mango defaults otherwise).
-  #
-  # focus_cross_monitor: directional focus (SUPER+h/j/k/l, 3-finger swipes) at
-  # the edge of a tag moves to the monitor that way instead of doing nothing. A
-  # same-monitor window always wins, so the scroller strip is walked end to end
-  # first; single-monitor machines are unaffected. Swaps stay per-monitor
-  # (that is `exchange_cross_monitor`, left off). `focus_cross_tag` stays off:
-  # in scroller most columns have nothing above/below, so j/k would switch tags.
-  # Override either in `extraConfig` (later lines win). The look's radius and
-  # gaps reach mango through DMS's layout.conf (docs/look.md#delivery-lanes).
-  #
-  # scroller_focus_center: the curated `scrollerFocusCenter` knob (on by default).
-  optionsConfig = ''
-    focus_cross_monitor=1
-    scroller_focus_center=${if scrollerFocusCenter then "1" else "0"}'';
-
-  keybindsConfig = iteraLib.mango.renderKeybinds keybinds;
-  gesturesConfig = iteraLib.mango.renderGestures gestures;
-  mouseBindsConfig = iteraLib.mango.renderMouseBinds mousebinds;
-  monitorsConfig = iteraLib.mango.renderMonitorRules monitors;
-  xkbConfig = iteraLib.mango.renderXkb {
-    layout = xkb.layout or "";
-    variant = xkb.variant or "";
-    options = xkb.options or "";
+  configText = iteraLib.mango.renderConfig {
+    settings = cfg;
+    inherit look;
+    # Keyboard layout: driven by the system `itera.keyboard` battery
+    # (services.xserver.xkb), so the session's layout follows the console/greeter.
+    xkb = osConfig.services.xserver.xkb or { };
+    execOnce = lib.optionals cfg.autostart (
+      [ "${sessionSetup}" ]
+      # systemd-cat so the shell's output lands in the journal (`journalctl --user -t dms`).
+      ++ lib.optional (
+        !(osConfig.programs.dank-material-shell.systemd.enable or false)
+      ) "${pkgs.systemd}/bin/systemd-cat -t dms dms run"
+    );
+    cursor =
+      if cursorOn then
+        {
+          name = look.cursor.name.${look.startMode};
+          inherit (look.cursor) size;
+        }
+      else
+        null;
+    dmsFragments = osConfig.itera.desktop.dankMaterialShell.enable or false;
   };
-
-  # Tiling layout: the per-tag default (`tag_rule` lines), the `circle_layout`
-  # cycle list, the look's scroller cycle presets, and per-monitor scroller
-  # proportions by aspect class (docs/look.md#ultrawide). The class rules come
-  # after the per-tag defaults; mango applies every matching tag_rule in order.
-  layoutConfig = lib.concatStringsSep "\n" (
-    lib.filter (line: line != "") [
-      (iteraLib.mango.mkTagLayoutLines { inherit layout; })
-      (iteraLib.mango.mkCircleLayoutLine layoutCycle)
-      (iteraLib.mango.mkProportionPresetLine look.layout.presets)
-      (iteraLib.mango.mkAspectTagRules look.layout.proportions (iteraLib.mango.declaredOutputs monitors))
-    ]
-  );
-
-  # Order: autostart (exec_once) → monitors → cursor → DMS fragments → xkb → layout →
-  # options → keybinds → mousebinds → gestures → freeform extraConfig. Order
-  # matters twice: mango applies the FIRST matching monitor rule, so itera's
-  # rules precede DMS's outputs fragment; and later scalar lines win, so
-  # itera's xkb/options follow the DMS fragments and extraConfig comes last.
-  configText = lib.concatStringsSep "\n" (
-    lib.optional autostart autostartConfig
-    ++ lib.optional (monitorsConfig != "") monitorsConfig
-    ++ lib.optional (cursorConfig != "") cursorConfig
-    ++ lib.optional (dmsSourcesConfig != "") dmsSourcesConfig
-    ++ lib.optional (xkbConfig != "") xkbConfig
-    ++ lib.optional (layoutConfig != "") layoutConfig
-    ++ [ optionsConfig ]
-    ++ lib.optional (keybindsConfig != "") keybindsConfig
-    ++ lib.optional (mouseBindsConfig != "") mouseBindsConfig
-    ++ lib.optional (gesturesConfig != "") gesturesConfig
-    ++ lib.optional (extraConfig != "") extraConfig
-  );
 in
 {
   config = mkIf enable {

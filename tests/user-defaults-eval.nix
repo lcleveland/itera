@@ -214,47 +214,6 @@ let
     { itera.desktop.dankMaterialShell.greeter.wallpaper = "/etc/login-wallpaper.jpg"; }
   ]);
 
-  # Unit-check the keybind renderer directly via the flake's lib output.
-  renderedBind = self.lib.mango.renderKeybinds {
-    demo = {
-      modifierKeys = [
-        "SUPER"
-        "SHIFT"
-      ];
-      keySymbol = "q";
-      mangoCommand = "quit";
-      flagModifiers = [ "s" ];
-      description = "Exit mango";
-    };
-    noMods = {
-      keySymbol = "XF86AudioMute";
-      mangoCommand = "spawn_shell";
-      commandArguments = "true";
-      flagModifiers = [ "s" ];
-    };
-  };
-
-  # Unit-check the monitor renderer directly (plain attrs — no submodule name
-  # default, so `name` is given explicitly).
-  renderedMonitor = self.lib.mango.renderMonitorRules {
-    primary = {
-      name = "^eDP-1$";
-      width = 1920;
-      height = 1080;
-      refresh = 59.951;
-      scale = 1.5;
-      transform = "90";
-      vrr = true;
-      primary = true;
-      hdrMaxLum = 616;
-    };
-    off = {
-      name = "HDMI-2";
-      enable = false;
-      width = 9999;
-    };
-  };
-
   checks = {
     # ── itera.users account battery ──────────────────────────────────────
     "itera.users creates the account" = cfg.users.users.alice.isNormalUser;
@@ -483,35 +442,6 @@ let
     "per-user packages stay per user (bob)" =
       !(builtins.elem "hello" (map lib.getName cfg.users.users.bob.packages));
 
-    # ── monitor renderer unit ────────────────────────────────────────────
-    "monitor renderer: anchored name preserved" = lib.hasInfix "name:^eDP-1$" renderedMonitor;
-    "monitor renderer: float refresh stripped" = lib.hasInfix "refresh:59.951," renderedMonitor;
-    "monitor renderer: float scale stripped" = lib.hasInfix "scale:1.5," renderedMonitor;
-    "monitor renderer: transform maps to rr" = lib.hasInfix "rr:1" renderedMonitor;
-    "monitor renderer: bool renders as 1" = lib.hasInfix "vrr:1" renderedMonitor;
-    "monitor renderer: primary rendered" = lib.hasInfix "primary:1" renderedMonitor;
-    "monitor renderer: hdr luminance rendered" = lib.hasInfix "hdr_max_lum:616" renderedMonitor;
-    "monitor renderer: disabled emits disable:1" =
-      lib.hasInfix "monitor_rule=name:HDMI-2,disable:1" renderedMonitor;
-    "monitor renderer: disabled omits setting fields" = !(lib.hasInfix "width:9999" renderedMonitor);
-
-    # ── renderer unit ────────────────────────────────────────────────────
-    "renderer joins modifiers with +" = lib.hasInfix "binds=SUPER+SHIFT,q,quit," renderedBind;
-    "renderer empty modifiers → none" =
-      lib.hasInfix "binds=none,XF86AudioMute,spawn_shell,true" renderedBind;
-    # DMS's cheatsheet reads a bind's label only from the comment line above it.
-    "renderer puts the description on the line above the bind" =
-      lib.hasInfix "# Exit mango\nbinds=SUPER+SHIFT,q,quit," renderedBind;
-    # Layout renderers: per-tag tag_rule lines and the circle_layout line.
-    "tag-layout renderer emits per-tag rules" = lib.hasInfix "tag_rule=id:1,layout_name:tile" (
-      self.lib.mango.mkTagLayoutLines { layout = "tile"; }
-    );
-    "circle-layout renderer joins with comma" =
-      self.lib.mango.mkCircleLayoutLine [
-        "scroller"
-        "tile"
-      ] == "circle_layout=scroller,tile";
-    "circle-layout renderer empty → omitted" = self.lib.mango.mkCircleLayoutLine [ ] == "";
   };
 
 in

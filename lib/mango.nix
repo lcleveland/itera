@@ -1,8 +1,8 @@
-# mango (MangoWC) keybind helpers for itera.
+# mango (MangoWC) helpers for itera.
 #
-# Provides the shared keybind *type* and a renderer that turns a set of
-# structured keybind declarations into the `key=value` lines mango expects in
-# {file}`$XDG_CONFIG_HOME/mango/config.conf`.
+# Provides the shared bind and monitor *types* and `renderConfig`, which turns
+# resolved settings into the {file}`$XDG_CONFIG_HOME/mango/config.conf` text. The
+# line renderers below are private to it.
 #
 # The same `keybindType` is consumed by both levels of the curated mango options
 # — the system-wide default `itera.programs.mango.keybinds` and the per-user
@@ -591,30 +591,116 @@ let
   # The scroller widths `switch_proportion_preset` cycles through.
   mkProportionPresetLine =
     presets: "scroller_proportion_preset=${lib.concatMapStringsSep "," fmtNum presets}";
+  # The whole config.conf for a mango session or the greeter: the one place that
+  # knows mango's key names and section order. Every section is optional; one
+  # whose input is absent renders nothing (no `look` drops the layout presets and
+  # per-monitor proportions, a `settings` without `layout` drops the tag layouts).
+  #
+  #   settings     resolved mango settings (binds, monitors, layout, extraConfig, …)
+  #   look         resolved look (layout presets and proportions)
+  #   xkb          { layout variant options }
+  #   execOnce     commands, in order
+  #   cursor       { name size }; mango exports XCURSOR_* from it, so the session
+  #                has the cursor before DMS first writes dms/cursor.conf, which
+  #                is sourced after it and wins once it exists
+  #   dmsFragments source the fragments DankMaterialShell writes under mango/dms/
+  #
+  # Order: exec_once → monitors → cursor → DMS fragments → xkb → layout →
+  # options → keybinds → mousebinds → gestures → freeform extraConfig. Order
+  # matters twice: mango applies the FIRST matching monitor rule, so itera's
+  # rules precede DMS's outputs fragment; and later scalar lines win, so
+  # itera's xkb/layout/options follow the DMS fragments and extraConfig comes last.
+  renderConfig =
+    {
+      settings,
+      look ? null,
+      xkb,
+      execOnce ? [ ],
+      cursor ? null,
+      dmsFragments ? false,
+    }:
+    let
+      monitors = settings.monitors or { };
+
+      # DMS writes the look-and-feel it manages (theme colors, gaps, radius,
+      # cursor, touchpad/keyboard input, display layout, window rules) as
+      # fragments under mango/dms/. `source_optional` so a fresh account (before
+      # DMS first runs) and the build-time `mango -p` check, which has no such
+      # files, parse cleanly. `dms/binds.conf` is left out: DMS's binds would
+      # collide with itera's and trip mango's conflict check.
+      dmsSources = lib.concatMapStringsSep "\n" (f: "source_optional=./dms/${f}.conf") [
+        "colors"
+        "layout"
+        "cursor"
+        "input"
+        "outputs"
+        "windowrules"
+      ];
+
+      # Tiling layout: the per-tag default (`tag_rule` lines), the `circle_layout`
+      # cycle list, the look's scroller cycle presets, and per-monitor scroller
+      # proportions by aspect class (docs/look.md#ultrawide). The class rules come
+      # after the per-tag defaults; mango applies every matching tag_rule in order.
+      layoutLines =
+        lib.optional (settings ? layout) (mkTagLayoutLines {
+          inherit (settings) layout;
+        })
+        ++ [ (mkCircleLayoutLine (settings.layoutCycle or [ ])) ]
+        ++ lib.optionals (look != null) [
+          (mkProportionPresetLine look.layout.presets)
+          (mkAspectTagRules look.layout.proportions (declaredOutputs monitors))
+        ];
+
+      # itera's opinionated compositor options (mango defaults otherwise).
+      #
+      # focus_cross_monitor: directional focus (SUPER+h/j/k/l, 3-finger swipes) at
+      # the edge of a tag moves to the monitor that way instead of doing nothing. A
+      # same-monitor window always wins, so the scroller strip is walked end to end
+      # first; single-monitor machines are unaffected. Swaps stay per-monitor
+      # (that is `exchange_cross_monitor`, left off). `focus_cross_tag` stays off:
+      # in scroller most columns have nothing above/below, so j/k would switch tags.
+      # Override either in `extraConfig` (later lines win). The look's radius and
+      # gaps reach mango through DMS's layout.conf (docs/look.md#delivery-lanes).
+      #
+      # scroller_focus_center: the curated `scrollerFocusCenter` knob.
+      options = lib.optionalString (settings ? scrollerFocusCenter) ''
+        focus_cross_monitor=1
+        scroller_focus_center=${if settings.scrollerFocusCenter then "1" else "0"}'';
+    in
+    concatStringsSep "\n" (
+      lib.filter (section: section != "") [
+        (lib.concatMapStringsSep "\n" (c: "exec_once=${c}") execOnce)
+        (renderMonitorRules monitors)
+        (lib.optionalString (
+          cursor != null
+        ) "cursor_theme=${cursor.name}\ncursor_size=${toString cursor.size}")
+        (lib.optionalString dmsFragments dmsSources)
+        (renderXkb {
+          layout = xkb.layout or "";
+          variant = xkb.variant or "";
+          options = xkb.options or "";
+        })
+        (concatStringsSep "\n" (lib.filter (line: line != "") layoutLines))
+        options
+        (renderKeybinds (settings.keybinds or { }))
+        (renderMouseBinds (settings.mousebinds or { }))
+        (renderGestures (settings.gestures or { }))
+        (settings.extraConfig or "")
+      ]
+    );
 in
 {
   inherit
-    keybindType
-    mkBindLine
-    renderKeybinds
-    mouseBindType
-    mkMouseBindLine
-    renderMouseBinds
-    gestureType
-    mkGestureLine
-    renderGestures
-    renderXkb
-    supportedLayouts
-    mkTagLayoutLines
-    mkCircleLayoutLine
-    aspectClass
-    declaredOutputs
-    keyable
-    mkAspectTagRules
-    mkProportionPresetLine
-    monitorRuleType
-    mkMonitorRuleLine
-    renderMonitorRules
+    renderConfig
     validateConfig
+    keybindType
+    mouseBindType
+    gestureType
+    monitorRuleType
+    supportedLayouts
+    # The output helpers.
+    declaredOutputs
+    aspectClass
+    keyable
     ;
 }

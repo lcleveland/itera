@@ -137,15 +137,6 @@ let
     "keyboard defaults to us" = (mkConfig [ ]).services.xserver.xkb.layout == "us";
     "keyboard variant applied to xkb" = keyboard.services.xserver.xkb.variant == "colemak_dh";
     "keyboard drives the console layout" = keyboard.console.useXkbConfig;
-
-    # ── mango/greeter xkb renderer unit ────────────────────────────────────
-    "xkb renderer emits variant line" = lib.hasInfix "xkb_rules_variant=colemak_dh" (
-      self.lib.mango.renderXkb {
-        layout = "us";
-        variant = "colemak_dh";
-      }
-    );
-    "xkb renderer empty → omitted" = self.lib.mango.renderXkb { } == "";
   };
 in
 mkCheckDrv "itera-services-eval" checks

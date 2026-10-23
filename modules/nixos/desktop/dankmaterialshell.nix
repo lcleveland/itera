@@ -411,14 +411,10 @@ in
         # not apply here. `customConfig` (type lines) is passed to mango via `-C`;
         # empty when nothing is set, leaving mango to auto-configure exactly as before.
         compositor.customConfig = mkDefault (
-          lib.concatStringsSep "\n" (
-            lib.filter (line: line != "") [
-              (iteraLib.mango.renderMonitorRules config.itera.programs.mango.monitors)
-              (iteraLib.mango.renderXkb {
-                inherit (config.services.xserver.xkb) layout variant options;
-              })
-            ]
-          )
+          iteraLib.mango.renderConfig {
+            settings = { inherit (config.itera.programs.mango) monitors; };
+            xkb = config.services.xserver.xkb;
+          }
         );
         # Theme sync: greetd's preStart copies this user's DMS settings.json,
         # session.json (wallpapers) and dms-colors.json (dynamic theme) into
