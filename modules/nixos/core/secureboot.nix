@@ -18,9 +18,9 @@
 #   2. Enroll (setup mode):  sudo sbctl enroll-keys --microsoft
 #   3. Reboot, then verify with:  bootctl status  /  sbctl verify
 #
-# Under impermanence the key bundle lives on tmpfs unless persisted — see
-# `itera.impermanence`, which adds `pkiBundle` to the persisted set whenever this
-# battery is on, so the enrolled keys survive the ephemeral root.
+# Under impermanence the key bundle lives on tmpfs unless persisted, so this
+# battery adds `pkiBundle` to `itera.impermanence.directories` and the enrolled
+# keys survive the ephemeral root.
 {
   config,
   lib,
@@ -52,8 +52,8 @@ in
       default = "/var/lib/sbctl";
       description = ''
         Directory holding the Secure Boot signing keys (generated on first boot
-        by lanzaboote's `autoGenerateKeys`). Must survive reboots — {option}`itera.impermanence`
-        persists it automatically while this battery is enabled.
+        by lanzaboote's `autoGenerateKeys`). Must survive reboots, so it is added
+        to {option}`itera.impermanence.directories` while this battery is enabled.
       '';
     };
   };
@@ -72,6 +72,9 @@ in
     # lanzaboote replaces the bootloader, so the systemd-boot itera.boot installs
     # by default must be turned off. mkForce because itera.boot sets it too.
     boot.loader.systemd-boot.enable = mkForce false;
+
+    # This option chooses the path, so this module persists it.
+    itera.impermanence.directories = [ cfg.pkiBundle ];
 
     # sbctl manages the key bundle and verifies the signed files.
     environment.systemPackages = [ pkgs.sbctl ];

@@ -185,6 +185,17 @@ let
     });
   };
 
+  # Modules that choose a path persist it themselves (impermanence.nix header):
+  # a custom sops keyFile and the Secure Boot key bundle.
+  ownPaths = mkEval {
+    itera.sops = {
+      enable = true;
+      keyFile = "/var/lib/sops-nix/key.txt";
+    };
+    itera.secureBoot.enable = true;
+  };
+  ownPathsPersistence = ownPaths.environment.persistence."/persist";
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -231,6 +242,13 @@ let
     # Bluetooth is on by default (itera.enable), so BlueZ device pairings survive
     # the wiped root rather than needing a re-pair every boot.
     "bluetooth pairings are persisted" = builtins.elem "/var/lib/bluetooth" dirNames;
+
+    "custom sops keyFile is persisted" = builtins.elem "/var/lib/sops-nix/key.txt" (
+      map (f: f.file or f) ownPathsPersistence.files
+    );
+    "secureBoot pkiBundle is persisted" = builtins.elem "/var/lib/sbctl" (
+      map (d: d.directory or d) ownPathsPersistence.directories
+    );
 
     # power-profiles-daemon (on via the default DMS desktop) keeps the bar's
     # profile choice in its own state.ini; persist it with the daemon on only.

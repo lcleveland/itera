@@ -17,14 +17,24 @@
 # `Pictures`, plus `.steam` when Steam is on) is persisted by default so
 # desktop/login state survives the wiped root with no per-user wiring. This
 # reads the account set from `config.users.users` (filtered to normal users) —
-# the same cross-battery introspection the module already does for
-# secureBoot/flatpak/virtualisation — and merges those curated paths with any
+# the same cross-module introspection the module already does for upstream
+# services — and merges those curated paths with any
 # explicit `itera.impermanence.users.<name>` entries. Opt out via
 # `homes.enable`. `Downloads` is persisted so large downloads land on disk
 # instead of the size-capped tmpfs root, but its contents are emptied on every
 # boot by default (`homes.clearDownloadsOnBoot`) so downloads don't accumulate
 # across reboots; set that option to `false` to keep them. `Pictures` is
 # persisted on the same disk-vs-tmpfs reasoning but is never auto-cleared.
+#
+# Who persists what: a module persists a path when one of its own itera options
+# chooses that path's value (sops `keyFile`, secureBoot `pkiBundle`, the facter
+# report directory). It adds the path to `itera.impermanence.{directories,files}`,
+# never to raw `environment.persistence`, and so inherits this module's gate.
+# Everything else stays here: the curated base set, homes, machine-id and shadow,
+# and every fixed upstream path, gated on its upstream switch (`services.X.enable`)
+# so a host that sets only the upstream option is covered too. Rejected: "whoever
+# enables it persists it". It fails for power-profiles-daemon, which itera never
+# enables, and this list is the single place to audit what survives a wipe.
 #
 # Opt-OUT: on automatically with `itera.enable`, gated on
 # `itera.enable && cfg.enable`. Enabling it puts `/` on tmpfs (wiped every boot),
@@ -85,19 +95,10 @@ let
   # ownership/mode, for both the system- and per-user scopes.
   entryType = listOf (either str attrs);
 
-  # A dedicated age key file for the sops battery, when it uses one instead of
-  # the default host SSH key (already covered by curatedFiles above). It lives
-  # outside the Nix store by construction, so on a tmpfs root it would be gone
-  # after a reboot and nothing would decrypt. Gated on the battery being on and
-  # actually pointing at a key file.
-  sopsKeyFiles = lib.optional (
-    config.itera.sops.enable && config.itera.sops.keyFile != null
-  ) config.itera.sops.keyFile;
-
   # The effective set of persisted files (curated defaults + consumer additions),
   # used to decide whether /etc/machine-id is being persisted (see the
   # systemd-machine-id-commit handling in the config body).
-  persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ sopsKeyFiles ++ cfg.files;
+  persistedFiles = (lib.optionals cfg.defaults.enable curatedFiles) ++ cfg.files;
   machineIdPersisted = builtins.elem "/etc/machine-id" (map (f: f.file or f) persistedFiles);
 
   # Curated per-user home persistence: apply `cfg.homes.{directories,files}` to
@@ -341,10 +342,7 @@ in
       hideMounts = mkDefault true;
       directories =
         (lib.optionals cfg.defaults.enable curatedDirectories)
-        # Persist state owned by other itera batteries when they are on, so their
-        # data survives the wiped root: Secure Boot signing keys, Flatpak installs,
-        # and libvirt VM domains/pools/nvram.
-        ++ lib.optional config.itera.secureBoot.enable config.itera.secureBoot.pkiBundle
+        # Flatpak installs and libvirt VM domains/pools/nvram.
         ++ lib.optional config.itera.desktop.flatpak.enable "/var/lib/flatpak"
         ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
         # BlueZ stores device pairings under /var/lib/bluetooth; without this every

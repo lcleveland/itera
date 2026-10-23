@@ -12,8 +12,8 @@
 #     `itera.impermanence` already persists (see `curatedFiles`), so secrets
 #     survive the ephemeral root with zero extra wiring.
 #   - decryption lands on tmpfs (`/run/secrets`), matching the hardening posture.
-#   - a custom `keyFile` is added to the persisted set by `itera.impermanence`,
-#     so pointing this at your own age key does not silently break on reboot.
+#   - a custom `keyFile` is added to `itera.impermanence.files` here, so
+#     pointing this at your own age key does not silently break on reboot.
 #
 # Opt-IN (default OFF), and INERT even when on until a secret is declared:
 # agenix stays itera's default engine, so nothing here activates until you ask
@@ -108,9 +108,8 @@ in
       example = "/var/lib/sops-nix/key.txt";
       description = ''
         A dedicated age key file to decrypt with, as an alternative (or in
-        addition) to {option}`itera.sops.sshKeyPaths`. When set,
-        {option}`itera.impermanence` persists this file so it survives the
-        ephemeral root. Must NOT live in the Nix store — that would make the
+        addition) to {option}`itera.sops.sshKeyPaths`. When set, it is added to
+        {option}`itera.impermanence.files` so it survives the ephemeral root. Must NOT live in the Nix store — that would make the
         decryption key world-readable.
       '';
     };
@@ -174,6 +173,9 @@ in
 
       inherit (cfg) secrets;
     };
+
+    # This option chooses the path, so this module persists it.
+    itera.impermanence.files = lib.optional (cfg.keyFile != null) cfg.keyFile;
 
     # The sops CLI (create/edit/rekey the encrypted files) plus ssh-to-age, which
     # converts an SSH host key into the age recipient `.sops.yaml` needs — the
