@@ -45,7 +45,12 @@ in
       description = "udiskie removable-storage automounter";
       wantedBy = [ "mango-session.target" ];
       partOf = [ "mango-session.target" ];
-      after = [ "dms.service" ];
+      # Ordering against the target suppresses its implicit After= on this unit,
+      # which would otherwise cycle through dms (itself After= the target).
+      after = [
+        "mango-session.target"
+        "dms.service"
+      ];
       serviceConfig = {
         # --appindicator: without WAYLAND_DISPLAY in the unit's environment udiskie
         # silently falls back to a GTK tray icon that DMS doesn't show.

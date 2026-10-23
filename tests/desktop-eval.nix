@@ -344,7 +344,11 @@ let
       in
       u.wantedBy == [ "mango-session.target" ]
       && u.partOf == [ "mango-session.target" ]
-      && u.after == [ "dms.service" ]
+      &&
+        u.after == [
+          "mango-session.target"
+          "dms.service"
+        ]
       && lib.hasInfix " --appindicator " (udiskieExec cfg);
     "mango config.conf has no udiskie line" = !(lib.any (l: lib.hasInfix "udiskie" l.value) mangoConf);
 
