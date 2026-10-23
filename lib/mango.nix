@@ -553,6 +553,12 @@ let
       // lib.optionalAttrs sized { inherit width height; }
     ) (lib.filter (m: m.enable or true) (lib.attrValues monitors));
 
+  # A declared output DMS can match this screen by: it has a `screen` and a size.
+  # No partition of declaredOutputs on purpose: tag_rules need only `class`,
+  # wallpapers filter per output and bars are all-or-nothing (see the carol and
+  # dave cases in tests/look-ultrawide-eval.nix).
+  keyable = o: o.screen != null && o.class != null;
+
   # This user's monitors: the system set, with per-user entries of the same
   # key replacing it wholesale.
   userMonitors =
@@ -610,6 +616,7 @@ in
     mkCircleLayoutLine
     aspectClass
     declaredOutputs
+    keyable
     userMonitors
     mkAspectTagRules
     mkProportionPresetLine

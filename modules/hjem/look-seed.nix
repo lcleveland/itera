@@ -79,7 +79,7 @@ let
   # Wallpapers (docs/look.md#ultrawide): each declared output's variant at its
   # size after rotation, keyed by connector or model, and the 16:9 variant for
   # every other output. Per mode, so DMS swaps them with the mode.
-  outputs = lib.filter (o: o.screen != null && o.class != null) (
+  outputs = lib.filter iteraLib.mango.keyable (
     iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name)
   );
   png =

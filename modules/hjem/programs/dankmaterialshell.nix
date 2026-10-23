@@ -151,8 +151,7 @@ let
   };
   outputs = iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name);
   perOutputWanted = look.layout.bar.perOutput;
-  perOutput =
-    perOutputWanted && outputs != [ ] && lib.all (o: o.screen != null && o.class != null) outputs;
+  perOutput = perOutputWanted && outputs != [ ] && lib.all iteraLib.mango.keyable outputs;
   globalBars = map (b: barLength look.layout.bar.length // barWithLogo b) settings.barConfigs;
   outputBars = map (
     o:

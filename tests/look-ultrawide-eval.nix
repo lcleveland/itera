@@ -172,7 +172,9 @@ let
     "a size-less monitor falls back with a warning" =
       warned "carol" cfg.warnings && (builtins.head (bars "carol")).screenPreferences == [ "all" ];
     "a regex-named monitor falls back with a warning" =
-      warned "dave" cfg.warnings && lib.length (bars "dave") == 1;
+      warned "dave" cfg.warnings
+      && lib.length (bars "dave") == 1
+      && (builtins.head (bars "dave")).screenPreferences == [ "all" ];
 
     "a regex-named monitor with a model gets a bar keyed by model" =
       !warned "hank" cfg.warnings
