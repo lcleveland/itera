@@ -51,11 +51,11 @@ The value a curated program's setting takes for every user who doesn't override 
 _Avoid_: global setting, base config
 
 **Per-user override**:
-One user's own value for a curated program's setting. It wins over the system default key by key; an override left unset inherits the system default.
+One user's own value for a curated program's setting. It wins over the system default, and an override left unset inherits the system default. Some settings, such as keybinds, combine with the system default entry by entry instead of replacing it.
 _Avoid_: user config, user setting
 
 **Plain user**:
-A user declared without an itera user entry. A plain user has no per-user overrides, so every setting is its system default.
+A user declared without an itera user entry. A plain user has no per-user overrides, so every setting is its system default. A setting that has no system level takes its default.
 _Avoid_: non-itera user, unmanaged user
 
 **Resolved settings**:
