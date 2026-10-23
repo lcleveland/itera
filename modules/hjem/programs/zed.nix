@@ -22,6 +22,7 @@
   pkgs,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -31,11 +32,9 @@ let
 
   enable = osConfig.itera.desktop.editor.enable or false;
 
-  sys = osConfig.itera.programs.zed or { };
-  usr = osConfig.itera.users.${name}.programs.zed or { };
+  cfg = programs.zed.resolve osConfig name;
 
-  # Merge the raw settings and the dedicated agent options (system // per-user,
-  # shallow per key), then splice the agent options into their settings.json keys
+  # Layer the resolved settings over the look's defaults, then splice the agent options into their settings.json keys
   # (`agent` / `agent_servers`). `optionalAttrs` keeps empty options from writing
   # an empty `{}` into the file.
   # The look's fonts are defaults; `settings` wins. Zed sizes are pixels, the
@@ -48,10 +47,8 @@ let
     ui_font_family = look.fonts.sans;
     ui_font_size = px look.fonts.size.sans;
   }
-  // (sys.settings or { })
-  // (usr.settings or { });
-  agent = (sys.agent or { }) // (usr.agent or { });
-  agentServers = (sys.agentServers or { }) // (usr.agentServers or { });
+  // cfg.settings;
+  inherit (cfg) agent agentServers;
   finalSettings =
     baseSettings
     // (lib.optionalAttrs (agent != { }) { inherit agent; })
@@ -60,7 +57,7 @@ let
   # Concrete bool (never null): a per-user opt-out lets Zed's GUI own the file
   # after first write (see the registration's `clobber` doc). Mirrors the DMS
   # battery.
-  clobber = usr.clobber or true;
+  inherit (cfg) clobber;
 
   # Zed's theme stays the DMS one while DMS is on (docs/look.md#verification):
   # any theme but DMS's DankShell pair would ignore the look.

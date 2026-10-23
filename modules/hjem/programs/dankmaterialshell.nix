@@ -38,6 +38,7 @@
   iteraLib,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -45,10 +46,9 @@ let
 
   enable = osConfig.itera.desktop.dankMaterialShell.enable or false;
 
-  # System-wide defaults (itera.programs.dankMaterialShell) and this user's
-  # overrides. A plain (non-`itera.users`) user has no overrides, so inherits.
-  sys = osConfig.itera.programs.dankMaterialShell or { };
-  usr = osConfig.itera.users.${name}.programs.dankMaterialShell or { };
+  # System-wide defaults (itera.programs.dankMaterialShell) merged with this
+  # user's overrides. A plain (non-`itera.users`) user resolves to the defaults.
+  cfg = programs.dankMaterialShell.resolve osConfig name;
 
   # The DMS lane's source: this user's look as a DMS custom theme, both modes,
   # through the DMS mapping in docs/look.md#palette-tide. DMS picks the mode.
@@ -117,8 +117,7 @@ let
         inherit (look.cursor) size;
       };
     }
-    // (sys.settings or { })
-    // (usr.settings or { });
+    // cfg.settings;
   # DMS's notificationPopupPosition values (its NotificationsTab), by token.
   notificationPositions = {
     top-right = 0;
@@ -172,7 +171,7 @@ let
 
   # Plugins: per-name merge (a per-user entry of the same name replaces the system
   # one wholesale), same model as settings and mango's monitors/gestures.
-  finalPlugins = (sys.plugins or { }) // (usr.plugins or { });
+  finalPlugins = cfg.plugins;
   enabledPlugins = lib.filterAttrs (_: p: p.enable) finalPlugins;
 
   # Derived plugin_settings.json entries: `{ enabled = <enable>; } // settings`.
@@ -181,11 +180,10 @@ let
   # than silently dropping the key. The raw `pluginSettings` escape hatch comes
   # first so structured `plugins` entries win per key.
   derivedPluginSettings = lib.mapAttrs (_: p: { enabled = p.enable; } // p.settings) finalPlugins;
-  finalPluginSettings =
-    (sys.pluginSettings or { }) // (usr.pluginSettings or { }) // derivedPluginSettings;
+  finalPluginSettings = cfg.pluginSettings // derivedPluginSettings;
 
   # Concrete bool (never null): a null would strand the symlink on a stale store path.
-  clobber = usr.clobber or true;
+  inherit (cfg) clobber;
 in
 {
   config = mkIf enable {

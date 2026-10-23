@@ -38,6 +38,7 @@
   pkgs,
   iteraLib,
   iteraInputs,
+  programs,
   ...
 }:
 let
@@ -64,11 +65,8 @@ let
     )
   );
 
-  # itera's DMS settings for one user, merged exactly as the hjem renderer does.
-  userSettings =
-    name:
-    (config.itera.programs.dankMaterialShell.settings or { })
-    // (config.itera.users.${name}.programs.dankMaterialShell.settings or { });
+  # itera's DMS settings for one user, resolved as the hjem renderer does.
+  userSettings = name: (programs.dankMaterialShell.resolve config name).settings;
 
   # What the greeter is seeded with (docs/look.md#greeter): with no sync user,
   # SYSTEM tokens (palette, the greeter image, and the start mode, so auto

@@ -22,6 +22,7 @@
   iteraLib,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -29,8 +30,7 @@ let
 
   enable = osConfig.itera.desktop.terminal.enable or false;
 
-  sys = osConfig.itera.programs.wezterm or { };
-  usr = osConfig.itera.users.${name}.programs.wezterm or { };
+  cfg = programs.wezterm.resolve osConfig name;
 
   # The look's mono font, size and opacity are defaults; `settings` (including
   # `font`, a family name) wins.
@@ -39,10 +39,8 @@ let
     font_size = look.fonts.size.mono;
     window_background_opacity = look.opacity;
   }
-  // (sys.settings or { })
-  // (usr.settings or { });
-  # scalar overrides: per-user value wins when set (non-null), else system.
-  extraLua = if (usr.extraLua or null) != null then usr.extraLua else (sys.extraLua or "");
+  // cfg.settings;
+  inherit (cfg) extraLua;
 
   # Render a Nix value as a Lua literal. Handles the scalar/list/shallow-table
   # shapes WezTerm config keys use; anything else is a config error.
