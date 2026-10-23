@@ -147,7 +147,7 @@ let
     ultrawide = "full";
     superUltrawide = 60;
   };
-  outputs = iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name);
+  outputs = iteraLib.mango.declaredOutputs (programs.mango.resolve osConfig name).monitors;
   perOutputWanted = look.layout.bar.perOutput;
   perOutput = perOutputWanted && outputs != [ ] && lib.all iteraLib.mango.keyable outputs;
   globalBars = map (b: barLength look.layout.bar.length // barWithLogo b) settings.barConfigs;

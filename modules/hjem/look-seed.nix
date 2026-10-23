@@ -19,6 +19,7 @@
   iteraLib,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -80,7 +81,7 @@ let
   # size after rotation, keyed by connector or model, and the 16:9 variant for
   # every other output. Per mode, so DMS swaps them with the mode.
   outputs = lib.filter iteraLib.mango.keyable (
-    iteraLib.mango.declaredOutputs (iteraLib.mango.userMonitors osConfig name)
+    iteraLib.mango.declaredOutputs (programs.mango.resolve osConfig name).monitors
   );
   png =
     mode: w: h:

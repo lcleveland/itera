@@ -559,13 +559,6 @@ let
   # dave cases in tests/look-ultrawide-eval.nix).
   keyable = o: o.screen != null && o.class != null;
 
-  # This user's monitors: the system set, with per-user entries of the same
-  # key replacing it wholesale.
-  userMonitors =
-    osConfig: name:
-    (osConfig.itera.programs.mango.monitors or { })
-    // (osConfig.itera.users.${name}.programs.mango.monitors or { });
-
   # Per-monitor scroller proportions by aspect class: one `tag_rule` for every
   # tag of each sized output, matched on its `name` regex (and make, model,
   # serial). `proportions.<class>` is `{ new; single; }`.
@@ -617,7 +610,6 @@ in
     aspectClass
     declaredOutputs
     keyable
-    userMonitors
     mkAspectTagRules
     mkProportionPresetLine
     monitorRuleType

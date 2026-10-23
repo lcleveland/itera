@@ -6,8 +6,9 @@
 #
 # The assembled default keybind set lives here (it is a function of the
 # host-level spawn commands in `itera.desktop.mango.commands` and whether DMS is
-# installed). The hjem battery `modules/hjem/programs/mango.nix` reads the merged
-# result via `osConfig` and renders it into `~/.config/mango/config.conf`.
+# installed), and so does the bind merge (the `merge` hooks below). The hjem
+# battery `modules/hjem/programs/mango.nix` reads the resolved settings through
+# `resolve` and renders them into `~/.config/mango/config.conf`.
 #
 # See lib/programs.nix for the framework. This file is NOT a NixOS module — it is
 # a registration record consumed by `modules/programs/default.nix`.
@@ -23,6 +24,29 @@ let
     lines
     ;
   inherit (iteraLib.mango) monitorRuleType;
+
+  # Binds: system defaults (unless the user opted out with the `knob`'s
+  # `.enable`) merged with per-user binds. A per-user bind replaces a default of
+  # the same NAME or on the same TRIGGER (modifiers + `triggerOf`) — without the
+  # latter, a user bind on a key a default already holds would render both and
+  # fail mango's conflict check. Modifier order and case don't matter to mango,
+  # so they're normalised here.
+  mergeBinds =
+    triggerOf: knob:
+    {
+      system,
+      user,
+      knobs,
+    }:
+    let
+      mods = b: lib.sort lib.lessThan (map lib.toUpper (b.modifierKeys or [ ]));
+      trigger = b: lib.concatStringsSep "," ([ (lib.concatStringsSep "+" (mods b)) ] ++ triggerOf b);
+      userTriggers = lib.mapAttrsToList (_: trigger) user;
+    in
+    lib.filterAttrs (_: b: !(builtins.elem (trigger b) userTriggers)) (
+      lib.optionalAttrs knobs.${knob}.enable system
+    )
+    // user;
 in
 iteraLib.programs.mkCuratedProgram {
   name = "mango";
@@ -31,6 +55,7 @@ iteraLib.programs.mkCuratedProgram {
     keybinds = {
       type = attrsOf iteraLib.mango.keybindType;
       attrs = true;
+      merge = mergeBinds (b: [ (lib.toLower b.keySymbol) ]) "defaultKeybinds";
       description = ''
         MangoWC keybinds, name-keyed. At the system-wide level
         ({option}`itera.programs.mango.keybinds`) this is itera's curated default
@@ -54,6 +79,7 @@ iteraLib.programs.mkCuratedProgram {
     mousebinds = {
       type = attrsOf iteraLib.mango.mouseBindType;
       attrs = true;
+      merge = mergeBinds (m: [ m.button ]) "defaultMousebinds";
       description = ''
         MangoWC mouse button binds, name-keyed, rendered as `mousebind=` lines.
         Merges like `gestures`: the system-wide level
@@ -76,6 +102,10 @@ iteraLib.programs.mkCuratedProgram {
     gestures = {
       type = attrsOf iteraLib.mango.gestureType;
       attrs = true;
+      merge = mergeBinds (g: [
+        g.direction
+        (toString g.fingerCount)
+      ]) "defaultGestures";
       description = ''
         MangoWC touchpad gestures, name-keyed, rendered as `gesturebind=` lines.
         Merges like `keybinds`: the system-wide level
@@ -178,8 +208,8 @@ iteraLib.programs.mkCuratedProgram {
     };
   };
 
-  # Per-user-only knobs (no system-wide counterpart); the renderer reads them off
-  # the per-user value with sensible fallbacks for plain (non-`itera.users`) users.
+  # Per-user-only knobs (no system-wide counterpart); `resolve` gives plain
+  # (non-`itera.users`) users their defaults.
   userExtra = {
     autostart = mkOption {
       type = bool;

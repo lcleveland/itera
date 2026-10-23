@@ -4,7 +4,7 @@
 # its session; the curated-program registration `modules/programs/mango.nix`
 # declares the tunable options (system-wide `itera.programs.mango.*` + per-user
 # `itera.users.<name>.programs.mango.*`). THIS battery is the renderer: it reads
-# the merged result out of `osConfig` and writes the per-user
+# the resolved settings through the registration's `resolve` and writes the per-user
 # {file}`$XDG_CONFIG_HOME/mango/config.conf` — most importantly the autostart lines
 # that launch DankMaterialShell inside the session.
 #
@@ -30,6 +30,7 @@
   iteraLib,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -37,67 +38,21 @@ let
 
   enable = osConfig.itera.desktop.mango.enable or false;
 
-  # System-wide defaults (itera.programs.mango) and this user's overrides
-  # (itera.users.<name>.programs.mango). A user declared the plain NixOS way has
-  # no `itera.users.<name>` entry, so `usr` is empty and the system defaults apply.
-  sys = osConfig.itera.programs.mango or { };
-  usr = osConfig.itera.users.${name}.programs.mango or { };
-
-  # scalar/list overrides: per-user value wins when set (non-null), else system.
-  layout = if (usr.layout or null) != null then usr.layout else (sys.layout or "scroller");
-  layoutCycle =
-    if (usr.layoutCycle or null) != null then usr.layoutCycle else (sys.layoutCycle or [ ]);
-  scrollerFocusCenter =
-    if (usr.scrollerFocusCenter or null) != null then
-      usr.scrollerFocusCenter
-    else
-      (sys.scrollerFocusCenter or true);
-
-  # per-user-only knobs (fall back to the schema defaults for plain users).
-  autostart = usr.autostart or true;
-  extraConfig = usr.extraConfig or "";
-  useDefaultKeybinds = usr.defaultKeybinds.enable or true;
-  useDefaultMousebinds = usr.defaultMousebinds.enable or true;
-  useDefaultGestures = usr.defaultGestures.enable or true;
-
-  # Binds: system defaults (unless the user opted out) merged with per-user
-  # binds. A per-user bind replaces a default of the same NAME or on the same
-  # TRIGGER (modifiers + `triggerOf`) — without the latter, a user bind on a key a default
-  # already holds would render both and fail mango's conflict check. Modifier
-  # order and case don't matter to mango, so they're normalised here.
-  mergeBinds =
-    triggerOf: useDefaults: system: user:
-    let
-      mods = b: lib.sort lib.lessThan (map lib.toUpper (b.modifierKeys or [ ]));
-      trigger = b: lib.concatStringsSep "," ([ (lib.concatStringsSep "+" (mods b)) ] ++ triggerOf b);
-      userTriggers = lib.mapAttrsToList (_: trigger) user;
-    in
-    lib.filterAttrs (_: b: !(builtins.elem (trigger b) userTriggers)) (
-      lib.optionalAttrs useDefaults system
-    )
-    // user;
-
-  # What identifies each bind kind's trigger, besides its modifiers.
-  keyTrigger = b: [ (lib.toLower b.keySymbol) ];
-  gestureTrigger = g: [
-    g.direction
-    (toString (g.fingerCount or 3))
-  ];
-  mouseTrigger = m: [ m.button ];
-
-  effectiveKeybinds = mergeBinds keyTrigger useDefaultKeybinds (sys.keybinds or { }) (
-    usr.keybinds or { }
-  );
-
-  # monitors: system-wide output rules merged with this user's. A per-user
-  # monitor of the same key replaces the system entry wholesale; new keys add.
-  monitors = iteraLib.mango.userMonitors osConfig name;
-
-  # gestures / mouse binds: same merge model as keybinds.
-  gestures = mergeBinds gestureTrigger useDefaultGestures (sys.gestures or { }) (usr.gestures or { });
-  mousebinds = mergeBinds mouseTrigger useDefaultMousebinds (sys.mousebinds or { }) (
-    usr.mousebinds or { }
-  );
+  # System-wide defaults (itera.programs.mango) merged with this user's
+  # overrides, binds through the registration's merge hooks. A plain user (no
+  # `itera.users.<name>` entry) resolves to the defaults.
+  cfg = programs.mango.resolve osConfig name;
+  inherit (cfg)
+    layout
+    layoutCycle
+    scrollerFocusCenter
+    autostart
+    extraConfig
+    keybinds
+    mousebinds
+    gestures
+    monitors
+    ;
 
   # Keyboard layout: driven by the system `itera.keyboard` battery
   # (services.xserver.xkb). Emitting the `xkb_rules_*` lines here keeps the mango
@@ -185,7 +140,7 @@ let
     focus_cross_monitor=1
     scroller_focus_center=${if scrollerFocusCenter then "1" else "0"}'';
 
-  keybindsConfig = iteraLib.mango.renderKeybinds effectiveKeybinds;
+  keybindsConfig = iteraLib.mango.renderKeybinds keybinds;
   gesturesConfig = iteraLib.mango.renderGestures gestures;
   mouseBindsConfig = iteraLib.mango.renderMouseBinds mousebinds;
   monitorsConfig = iteraLib.mango.renderMonitorRules monitors;
