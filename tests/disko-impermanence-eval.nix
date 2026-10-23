@@ -196,6 +196,12 @@ let
   };
   ownPathsPersistence = ownPaths.environment.persistence."/persist";
 
+  # Fixed upstream paths follow the upstream switch, not the itera battery.
+  bareFlatpak = mkEval {
+    itera.desktop.flatpak.enable = false;
+    services.flatpak.enable = true;
+  };
+
   # dev tooling battery (itera.dev) is on by default; a second eval with it off to
   # assert it's gated.
   devOff = mkEval { itera.dev.enable = false; };
@@ -248,6 +254,10 @@ let
     );
     "secureBoot pkiBundle is persisted" = builtins.elem "/var/lib/sbctl" (
       map (d: d.directory or d) ownPathsPersistence.directories
+    );
+
+    "bare services.flatpak persists /var/lib/flatpak" = builtins.elem "/var/lib/flatpak" (
+      map (d: d.directory or d) bareFlatpak.environment.persistence."/persist".directories
     );
 
     # power-profiles-daemon (on via the default DMS desktop) keeps the bar's

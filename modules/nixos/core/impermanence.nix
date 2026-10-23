@@ -343,8 +343,8 @@ in
       directories =
         (lib.optionals cfg.defaults.enable curatedDirectories)
         # Flatpak installs and libvirt VM domains/pools/nvram.
-        ++ lib.optional config.itera.desktop.flatpak.enable "/var/lib/flatpak"
-        ++ lib.optional config.itera.virtualisation.enable "/var/lib/libvirt"
+        ++ lib.optional config.services.flatpak.enable "/var/lib/flatpak"
+        ++ lib.optional config.virtualisation.libvirtd.enable "/var/lib/libvirt"
         # BlueZ stores device pairings under /var/lib/bluetooth; without this every
         # paired device (keyboard, headphones, …) must be re-paired after each boot.
         # Gated on the switch that actually creates the dir.
@@ -362,6 +362,11 @@ in
         # the upstream greeter option, which is exactly what creates the dir (via
         # its own tmpfiles rule) and sets its greeter:greeter ownership.
         ++ lib.optional config.programs.dms-greeter.enable "/var/lib/dms-greeter"
+        # cupsd keeps printers.conf and PPDs here (/etc/cups points into it), so
+        # printers added at runtime would vanish every boot.
+        ++ lib.optional config.services.printing.enable "/var/lib/cups"
+        # fwupd's pending-update and history records.
+        ++ lib.optional config.services.fwupd.enable "/var/lib/fwupd"
         # ollama's model store and open-webui's DB/settings/users live under each
         # service's systemd StateDirectory. Both run as DynamicUser services, so the
         # real data sits at /var/lib/private/<name> (systemd recreates the
@@ -370,11 +375,6 @@ in
         # the wiped root instead of filling tmpfs and vanishing every boot. Gated on
         # the upstream service switch — what actually creates the dir — so it covers
         # both the itera.ai battery and a bare services.<name>.enable.
-        # cupsd keeps printers.conf and PPDs here (/etc/cups points into it), so
-        # printers added at runtime would vanish every boot.
-        ++ lib.optional config.services.printing.enable "/var/lib/cups"
-        # fwupd's pending-update and history records.
-        ++ lib.optional config.services.fwupd.enable "/var/lib/fwupd"
         ++ lib.optional config.services.ollama.enable "/var/lib/private/ollama"
         ++ lib.optional config.services.open-webui.enable "/var/lib/private/open-webui"
         ++ cfg.directories;
