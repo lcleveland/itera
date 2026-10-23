@@ -24,6 +24,7 @@ let
     })
     mkConfig
     mkCheckDrv
+    userFile
     ;
   inherit ((import ../lib { inherit lib; })) mango;
 
@@ -101,14 +102,8 @@ let
   ];
   cfgPlain = mkConfig [ (user "erin" { }) ];
 
-  files = c: name: c.hjem.users.${name}.xdg.config.files;
-  mangoConf = name: builtins.readFile (files cfg name)."mango/config.conf".source;
-  # The drop-in refers to store paths, which fromJSON refuses.
-  dms =
-    name:
-    builtins.fromJSON (
-      builtins.unsafeDiscardStringContext (files cfg name)."DankMaterialShell/config.d/00-itera.json".text
-    );
+  mangoConf = name: userFile cfg name "mango/config.conf";
+  dms = name: builtins.fromJSON (userFile cfg name "DankMaterialShell/config.d/00-itera.json");
   bars = name: (dms name).barConfigs;
   seed = c: name: c.hjem.users.${name}.itera.sessionSeed;
   bob = seed cfg "bob";

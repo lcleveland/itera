@@ -22,6 +22,7 @@ let
     })
     mkConfig
     mkCheckDrv
+    userFile
     ;
   inherit ((import ../lib { inherit lib; })) look;
 
@@ -78,18 +79,15 @@ let
   ];
 
   files = c: user: c.hjem.users.${user}.xdg.config.files;
-  theme = user: builtins.fromJSON (files cfg user)."DankMaterialShell/itera-theme.json".text;
+  theme = user: builtins.fromJSON (userFile cfg user "DankMaterialShell/itera-theme.json");
   dmsSettings =
-    user:
-    builtins.fromJSON (
-      builtins.unsafeDiscardStringContext (files cfg user)."DankMaterialShell/config.d/00-itera.json".text
-    );
+    user: builtins.fromJSON (userFile cfg user "DankMaterialShell/config.d/00-itera.json");
   homeFiles = user: cfg.hjem.users.${user}.files;
   # The user's look database: the first (highest-priority) one after user-db.
   dconfDb = user: (builtins.head cfg.programs.dconf.profiles."itera-${user}".databases).settings;
 
-  wezterm = user: (files cfg user)."wezterm/wezterm.lua".text;
-  zed = user: builtins.fromJSON (builtins.readFile (files cfg user)."zed/settings.json".source);
+  wezterm = user: userFile cfg user "wezterm/wezterm.lua";
+  zed = user: builtins.fromJSON (userFile cfg user "zed/settings.json");
   # The pinned DMS's own mango layout defaults, which radius and gaps mirror.
   dmsLayout = builtins.readFile "${self.inputs.dms}/core/internal/config/embedded/mango-layout.conf";
 in
@@ -173,10 +171,7 @@ mkCheckDrv "itera-look-eval" {
     && (dmsSettings "bob").iconThemeLight == "Papirus-Light";
   "the old iconTheme.name sets both modes" =
     let
-      s = builtins.fromJSON (
-        builtins.unsafeDiscardStringContext
-          (files cfgOldIcons "bob")."DankMaterialShell/config.d/00-itera.json".text
-      );
+      s = builtins.fromJSON (userFile cfgOldIcons "bob" "DankMaterialShell/config.d/00-itera.json");
     in
     s.iconThemeDark == "Adwaita" && s.iconThemeLight == "Adwaita";
   "the old icon options warn" =
@@ -196,11 +191,12 @@ mkCheckDrv "itera-look-eval" {
     lib.hasInfix "Xcursor.theme: Bibata-Modern-Amber" (homeFiles "alice").".Xresources".text
     && lib.hasInfix "Xcursor.size: 32" (homeFiles "alice").".Xresources".text;
   "a per-user cursor reaches the session environment" =
-    lib.hasInfix "XCURSOR_THEME=Bibata-Modern-Amber"
-      (files cfg "alice")."environment.d/60-itera-look.conf".text
-    &&
-      lib.hasInfix "QS_ICON_THEME=Papirus-Dark"
-        (files cfg "alice")."environment.d/60-itera-look.conf".text;
+    lib.hasInfix "XCURSOR_THEME=Bibata-Modern-Amber" (
+      userFile cfg "alice" "environment.d/60-itera-look.conf"
+    )
+    && lib.hasInfix "QS_ICON_THEME=Papirus-Dark" (
+      userFile cfg "alice" "environment.d/60-itera-look.conf"
+    );
   "a per-user cursor reaches that user's dconf" =
     (dconfDb "alice")."org/gnome/desktop/interface".cursor-theme == "Bibata-Modern-Amber"
     && (dconfDb "alice")."org/gnome/desktop/interface".cursor-size.value == 32
@@ -208,14 +204,11 @@ mkCheckDrv "itera-look-eval" {
     && builtins.any (lib.hasInfix "%t/dconf/profile") cfg.systemd.user.tmpfiles.users.alice.rules;
   "a per-user cursor reaches mango before DMS writes its own" =
     lib.hasInfix "cursor_theme=Bibata-Modern-Amber\ncursor_size=32\nsource_optional=./dms/colors.conf"
-      (builtins.readFile (files cfg "alice")."mango/config.conf".source);
+      (userFile cfg "alice" "mango/config.conf");
   "Xresources is a writable copy DMS can update" = (homeFiles "alice").".Xresources".type == "copy";
   "DMS gets no icon or cursor keys without their batteries" =
     let
-      s = builtins.fromJSON (
-        builtins.unsafeDiscardStringContext
-          (files cfgNoIconsCursor "bob")."DankMaterialShell/config.d/00-itera.json".text
-      );
+      s = builtins.fromJSON (userFile cfgNoIconsCursor "bob" "DankMaterialShell/config.d/00-itera.json");
     in
     !(s ? cursorSettings) && !(s ? iconThemeDark);
   "the system dconf floor carries the system cursor" =

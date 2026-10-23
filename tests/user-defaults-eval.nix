@@ -26,6 +26,7 @@ let
     })
     mkConfig
     mkCheckDrv
+    userFile
     ;
 
   cfg = mkConfig [
@@ -166,48 +167,33 @@ let
   ];
 
   # Mango without DMS: the media keys must fall back to wpctl/playerctl.
-  noDmsMango =
-    builtins.readFile
-      (mkConfig [
-        {
-          itera = {
-            desktop.dankMaterialShell.enable = false;
-            desktop.mango.enable = true;
-            users.carol = { };
-          };
-        }
-      ]).hjem.users.carol.xdg.config.files."mango/config.conf".source;
+  noDmsMango = userFile (mkConfig [
+    {
+      itera = {
+        desktop.dankMaterialShell.enable = false;
+        desktop.mango.enable = true;
+        users.carol = { };
+      };
+    }
+  ]) "carol" "mango/config.conf";
 
   aliceFiles = cfg.hjem.users.alice.xdg.config.files;
   bobFiles = cfg.hjem.users.bob.xdg.config.files;
 
-  aliceDms = builtins.fromJSON (
-    builtins.unsafeDiscardStringContext aliceFiles."DankMaterialShell/config.d/00-itera.json".text
-  );
-  bobDms = builtins.fromJSON (
-    builtins.unsafeDiscardStringContext bobFiles."DankMaterialShell/config.d/00-itera.json".text
-  );
+  json = user: path: builtins.fromJSON (userFile cfg user path);
+  aliceDms = json "alice" "DankMaterialShell/config.d/00-itera.json";
+  bobDms = json "bob" "DankMaterialShell/config.d/00-itera.json";
 
-  # plugin_settings.json carries string context: the update-indicator plugin's
-  # `checkCommand` is an absolute store path, which is what keeps its helper in
-  # the closure. `builtins.fromJSON` refuses a string with context, so discard it
-  # here — this is a read-only assertion on the rendered text, and nothing built
-  # from these values ends up in a derivation.
-  readPlugins =
-    files:
-    builtins.fromJSON (
-      builtins.unsafeDiscardStringContext files."DankMaterialShell/plugin_settings.json".text
-    );
+  # plugin_settings.json carries the update-indicator plugin's store-path
+  # `checkCommand`, which keeps its helper in the closure.
+  alicePlugins = json "alice" "DankMaterialShell/plugin_settings.json";
+  bobPlugins = json "bob" "DankMaterialShell/plugin_settings.json";
 
-  alicePlugins = readPlugins aliceFiles;
-  bobPlugins = readPlugins bobFiles;
+  aliceZed = json "alice" "zed/settings.json";
+  bobZed = json "bob" "zed/settings.json";
 
-  # Zed renders via pkgs.formats.json (a store-path `source`, not inline `text`).
-  aliceZed = builtins.fromJSON (builtins.readFile aliceFiles."zed/settings.json".source);
-  bobZed = builtins.fromJSON (builtins.readFile bobFiles."zed/settings.json".source);
-
-  aliceMango = builtins.readFile aliceFiles."mango/config.conf".source;
-  bobMango = builtins.readFile bobFiles."mango/config.conf".source;
+  aliceMango = userFile cfg "alice" "mango/config.conf";
+  bobMango = userFile cfg "bob" "mango/config.conf";
 
   # The session bring-up is an `exec_once=` pointing at a generated script, so
   # reach through the rendered config to the script itself and assert on its

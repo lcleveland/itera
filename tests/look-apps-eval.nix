@@ -23,6 +23,7 @@ let
     mkConfig
     mkCheckDrv
     hasPkgName
+    userFile
     ;
 
   users = {
@@ -57,11 +58,10 @@ let
   inherit ((import ../lib { inherit lib; })) look;
   bobColors = (look.resolve cfg "bob").startColors;
 
-  files = c: user: c.hjem.users.${user}.xdg.config.files;
-  wezterm = c: user: (files c user)."wezterm/wezterm.lua".text;
+  wezterm = c: user: userFile c user "wezterm/wezterm.lua";
   zedTheme = c: c.itera.programs.zed.settings.theme;
-  mango = c: user: builtins.readFile (files c user)."mango/config.conf".source;
-  osc = c: user: (files c user)."mpv/script-opts/osc.conf".text;
+  mango = c: user: userFile c user "mango/config.conf";
+  osc = c: user: userFile c user "mpv/script-opts/osc.conf";
   zedAsserts = c: lib.filter (a: !a.assertion && lib.hasInfix "DankShell" a.message) c.assertions;
 in
 mkCheckDrv "itera-look-apps-eval" {

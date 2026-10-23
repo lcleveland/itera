@@ -14,6 +14,8 @@
 #   - `hasPkgName` / `hasPkgInfix`: the two package-list predicates the checks
 #     kept redefining. They are NOT interchangeable — see their notes.
 #   - `mkCheckDrv`: the `failed`-attrs → `runCommand`/`throw` tail.
+#   - `userFile`: the text of a user's `~/.config/<path>`.
+#   - `mangoLines`: a mango config.conf parsed into ordered key/value lines.
 #
 # NOT a discovered check itself: flake/checks.nix imports each eval file by name,
 # and tests/default.nix only scans tests/nixos/, so this helper is never run as a
@@ -24,7 +26,89 @@
   self,
   nixpkgs,
 }:
+let
+  # text :: mango config.conf -> [ { key; value; fields; label; } ], in order.
+  # Splits on the first `=`; `value` keeps any later `=` and `fields` is `value`
+  # split on commas. Blank lines are skipped; a `#` line labels the next line,
+  # as DMS reads cheatsheet labels. Any other line without `=` throws.
+  mangoLines =
+    text:
+    (lib.foldl'
+      (
+        acc: line:
+        let
+          comment = builtins.match "#[[:space:]]*(.*)" line;
+          kv = builtins.match "([^=]*)=(.*)" line;
+          value = lib.last kv;
+        in
+        if builtins.match "[[:space:]]*" line != null then
+          acc
+        else if comment != null then
+          acc // { label = builtins.head comment; }
+        else if kv == null then
+          throw "mangoLines: no `=` in line: ${line}"
+        else
+          {
+            label = null;
+            lines = acc.lines ++ [
+              {
+                key = builtins.head kv;
+                inherit value;
+                fields = lib.splitString "," value;
+                inherit (acc) label;
+              }
+            ];
+          }
+      )
+      {
+        label = null;
+        lines = [ ];
+      }
+      (lib.splitString "\n" text)
+    ).lines;
+in
+assert
+  mangoLines "a=b=c\n\n# Open terminal\nbind=SUPER,Return,spawn,foot -e sh -c x\nk=v" == [
+    {
+      key = "a";
+      value = "b=c";
+      fields = [ "b=c" ];
+      label = null;
+    }
+    {
+      key = "bind";
+      value = "SUPER,Return,spawn,foot -e sh -c x";
+      fields = [
+        "SUPER"
+        "Return"
+        "spawn"
+        "foot -e sh -c x"
+      ];
+      label = "Open terminal";
+    }
+    {
+      key = "k";
+      value = "v";
+      fields = [ "v" ];
+      label = null;
+    }
+  ];
+assert !(builtins.tryEval (builtins.deepSeq (mangoLines "no equals here") null)).success;
 {
+  inherit mangoLines;
+
+  # The text of a user's `~/.config/<path>`. hjem defaults `text` to null, so
+  # fall through to the `source` (IFD for store-built files such as mango's).
+  # Rendered text can carry store-path context, which `builtins.fromJSON`
+  # refuses; these are read-only assertions and nothing built from the result
+  # reaches a derivation, so the context is discarded here.
+  userFile =
+    cfg: user: path:
+    let
+      f = cfg.hjem.users.${user}.xdg.config.files.${path};
+    in
+    if f.text != null then builtins.unsafeDiscardStringContext f.text else builtins.readFile f.source;
+
   # extraModules :: list of NixOS modules layered on top of the itera base.
   # Returns the evaluated `.config`.
   mkConfig =

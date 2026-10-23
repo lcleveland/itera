@@ -25,6 +25,7 @@ let
     mkConfig
     mkCheckDrv
     hasPkgInfix
+    userFile
     ;
 
   # itera.enable alone brings up the desktop (opt-out): it defaults the shell
@@ -81,7 +82,7 @@ let
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
-  mangoConf = builtins.readFile mangoUserFiles."mango/config.conf".source;
+  mangoConf = userFile cfg "alice" "mango/config.conf";
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
@@ -90,7 +91,7 @@ let
   udiskieIconOf =
     c:
     let
-      conf = builtins.readFile c.hjem.users.alice.xdg.config.files."mango/config.conf".source;
+      conf = userFile c "alice" "mango/config.conf";
       line = lib.findFirst (lib.hasInfix "bin/udiskie") "" (lib.splitString "\n" conf);
       udiskieConfig = builtins.readFile (lib.last (lib.splitString " -c " line));
     in

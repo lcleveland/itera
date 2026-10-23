@@ -23,6 +23,7 @@ let
     mkConfig
     mkCheckDrv
     hasPkgName
+    userFile
     ;
   inherit ((import ../lib { inherit lib; })) look brand;
 
@@ -39,13 +40,8 @@ let
   sys = look.resolve cfg null;
   alice = look.resolve cfg "alice";
 
-  # The drop-in refers to the launcher logo's store path, which fromJSON refuses.
   dmsSettings =
-    user:
-    builtins.fromJSON (
-      builtins.unsafeDiscardStringContext
-        cfg.hjem.users.${user}.xdg.config.files."DankMaterialShell/config.d/00-itera.json".text
-    );
+    user: builtins.fromJSON (userFile cfg user "DankMaterialShell/config.d/00-itera.json");
   launcher =
     user:
     lib.findFirst (w: w.id or null == "launcherButton") { }
