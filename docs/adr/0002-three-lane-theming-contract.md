@@ -1,6 +1,6 @@
 # Three delivery lanes, theming logic stays in batteries
 
-Every itera module consumes the itera look through one `itera.look` tree, mirrored per user under `itera.users.<name>.look` with the same merge rule as `mkCuratedProgram`. A single resolver, `iteraLib.look.resolve`, merges the system and per-user values and then resolves token aliases, so a per-user `accent` override also carries through to tokens that alias it, such as `surfaceTint`. How an app gets its colours is decided per app, in this order:
+Every itera module consumes the itera look through one `itera.look` tree, mirrored per user under `itera.users.<name>.look`. The look keeps its own deep merge (`lib/look.nix` `deepMerge`) rather than `mkCuratedProgram`'s, and its registration exports `iteraLib.look.resolve` as its `resolve`. A single resolver, `iteraLib.look.resolve`, merges the system and per-user values and then resolves token aliases, so a per-user `accent` override also carries through to tokens that alias it, such as `surfaceTint`. How an app gets its colours is decided per app, in this order:
 
 1. **DMS lane:** DMS/matugen ships a template for the app, so the app includes DMS's output and reads no colours.
 2. **Inherited lane:** the app follows the portal `color-scheme`, GTK/Qt, or the terminal's ANSI colours, so the module does nothing.

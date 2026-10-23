@@ -4,8 +4,8 @@
 # nushell the default login shell; the curated-program registration
 # `modules/programs/nushell.nix` declares the knobs (system-wide
 # `itera.programs.nushell.*` + per-user `itera.users.<name>.programs.nushell.*`).
-# THIS battery is the renderer: it reads the merged result out of `osConfig` and
-# writes the per-user config under {file}`~/.config/nushell/` — chiefly the carapace
+# THIS battery is the renderer: it reads the resolved settings through the
+# registration's `resolve` and writes the per-user config under {file}`~/.config/nushell/` — chiefly the carapace
 # hookup that gives external commands (git, docker, …) tab completion.
 #
 # Completion model: nushell natively completes its own commands, flags, paths, and
@@ -15,7 +15,8 @@
 # individual `$env.config` fields rather than replace the whole record.
 #
 # Runs inside the hjem user submodule (see `modules/hjem/default.nix`): sinks like
-# `xdg.config.files` are unprefixed and `osConfig` / `pkgs` / `name` are module args.
+# `xdg.config.files` are unprefixed and `osConfig` / `pkgs` / `name` / `programs`
+# are module args.
 # Declares NO options (the schema lives in the registration); enablement follows the
 # system shell toggle.
 {
@@ -23,6 +24,7 @@
   pkgs,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -32,14 +34,7 @@ let
   carapaceEnabled = enable && (osConfig.itera.shell.nushell.carapace.enable or false);
   carapacePkg = osConfig.itera.shell.nushell.carapace.package or pkgs.carapace;
 
-  sys = osConfig.itera.programs.nushell or { };
-  usr = osConfig.itera.users.${name}.programs.nushell or { };
-
-  # scalar overrides: per-user value wins when set (non-null), else system.
-  showBanner = if (usr.showBanner or null) != null then usr.showBanner else (sys.showBanner or false);
-  extraEnv = if (usr.extraEnv or null) != null then usr.extraEnv else (sys.extraEnv or "");
-  extraConfig =
-    if (usr.extraConfig or null) != null then usr.extraConfig else (sys.extraConfig or "");
+  inherit (programs.nushell.resolve osConfig name) showBanner extraEnv extraConfig;
 
   # Pre-generate carapace's nushell integration at build time (deterministic and
   # reproducible — no `carapace | save` on every shell startup). The script defines

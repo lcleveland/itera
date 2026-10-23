@@ -12,6 +12,8 @@ in
 {
   # Expose iteraLib to every collection module (mirrors hjem-rum's `rumLib`).
   _module.args.iteraLib = iteraLib;
+  # The curated-program registry: renderers call `programs.<app>.resolve osConfig name`.
+  _module.args.programs = import ../programs { inherit lib iteraLib; };
 
   # Auto-import every curated program/profile module. `_`-prefixed files (like
   # `programs/_example.nix`) are intentionally skipped.

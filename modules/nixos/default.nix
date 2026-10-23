@@ -51,22 +51,28 @@ in
     # Auto-import every itera system feature/profile module.
     ++ iteraLib.modules.listNixModules ./.
     # Curated-program system-wide default options (`itera.programs.<app>`).
-    ++ map (r: r.systemModule) programRegistrations;
+    ++ map (r: r.systemModule) (lib.attrValues programRegistrations);
 
   config = {
     # Register itera's per-user home collection with hjem for every user.
     hjem.extraModules = [ inputs.self.hjemModules.default ];
 
-    # Expose iteraLib to every auto-imported feature module (mirrors the hjem
-    # layer's `_module.args.iteraLib` in modules/hjem/default.nix), so a module
-    # needing the mango keybind DSL / module helpers takes `iteraLib` as an arg
-    # instead of re-importing ../../../lib by hand.
-    _module.args.iteraLib = iteraLib;
+    _module.args = {
+      # Expose iteraLib to every auto-imported feature module (mirrors the hjem
+      # layer's `_module.args.iteraLib` in modules/hjem/default.nix), so a module
+      # needing the mango keybind DSL / module helpers takes `iteraLib` as an arg
+      # instead of re-importing ../../../lib by hand.
+      inherit iteraLib;
 
-    # Expose the flake `inputs` to the auto-imported feature modules (which
-    # otherwise only receive `{ config, lib, pkgs, ... }`). A few batteries need a
-    # package that lives in a flake input rather than nixpkgs — e.g. the agenix
-    # CLI — and reach it via this arg.
-    _module.args.iteraInputs = inputs;
+      # The curated-program registry, so a module resolves a user's settings with
+      # `programs.<app>.resolve config name`.
+      programs = programRegistrations;
+
+      # Expose the flake `inputs` to the auto-imported feature modules (which
+      # otherwise only receive `{ config, lib, pkgs, ... }`). A few batteries need a
+      # package that lives in a flake input rather than nixpkgs — e.g. the agenix
+      # CLI — and reach it via this arg.
+      iteraInputs = inputs;
+    };
   };
 }

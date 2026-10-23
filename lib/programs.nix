@@ -7,14 +7,19 @@
 #   - per-user override:                    `itera.users.<name>.programs.<app>.*`
 #
 # with the per-user value overriding the system-wide default PER KEY. The matching
-# hjem battery (`modules/hjem/programs/<app>.nix`) reads both out of `osConfig`,
-# merges them, and renders the result into the user's $HOME.
+# hjem battery (`modules/hjem/programs/<app>.nix`) calls `resolve osConfig name`
+# and renders the result into the user's $HOME.
 #
 # `mkCuratedProgram` takes a single field schema and returns the two module
 # fragments that declare those option sites, so the curated schema is written
 # once and adding a program is a single declaration (drop a file in
 # `modules/programs/`). The system fragment lands in the NixOS module tree; the
 # per-user fragment is spliced into the `itera.users.<name>` submodule.
+#
+# `resolve osConfig name` promises the user's resolved settings: a flat attrset
+# of every field merged system-over-user, plus every per-user-only knob. A plain
+# user (no `itera.users.<name>` entry) resolves exactly like an itera user with
+# no overrides, and `name = null` gives the system level the same way.
 { lib }:
 let
   inherit (lib.options) mkOption;
@@ -36,6 +41,9 @@ in
   #                                         #   scalar fields; attrs fields default {}.
   #                    description;
   #                    example ? …; defaultText ? …;
+  #                    merge ? { system, user, knobs }: …;  # replaces the default
+  #                                         #   merge; `knobs` are the user's
+  #                                         #   resolved per-user-only options.
   #                  }
   #                  These fields exist at BOTH levels (system default + per-user).
   #   systemConfig ? config: -> attrset of COMPUTED system-wide defaults for `fields`,
@@ -89,8 +97,43 @@ in
             description = f.description + " Per-user override; `null` inherits the system-wide default.";
           }
       ) fields;
+
+      # The per-user value of a plain user: no definitions, so fields are null
+      # (or {}) and knobs take their defaults. Bound once per registration.
+      plainUser = lib.getAttrFromPath path (lib.evalModules { modules = [ usersSubmodule ]; }).config;
+
+      usersSubmodule = {
+        options = setAttrByPath path (userFieldOptions // userExtra);
+      };
     in
     {
+      inherit name usersSubmodule;
+
+      resolve =
+        osConfig: user:
+        let
+          system = lib.getAttrFromPath path osConfig.itera;
+          own = if user == null then null else osConfig.itera.users.${user} or null;
+          usr = if own == null then plainUser else lib.getAttrFromPath path own;
+          knobs = lib.getAttrs (lib.attrNames userExtra) usr;
+        in
+        knobs
+        // mapAttrs (
+          n: f:
+          if f ? merge then
+            f.merge {
+              system = system.${n};
+              user = usr.${n};
+              inherit knobs;
+            }
+          else if f.attrs or false then
+            system.${n} // usr.${n}
+          else if usr.${n} != null then
+            usr.${n}
+          else
+            system.${n}
+        ) fields;
+
       # Splice into the NixOS module tree: the system-wide default level.
       systemModule =
         { config, ... }:
@@ -98,11 +141,5 @@ in
           options.itera = setAttrByPath path systemOptions;
           config.itera = setAttrByPath path (systemConfig config);
         };
-
-      # Splice into the `itera.users.<name>` submodule (via `imports`): the
-      # per-user override level.
-      usersSubmodule = {
-        options = setAttrByPath path (userFieldOptions // userExtra);
-      };
     };
 }

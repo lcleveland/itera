@@ -73,6 +73,8 @@ let
   };
 in
 {
+  inherit (reg) name resolve;
+
   systemModule =
     { config, ... }:
     {

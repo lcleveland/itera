@@ -874,7 +874,9 @@ in
       };
     in
     {
-      inherit (reg) usersSubmodule;
+      inherit (reg) name usersSubmodule;
+      # Look keeps its own deep merge and alias resolution (ADR 0002).
+      inherit resolve;
       systemModule =
         {
           config,

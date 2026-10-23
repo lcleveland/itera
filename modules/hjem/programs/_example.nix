@@ -10,8 +10,10 @@
 #      lib/programs.nix and `modules/programs/mango.nix` for a worked example.
 #
 #   2. A RENDERER here in `modules/hjem/programs/<app>.nix` (this file's location)
-#      that reads the merged result out of `osConfig` and writes the actual $HOME
-#      files. It declares NO options — the schema lives in the registration.
+#      that reads the user's resolved settings with
+#      `programs.<app>.resolve osConfig name` and writes the actual $HOME files.
+#      It declares NO options — the schema lives in the registration, and so does
+#      the system/per-user merge.
 #
 # A battery with no user-facing options (e.g. a static file gated on a system
 # toggle, like `itera.nix` for the carapace spec) skips step 1 and is just a
@@ -20,7 +22,8 @@
 # Reminder: this module runs inside the hjem user submodule, so the sinks
 # (`packages`, `xdg.config.files`, `environment.sessionVariables`, …) are written
 # unprefixed, and `name` is the username. Available module args include `config`,
-# `lib`, `pkgs`, `osConfig`, `osOptions`, `hjem-lib`, `utils`, and `iteraLib`.
+# `lib`, `pkgs`, `osConfig`, `osOptions`, `hjem-lib`, `utils`, `iteraLib`, and
+# `programs` (the curated-program registry).
 #
 # ── The registration (put in modules/programs/example.nix) ──────────────────
 #
@@ -51,6 +54,7 @@
   pkgs,
   osConfig ? null,
   name,
+  programs,
   ...
 }:
 let
@@ -62,13 +66,10 @@ let
   # Enablement follows the matching system battery toggle.
   enable = osConfig.itera.desktop.example.enable or false;
 
-  # Merge the system-wide defaults with this user's overrides (a plain,
-  # non-`itera.users` user simply has no overrides and inherits the defaults).
-  sys = osConfig.itera.programs.example or { };
-  usr = osConfig.itera.users.${name}.programs.example or { };
-
-  finalSettings = (sys.settings or { }) // (usr.settings or { });
-  theme = if (usr.theme or null) != null then usr.theme else (sys.theme or "itera");
+  # The system-wide defaults merged with this user's overrides: `settings` per
+  # key, `theme` per-user when set. A plain, non-`itera.users` user resolves to
+  # the defaults.
+  inherit (programs.example.resolve osConfig name) settings theme;
 in
 {
   config = mkIf enable {
@@ -76,8 +77,8 @@ in
     environment.sessionVariables.EXAMPLE_THEME = theme;
 
     # hjem sink: an XDG config file generated from the merged settings.
-    xdg.config.files."example/config.toml" = mkIf (finalSettings != { }) {
-      source = toml.generate "example-config.toml" finalSettings;
+    xdg.config.files."example/config.toml" = mkIf (settings != { }) {
+      source = toml.generate "example-config.toml" settings;
       clobber = true;
     };
   };

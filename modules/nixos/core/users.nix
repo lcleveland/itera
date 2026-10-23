@@ -70,7 +70,7 @@ in
         { name, ... }:
         {
           # Curated-program per-user option leaves (`programs.<app>.*`).
-          imports = map (r: r.usersSubmodule) programRegistrations;
+          imports = map (r: r.usersSubmodule) (lib.attrValues programRegistrations);
 
           options = {
             isNormalUser = mkOption {
