@@ -86,8 +86,11 @@ mkCheckDrv "itera-look-apps-eval" {
   "stock zed themes pass without DMS" = zedAsserts cfgNoDms == [ ];
 
   # mango: dms/colors.conf; the look's radius reaches mango through DMS.
-  "mango sources DMS's colours" = lib.hasInfix "source_optional=./dms/colors.conf" (mango cfg "bob");
-  "mango names no DMS file without DMS" = !(lib.hasInfix "dms/" (mango cfgNoDms "bob"));
+  "mango sources DMS's colours" = lib.any (
+    l: l.key == "source_optional" && l.value == "./dms/colors.conf"
+  ) (mangoLines (mango cfg "bob"));
+  "mango names no DMS file without DMS" =
+    !(lib.any (l: lib.hasInfix "dms/" l.value) (mangoLines (mango cfgNoDms "bob")));
   "DMS carries the look's radius" =
     (dms "bob").mangoLayoutRadiusOverride == 12 && (dms "alice").mangoLayoutRadiusOverride == 4;
   "mango has no itera border_radius line" =
@@ -114,9 +117,11 @@ mkCheckDrv "itera-look-apps-eval" {
       ];
   "the DMS service sees mango's instance" =
     let
-      setup = lib.findFirst (lib.hasSuffix "session-setup") "" (lib.splitString "\n" (mango cfg "bob"));
+      setup = lib.findFirst (
+        l: l.key == "exec_once" && lib.hasSuffix "session-setup" l.value
+      ) (throw "no session setup") (mangoLines (mango cfg "bob"));
     in
-    lib.hasInfix "MANGO_INSTANCE_SIGNATURE" (builtins.readFile (lib.removePrefix "exec_once=" setup));
+    lib.hasInfix "MANGO_INSTANCE_SIGNATURE" (builtins.readFile setup.value);
 
   # mpv: Nix lane, from the user's look in their starting mode.
   "mpv's osc carries the look" =

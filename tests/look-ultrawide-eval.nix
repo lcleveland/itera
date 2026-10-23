@@ -25,6 +25,7 @@ let
     mkConfig
     mkCheckDrv
     userFile
+    mangoLines
     ;
   inherit ((import ../lib { inherit lib; })) mango;
 
@@ -102,7 +103,8 @@ let
   ];
   cfgPlain = mkConfig [ (user "erin" { }) ];
 
-  mangoConf = name: userFile cfg name "mango/config.conf";
+  mangoConf = name: mangoLines (userFile cfg name "mango/config.conf");
+  tagRules = name: map (l: l.value) (lib.filter (l: l.key == "tag_rule") (mangoConf name));
   dms = name: builtins.fromJSON (userFile cfg name "DankMaterialShell/config.d/00-itera.json");
   bars = name: (dms name).barConfigs;
   seed = c: name: c.hjem.users.${name}.itera.sessionSeed;
@@ -110,7 +112,7 @@ let
   warned = name: lib.any (w: lib.hasPrefix "${name} profile: " w && lib.hasInfix "bar.perOutput" w);
   rule =
     m: new: single:
-    "tag_rule=id:*,monitor_name:^${m}$,scroller_default_proportion:${new},scroller_default_proportion_single:${single},scroller_ignore_proportion_single:0";
+    "id:*,monitor_name:^${m}$,scroller_default_proportion:${new},scroller_default_proportion_single:${single},scroller_ignore_proportion_single:0";
 
   evalChecks = mkCheckDrv "itera-look-ultrawide-checks" {
     "below 2.0 is standard" = mango.aspectClass 1999 1000 == "standard";
@@ -119,26 +121,28 @@ let
     "2.8 is super-ultrawide" = mango.aspectClass 2800 1000 == "superUltrawide";
     "16:9 is standard" = mango.aspectClass 3840 2160 == "standard";
 
-    "a 5120x1440 monitor gets the super-ultrawide tag_rule" = lib.hasInfix (rule "DP-1" "0.55" "0.55") (
-      mangoConf "alice"
+    "a 5120x1440 monitor gets the super-ultrawide tag_rule" = builtins.elem (rule "DP-1" "0.55"
+      "0.55"
+    ) (tagRules "alice");
+    "an ultrawide monitor gets the ultrawide tag_rule" = builtins.elem (rule "HDMI-A-1" "0.5" "0.6") (
+      tagRules "alice"
     );
-    "an ultrawide monitor gets the ultrawide tag_rule" = lib.hasInfix (rule "HDMI-A-1" "0.5" "0.6") (
-      mangoConf "alice"
+    "a rotated monitor is classified after rotation" = builtins.elem (rule "DP-2" "0.9" "1") (
+      tagRules "alice"
     );
-    "a rotated monitor is classified after rotation" = lib.hasInfix (rule "DP-2" "0.9" "1") (
-      mangoConf "alice"
-    );
-    "a size-less monitor gets no tag_rule" = !lib.hasInfix "monitor_name:^eDP-1$" (mangoConf "carol");
+    "a size-less monitor gets no tag_rule" =
+      !lib.any (r: lib.hasInfix "monitor_name:^eDP-1$" r) (tagRules "carol");
     "a regex-named monitor gets its tag_rule" =
-      lib.hasInfix "monitor_name:HDMI-A-[2-9],scroller_default_proportion:0.9," (mangoConf "dave");
-    "the cycle presets are global" = lib.hasInfix "\nscroller_proportion_preset=0.33,0.5,0.67,0.9,1\n" (
-      mangoConf "alice"
-    );
+      lib.any (lib.hasPrefix "id:*,monitor_name:HDMI-A-[2-9],scroller_default_proportion:0.9,") (
+        tagRules "dave"
+      );
+    "the cycle presets are global" = lib.any (
+      l: l.key == "scroller_proportion_preset" && l.value == "0.33,0.5,0.67,0.9,1"
+    ) (mangoConf "alice");
     "itera sets no mango gaps line" =
-      !lib.any (k: lib.hasInfix k (mangoConf "alice")) [
-        "gappih"
-        "gap_inner_horizontal"
-      ];
+      !lib.any (l: lib.hasPrefix "gappih" l.key || lib.hasPrefix "gap_inner_horizontal" l.key) (
+        mangoConf "alice"
+      );
 
     "notifications pop up top-center" = (dms "alice").notificationPopupPosition == -1;
     "gaps go to DMS's mango gaps setting" =

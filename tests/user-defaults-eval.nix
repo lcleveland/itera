@@ -27,6 +27,7 @@ let
     mkConfig
     mkCheckDrv
     userFile
+    mangoLines
     ;
 
   cfg = mkConfig [
@@ -167,7 +168,7 @@ let
   ];
 
   # Mango without DMS: the media keys must fall back to wpctl/playerctl.
-  noDmsMango = userFile (mkConfig [
+  noDmsText = userFile (mkConfig [
     {
       itera = {
         desktop.dankMaterialShell.enable = false;
@@ -192,19 +193,51 @@ let
   aliceZed = json "alice" "zed/settings.json";
   bobZed = json "bob" "zed/settings.json";
 
-  aliceMango = userFile cfg "alice" "mango/config.conf";
-  bobMango = userFile cfg "bob" "mango/config.conf";
+  aliceMango = mangoLines (userFile cfg "alice" "mango/config.conf");
+  bobMango = mangoLines (userFile cfg "bob" "mango/config.conf");
+  noDmsMango = mangoLines noDmsText;
+  # Whether `lines` has a `key` line whose leading fields are `fields`.
+  hasFields =
+    lines: key: fields:
+    lib.any (l: l.key == key && lib.take (lib.length fields) l.fields == fields) lines;
+  hdmi1 = [
+    "name:^HDMI-1$"
+    "width:1920"
+    "height:1080"
+    "refresh:60"
+    "x:0"
+    "y:0"
+  ];
+  dp2 = [
+    "name:^DP-2$"
+    "width:2560"
+    "height:1440"
+    "refresh:60"
+    "x:1920"
+    "y:0"
+  ];
+  focusRight = [
+    "none"
+    "left"
+    "3"
+    "focusdir"
+    "right"
+  ];
+  switchLayout = [
+    "SUPER"
+    "up"
+    "4"
+    "switch_layout"
+  ];
 
   # The session bring-up is an `exec_once=` pointing at a generated script, so
   # reach through the rendered config to the script itself and assert on its
   # contents — that is where the ordering guarantee actually lives.
-  bobSessionSetup = lib.removePrefix "exec_once=" (
-    lib.findFirst (l: lib.hasInfix "itera-mango-session-setup" l) "" (lib.splitString "\n" bobMango)
-  );
+  bobSessionSetup = (builtins.head (lib.filter (l: l.key == "exec_once") bobMango)).value;
 
   # The DMS greeter (on by default) runs its own mango instance; itera feeds it
   # the SYSTEM-WIDE monitors via `compositor.customConfig`.
-  greeterMonitors = cfg.programs.dms-greeter.compositor.customConfig;
+  greeterMango = mangoLines cfg.programs.dms-greeter.compositor.customConfig;
 
   # What greetd's preStart merges into the greeter's settings.json. Read from
   # the seed, not the written file, so eval builds nothing.
@@ -291,46 +324,112 @@ let
     "per-user disable reflected in plugin_settings (alice)" = alicePlugins.ipIndicator.enabled == false;
 
     # ── mango keybinds: system defaults reach every user ─────────────────
-    "default keybind rendered (alice)" = lib.hasInfix "binds=SUPER,q,killclient," aliceMango;
-    "default keybind rendered (bob)" = lib.hasInfix "binds=SUPER,q,killclient," bobMango;
+    "default keybind rendered (alice)" = hasFields aliceMango "binds" [
+      "SUPER"
+      "q"
+      "killclient"
+      ""
+    ];
+    "default keybind rendered (bob)" = hasFields bobMango "binds" [
+      "SUPER"
+      "q"
+      "killclient"
+      ""
+    ];
     # viewTag stays a keysym bind (SUPER+digit yields the digit keysym).
-    "view-tag keybind rendered (keysym)" = lib.hasInfix "binds=SUPER,1,view,1" bobMango;
+    "view-tag keybind rendered (keysym)" = hasFields bobMango "binds" [
+      "SUPER"
+      "1"
+      "view"
+      "1"
+    ];
     # moveToTag must be a keycode bind: SHIFT+digit emits a punctuation keysym,
     # so a keysym bind (`binds=`) would never fire. Guard against regressing to `s`.
-    "move-to-tag keybind rendered (keycode)" = lib.hasInfix "bind=SUPER+SHIFT,1,tag,1" bobMango;
-    "move-to-tag is not a keysym bind" = !(lib.hasInfix "binds=SUPER+SHIFT,1,tag" bobMango);
+    "move-to-tag keybind rendered (keycode)" = hasFields bobMango "bind" [
+      "SUPER+SHIFT"
+      "1"
+      "tag"
+      "1"
+    ];
+    "move-to-tag is not a keysym bind" =
+      !(hasFields bobMango "binds" [
+        "SUPER+SHIFT"
+        "1"
+        "tag"
+      ]);
     # With DMS the media keys go through its IPC (OSD, DDC brightness) and carry
     # `l` so they work on the lock screen.
-    "volume keys go through DMS, also when locked" =
-      lib.hasInfix "bindsl=none,XF86AudioRaiseVolume,spawn_shell,dms ipc call audio increment" bobMango;
-    "mic mute key bound" = lib.hasInfix "bindsl=none,XF86AudioMicMute," bobMango;
-    "keybind cheatsheet label rendered" =
-      lib.hasInfix "# Keyboard shortcuts\nbind=SUPER+SHIFT,slash," bobMango;
+    "volume keys go through DMS, also when locked" = hasFields bobMango "bindsl" [
+      "none"
+      "XF86AudioRaiseVolume"
+      "spawn_shell"
+      "dms ipc call audio increment 5"
+    ];
+    "mic mute key bound" = hasFields bobMango "bindsl" [
+      "none"
+      "XF86AudioMicMute"
+    ];
+    "keybind cheatsheet label rendered" = lib.any (
+      l:
+      l.key == "bind"
+      &&
+        lib.take 2 l.fields == [
+          "SUPER+SHIFT"
+          "slash"
+        ]
+      && l.label == "Keyboard shortcuts"
+    ) bobMango;
     # Without DMS the volume keys must call a tool the system actually ships.
     # `pactl` lives in pkgs.pulseaudio, which a PipeWire host never installs, so
     # a pactl bind is a silent no-op; `wpctl` comes with WirePlumber, which is on
     # whenever PipeWire is. Guard both directions so a regression cannot slip back.
-    "volume up falls back to wpctl" =
-      lib.hasInfix "bindsl=none,XF86AudioRaiseVolume,spawn_shell,wpctl set-volume" noDmsMango;
-    "volume mute falls back to wpctl" =
-      lib.hasInfix "bindsl=none,XF86AudioMute,spawn_shell,wpctl set-mute" noDmsMango;
-    "no DMS binds without DMS" = !(lib.hasInfix "dms ipc" noDmsMango);
+    "volume up falls back to wpctl" = hasFields noDmsMango "bindsl" [
+      "none"
+      "XF86AudioRaiseVolume"
+      "spawn_shell"
+      "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"
+    ];
+    "volume mute falls back to wpctl" = hasFields noDmsMango "bindsl" [
+      "none"
+      "XF86AudioMute"
+      "spawn_shell"
+      "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+    ];
+    "no DMS binds without DMS" = !(lib.any (l: lib.hasInfix "dms ipc" l.value) noDmsMango);
     "no keybind shells out to pactl" =
-      !(lib.hasInfix "pactl" bobMango) && !(lib.hasInfix "pactl" noDmsMango);
-    "dms keybind rendered (desktop on)" = lib.hasInfix "dms ipc call spotlight toggle" bobMango;
+      !(lib.any (l: lib.hasInfix "pactl" l.value) (bobMango ++ noDmsMango));
+    "dms keybind rendered (desktop on)" = hasFields bobMango "binds" [
+      "SUPER"
+      "d"
+      "spawn_shell"
+      "dms ipc call spotlight toggle"
+    ];
     # Browser battery (opt-out, ON by default) wires SUPER+b to launch vivaldi.
-    "browser keybind launches vivaldi" = lib.hasInfix "binds=SUPER,b,spawn,vivaldi" bobMango;
+    "browser keybind launches vivaldi" = hasFields bobMango "binds" [
+      "SUPER"
+      "b"
+      "spawn"
+      "vivaldi"
+    ];
     # Calculator battery (opt-out, ON by default) wires SUPER+c AND the bare
     # XF86Calculator key. The dedicated key must render with `none` as its
     # modifier — rendering it as `SUPER+XF86Calculator` would mean the key alone
     # does nothing, which is the whole point of claiming it.
-    "calculator keybind launches gnome-calculator" =
-      lib.hasInfix "binds=SUPER,c,spawn,gnome-calculator" bobMango;
-    "calculator key needs no modifier" =
-      lib.hasInfix "binds=none,XF86Calculator,spawn,gnome-calculator" bobMango;
+    "calculator keybind launches gnome-calculator" = hasFields bobMango "binds" [
+      "SUPER"
+      "c"
+      "spawn"
+      "gnome-calculator"
+    ];
+    "calculator key needs no modifier" = hasFields bobMango "binds" [
+      "none"
+      "XF86Calculator"
+      "spawn"
+      "gnome-calculator"
+    ];
     # The shell runs as DMS's systemd user service (wanted by mango-session.target),
     # not an exec_once, and stays out of the greeter's session.
-    "dms not autostarted by mango" = !(lib.hasInfix "dms run" bobMango);
+    "dms not autostarted by mango" = !(lib.any (l: lib.hasInfix "dms run" l.value) bobMango);
     "dms user service bound to the mango session" =
       cfg.systemd.user.services.dms.wantedBy == [ "mango-session.target" ];
     "dms user service skips the greeter" =
@@ -338,70 +437,134 @@ let
     # The session bring-up must be a single script: mango spawns each exec_once
     # asynchronously, so splitting the environment export from the target start
     # would race and hand the portal (and the shell) an empty environment.
-    "session setup autostarted" = lib.hasInfix "-itera-mango-session-setup" bobMango;
+    "session setup autostarted" = lib.hasSuffix "-itera-mango-session-setup" bobSessionSetup;
     "session setup starts mango-session.target" =
       lib.hasInfix "systemctl --user start mango-session.target" (builtins.readFile bobSessionSetup);
     "session setup exports the environment first" =
       lib.hasInfix "dbus-update-activation-environment --all" (builtins.readFile bobSessionSetup);
 
     # ── mango keybinds: per-user override ────────────────────────────────
-    "per-user keybind override rendered (alice)" =
-      lib.hasInfix "binds=SUPER,Return,spawn,foot" aliceMango;
+    "per-user keybind override rendered (alice)" = hasFields aliceMango "binds" [
+      "SUPER"
+      "Return"
+      "spawn"
+      "foot"
+    ];
 
     # ── mango layout: default reaches bob, per-user override wins for alice ──
-    "default layout rendered on tag 1 (bob)" =
-      lib.hasInfix "tag_rule=id:1,layout_name:scroller" bobMango;
-    "default layout rendered on tag 9 (bob)" =
-      lib.hasInfix "tag_rule=id:9,layout_name:scroller" bobMango;
+    "default layout rendered on tag 1 (bob)" = hasFields bobMango "tag_rule" [
+      "id:1"
+      "layout_name:scroller"
+    ];
+    "default layout rendered on tag 9 (bob)" = hasFields bobMango "tag_rule" [
+      "id:9"
+      "layout_name:scroller"
+    ];
     # Empty default cycle: no circle_layout line, so switch_layout reaches every layout.
-    "no circle_layout by default (bob)" = !(lib.hasInfix "circle_layout=" bobMango);
-    "per-user layout override wins (alice)" = lib.hasInfix "tag_rule=id:1,layout_name:tile" aliceMango;
-    "scroller centers focus by default (bob)" = lib.hasInfix "\nscroller_focus_center=1" bobMango;
+    "no circle_layout by default (bob)" = !(hasFields bobMango "circle_layout" [ ]);
+    "per-user layout override wins (alice)" = hasFields aliceMango "tag_rule" [
+      "id:1"
+      "layout_name:tile"
+    ];
+    "scroller centers focus by default (bob)" = hasFields bobMango "scroller_focus_center" [ "1" ];
     "per-user scroller centering opt-out (alice)" =
-      lib.hasInfix "\nscroller_focus_center=0" aliceMango
-      && !(lib.hasInfix "scroller_focus_center=1" aliceMango);
-    "switch-layout bind rendered (SUPER+SHIFT+n)" =
-      lib.hasInfix "binds=SUPER+SHIFT,n,switch_layout," bobMango;
+      hasFields aliceMango "scroller_focus_center" [ "0" ]
+      && !(hasFields aliceMango "scroller_focus_center" [ "1" ]);
+    "switch-layout bind rendered (SUPER+SHIFT+n)" = hasFields bobMango "binds" [
+      "SUPER+SHIFT"
+      "n"
+      "switch_layout"
+    ];
     # Move-to-monitor needs SUPER; bare CTRL+SHIFT+j/k would steal app shortcuts.
-    "move-to-monitor bind uses SUPER" = lib.hasInfix "binds=SUPER+CTRL+SHIFT,h,tagmon,left,1" bobMango;
-    "no bare CTRL+SHIFT bind" = !(lib.hasInfix "binds=CTRL+SHIFT," bobMango);
-    "focus-monitor bind rendered" = lib.hasInfix "binds=SUPER+CTRL,l,focusmon,right" bobMango;
-    "fullscreen bind rendered" = lib.hasInfix "binds=SUPER+SHIFT,f,togglefullscreen," bobMango;
+    "move-to-monitor bind uses SUPER" = hasFields bobMango "binds" [
+      "SUPER+CTRL+SHIFT"
+      "h"
+      "tagmon"
+      "left"
+      "1"
+    ];
+    "no bare CTRL+SHIFT bind" = !(hasFields bobMango "binds" [ "CTRL+SHIFT" ]);
+    "focus-monitor bind rendered" = hasFields bobMango "binds" [
+      "SUPER+CTRL"
+      "l"
+      "focusmon"
+      "right"
+    ];
+    "fullscreen bind rendered" = hasFields bobMango "binds" [
+      "SUPER+SHIFT"
+      "f"
+      "togglefullscreen"
+    ];
     # SHIFT+Tab emits ISO_Left_Tab, so the reverse switcher must be a keycode bind.
-    "reverse switcher is a keycode bind" = lib.hasInfix "bind=ALT+SHIFT,Tab,switcher,prev" bobMango;
+    "reverse switcher is a keycode bind" = hasFields bobMango "bind" [
+      "ALT+SHIFT"
+      "Tab"
+      "switcher"
+      "prev"
+    ];
     # DMS theme fragments are sourced (optional), but never its binds.
-    "dms colors fragment sourced" = lib.hasInfix "source_optional=./dms/colors.conf" bobMango;
-    "dms binds fragment not sourced" = !(lib.hasInfix "dms/binds.conf" bobMango);
+    "dms colors fragment sourced" = hasFields bobMango "source_optional" [ "./dms/colors.conf" ];
+    "dms binds fragment not sourced" = !(hasFields bobMango "source_optional" [ "./dms/binds.conf" ]);
     # Directional focus crosses monitors at the edge, but never tags.
-    "focus crosses monitors" = lib.hasInfix "focus_cross_monitor=1" bobMango;
-    "focus does not cross tags" = !(lib.hasInfix "focus_cross_tag=1" bobMango);
-    "default mouse move bind rendered" =
-      lib.hasInfix "mousebind=SUPER,btn_left,moveresize,curmove" bobMango;
+    "focus crosses monitors" = hasFields bobMango "focus_cross_monitor" [ "1" ];
+    "focus does not cross tags" = !(hasFields bobMango "focus_cross_tag" [ ]);
+    "default mouse move bind rendered" = hasFields bobMango "mousebind" [
+      "SUPER"
+      "btn_left"
+      "moveresize"
+      "curmove"
+    ];
     "user bind on a default's key replaces it (alice)" =
-      lib.hasInfix "binds=SHIFT+SUPER,f,spawn,firefox" aliceMango
-      && !(lib.hasInfix "togglefullscreen" aliceMango);
-    "default on that key kept for others (bob)" = lib.hasInfix "togglefullscreen" bobMango;
-    "mouse-bind defaults opt-out (alice)" = !(lib.hasInfix "mousebind=" aliceMango);
-    "full-width bind rendered" = lib.hasInfix "binds=SUPER+CTRL,r,set_proportion,1.0" bobMango;
+      hasFields aliceMango "binds" [
+        "SHIFT+SUPER"
+        "f"
+        "spawn"
+        "firefox"
+      ]
+      && !(lib.any (l: builtins.elem "togglefullscreen" l.fields) aliceMango);
+    "default on that key kept for others (bob)" = lib.any (
+      l: builtins.elem "togglefullscreen" l.fields
+    ) bobMango;
+    "mouse-bind defaults opt-out (alice)" = !(hasFields aliceMango "mousebind" [ ]);
+    "full-width bind rendered" = hasFields bobMango "binds" [
+      "SUPER+CTRL"
+      "r"
+      "set_proportion"
+      "1.0"
+    ];
     # DMS notifications keeps SUPER+n — no collision with the layout bind.
-    "dms notifications keeps SUPER+n" = lib.hasInfix "binds=SUPER,n,spawn_shell," bobMango;
+    "dms notifications keeps SUPER+n" = hasFields bobMango "binds" [
+      "SUPER"
+      "n"
+      "spawn_shell"
+    ];
 
     # ── mango monitors: system-wide default reaches every user ───────────
     # bob inherits both system rules; the key→name default renders the anchored `name:^HDMI-1$`.
-    "monitor default reaches user (bob HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" bobMango;
-    "monitor default reaches user (bob DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" bobMango;
+    "monitor default reaches user (bob HDMI-1)" = hasFields bobMango "monitor_rule" hdmi1;
+    "monitor default reaches user (bob DP-2)" = hasFields bobMango "monitor_rule" dp2;
 
     # ── mango monitors: per-user override wins per KEY, sibling still inherits ──
-    "per-user monitor override wins (alice HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:3840,height:2160,refresh:120,x:0,y:0,scale:1.5,rr:3" aliceMango;
+    "per-user monitor override wins (alice HDMI-1)" = hasFields aliceMango "monitor_rule" [
+      "name:^HDMI-1$"
+      "width:3840"
+      "height:2160"
+      "refresh:120"
+      "x:0"
+      "y:0"
+      "scale:1.5"
+      "rr:3"
+    ];
     "per-user override replaces the system rule (alice)" =
-      !(lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920" aliceMango);
-    "sibling monitor still inherited (alice DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" aliceMango;
+      !(hasFields aliceMango "monitor_rule" [
+        "name:^HDMI-1$"
+        "width:1920"
+      ]);
+    "sibling monitor still inherited (alice DP-2)" = hasFields aliceMango "monitor_rule" dp2;
     # Fractional scale is stripped (proves fmtNum) — must NOT be scale:1.500000.
-    "monitor scale rendered stripped (alice)" = lib.hasInfix "scale:1.5," aliceMango;
+    "monitor scale rendered stripped (alice)" = lib.any (
+      l: l.key == "monitor_rule" && builtins.elem "scale:1.5" l.fields
+    ) aliceMango;
 
     # ── greeter: system settings unless a user is synced ─────────────────
     "greeter syncs no user by default" = cfg.programs.dms-greeter.configHome == null;
@@ -415,24 +578,22 @@ let
       greeterWallpaperSettings.lockScreenWallpaperPath == "/etc/login-wallpaper.jpg";
 
     # ── mango monitors: the login greeter gets the system-wide layout ────
-    "greeter gets system-wide monitors (HDMI-1)" =
-      lib.hasInfix "monitor_rule=name:^HDMI-1$,width:1920,height:1080,refresh:60,x:0,y:0" greeterMonitors;
-    "greeter gets system-wide monitors (DP-2)" =
-      lib.hasInfix "monitor_rule=name:^DP-2$,width:2560,height:1440,refresh:60,x:1920,y:0" greeterMonitors;
+    "greeter gets system-wide monitors (HDMI-1)" = hasFields greeterMango "monitor_rule" hdmi1;
+    "greeter gets system-wide monitors (DP-2)" = hasFields greeterMango "monitor_rule" dp2;
 
     # ── mango gestures: system default reaches every user, per-user adds ──
-    "gesture default reaches user (bob)" =
-      lib.hasInfix "gesturebind=none,left,3,focusdir,right" bobMango;
-    "gesture default reaches user (alice)" =
-      lib.hasInfix "gesturebind=none,left,3,focusdir,right" aliceMango;
-    "per-user gesture added (alice)" = lib.hasInfix "gesturebind=SUPER,up,4,switch_layout," aliceMango;
+    "gesture default reaches user (bob)" = hasFields bobMango "gesturebind" focusRight;
+    "gesture default reaches user (alice)" = hasFields aliceMango "gesturebind" focusRight;
+    "per-user gesture added (alice)" = hasFields aliceMango "gesturebind" switchLayout;
     "per-user gesture not leaked to other user (bob)" =
-      !(lib.hasInfix "gesturebind=SUPER,up,4,switch_layout" bobMango);
+      !(hasFields bobMango "gesturebind" switchLayout);
 
     # ── mango keyboard layout: system xkb reaches every session + greeter ──
-    "session xkb variant reaches user (bob)" = lib.hasInfix "xkb_rules_variant=colemak_dh" bobMango;
-    "session xkb variant reaches user (alice)" = lib.hasInfix "xkb_rules_variant=colemak_dh" aliceMango;
-    "greeter gets system xkb variant" = lib.hasInfix "xkb_rules_variant=colemak_dh" greeterMonitors;
+    "session xkb variant reaches user (bob)" = hasFields bobMango "xkb_rules_variant" [ "colemak_dh" ];
+    "session xkb variant reaches user (alice)" = hasFields aliceMango "xkb_rules_variant" [
+      "colemak_dh"
+    ];
+    "greeter gets system xkb variant" = hasFields greeterMango "xkb_rules_variant" [ "colemak_dh" ];
 
     # ── per-user packages escape hatch ───────────────────────────────────
     "per-user package installed (alice)" = builtins.elem "hello" (

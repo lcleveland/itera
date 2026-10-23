@@ -26,6 +26,7 @@ let
     mkCheckDrv
     hasPkgInfix
     userFile
+    mangoLines
     ;
 
   # itera.enable alone brings up the desktop (opt-out): it defaults the shell
@@ -82,7 +83,8 @@ let
   greetdCommand = cfg.services.greetd.settings.default_session.command;
 
   mangoUserFiles = cfg.hjem.users.alice.xdg.config.files;
-  mangoConf = userFile cfg "alice" "mango/config.conf";
+  mangoConf = mangoLines (userFile cfg "alice" "mango/config.conf");
+  hasLine = key: value: lib.any (l: l.key == key && l.value == value) mangoConf;
 
   screencastSettings = cfg.xdg.portal.wlr.settings.screencast;
 
@@ -155,8 +157,8 @@ let
     # the hjem battery's gated config path (and its `configText`) to evaluate.
     "mango user config is generated" = mangoUserFiles ? "mango/config.conf";
     # No gesture overrides on this host, so mango's default gesture set renders.
-    "default 3-finger focus gesture" = lib.hasInfix "gesturebind=none,left,3,focusdir,left" mangoConf;
-    "default 4-finger overview gesture" = lib.hasInfix "gesturebind=none,up,4,enteroverview," mangoConf;
+    "default 3-finger focus gesture" = hasLine "gesturebind" "none,left,3,focusdir,left";
+    "default 4-finger overview gesture" = hasLine "gesturebind" "none,up,4,enteroverview,";
 
     # Terminal battery ships WezTerm and wires SUPER+t to it. Its font comes
     # from the look (the fonts battery), not a font of its own.
@@ -344,7 +346,7 @@ let
       && u.partOf == [ "mango-session.target" ]
       && u.after == [ "dms.service" ]
       && lib.hasInfix " --appindicator " (udiskieExec cfg);
-    "mango config.conf has no udiskie line" = !(lib.hasInfix "udiskie" mangoConf);
+    "mango config.conf has no udiskie line" = !(lib.any (l: lib.hasInfix "udiskie" l.value) mangoConf);
 
     # Layout chooser: DMS's built-in `layout` widget (current layout, click for a
     # chooser) on the bar, plus a `#layout` launcher plugin and a key to open it.
@@ -357,7 +359,7 @@ let
       layoutChooser.settings.layouts == self.lib.mango.supportedLayouts;
     "layout chooser dispatches through mmsg" = lib.hasSuffix "/bin/mmsg" layoutChooser.settings.mmsg;
     "layout chooser keybind opens the launcher" =
-      lib.hasInfix "dms ipc call spotlight openQuery '#layout '" mangoConf;
+      hasLine "binds" "SUPER+CTRL,n,spawn_shell,dms ipc call spotlight openQuery '#layout '";
     "layout chooser is inert without the shell" =
       !(cfgNoDesktop.itera.programs.dankMaterialShell.plugins ? layoutChooser);
 

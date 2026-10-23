@@ -23,6 +23,7 @@ let
     mkConfig
     mkCheckDrv
     userFile
+    mangoLines
     ;
   inherit ((import ../lib { inherit lib; })) look;
 
@@ -203,8 +204,16 @@ mkCheckDrv "itera-look-eval" {
     && (dconfDb "alice")."org/gnome/desktop/interface".icon-theme == "Papirus-Dark"
     && builtins.any (lib.hasInfix "%t/dconf/profile") cfg.systemd.user.tmpfiles.users.alice.rules;
   "a per-user cursor reaches mango before DMS writes its own" =
-    lib.hasInfix "cursor_theme=Bibata-Modern-Amber\ncursor_size=32\nsource_optional=./dms/colors.conf"
-      (userFile cfg "alice" "mango/config.conf");
+    let
+      lines = mangoLines (userFile cfg "alice" "mango/config.conf");
+      at = key: lib.lists.findFirstIndex (l: l.key == key) (throw "no ${key} line") lines;
+      line = key: builtins.elemAt lines (at key);
+    in
+    (line "cursor_theme").value == "Bibata-Modern-Amber"
+    && (line "cursor_size").value == "32"
+    && at "cursor_size" == at "cursor_theme" + 1
+    && (line "source_optional").value == "./dms/colors.conf"
+    && at "source_optional" == at "cursor_size" + 1;
   "Xresources is a writable copy DMS can update" = (homeFiles "alice").".Xresources".type == "copy";
   "DMS gets no icon or cursor keys without their batteries" =
     let
