@@ -32,7 +32,7 @@ in
       enable = mkDefault true;
       powerOnBoot = mkDefault true;
 
-      # nix-mineral's `kicksecure-bluetooth` (on via the hardening battery) mkForces
+      # nix-mineral's `harden-bluetooth` (on via the hardening battery) mkForces
       # a whole `/etc/bluetooth/main.conf` borrowed from Kicksecure. That file puts
       # the LE-privacy key under `[Policy]` (`Privacy=network/on`), but BlueZ only
       # accepts `Privacy` under `[General]` — so bluetoothd logs
@@ -63,7 +63,7 @@ in
     # Gated on the hardening layer being present, so this stays a no-op (no phantom
     # option touched) on a host that has turned nix-mineral off.
     nix-mineral = mkIf config.nix-mineral.enable {
-      settings.etc.kicksecure-bluetooth = mkDefault false;
+      settings.etc.harden-bluetooth = mkDefault false;
     };
   };
 }

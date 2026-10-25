@@ -111,7 +111,7 @@ in
     # both define it. Overridable — a host that flips this back on owns the
     # collision and should drop our helper via `itera.dev.packages`.
     nix-mineral = mkIf (ghCredentialHelper && hardeningActive) {
-      settings.etc.kicksecure-gitconfig = lib.mkDefault false;
+      settings.etc.harden-gitconfig = lib.mkDefault false;
     };
   };
 }

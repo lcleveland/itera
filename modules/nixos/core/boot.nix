@@ -34,13 +34,14 @@ let
     (config.nix-mineral.enable or false) && (config.nix-mineral.settings.debug.quiet-boot or false);
 in
 {
-  # The systemd initrd is NixOS's own default since 26.05; set
-  # `boot.initrd.systemd.enable` directly.
   imports = [
-    (lib.mkRenamedOptionModule
-      [ "itera" "boot" "initrd" "systemd" "enable" ]
-      [ "boot" "initrd" "systemd" "enable" ]
-    )
+    (lib.mkRemovedOptionModule [
+      "itera"
+      "boot"
+      "initrd"
+      "systemd"
+      "enable"
+    ] "nixpkgs removed the scripted initrd, so the systemd initrd is always on.")
   ];
 
   options.itera.boot = {

@@ -385,7 +385,6 @@ let
     # core-boot batteries (activated by itera.enable)
     "systemd-boot is enabled" = cfg.boot.loader.systemd-boot.enable;
     "EFI variables are touchable" = cfg.boot.loader.efi.canTouchEfiVariables;
-    "systemd initrd is enabled" = cfg.boot.initrd.systemd.enable;
     "flakes are enabled" = builtins.elem "flakes" cfg.nix.settings.experimental-features;
     # Channels off under flakes, so the never-created channel dir stays out of
     # NIX_PATH and stops warning on every eval — but `<nixpkgs>` still resolves,
