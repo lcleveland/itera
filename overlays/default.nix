@@ -23,9 +23,16 @@ in
   buildFHSEnv = keepFHSAppsAlive prev.buildFHSEnv;
   buildFHSEnvBubblewrap = keepFHSAppsAlive prev.buildFHSEnvBubblewrap;
 
+  # ponytail: open-webui 0.12.3 imports mcp 1.x names that mcp 2 removed and dies
+  # at startup. The patch is upstream 0.12.4's port of utils/mcp/client.py to
+  # mcp 2; drop once nixpkgs ships open-webui 0.12.4 or later.
+  open-webui = prev.open-webui.overridePythonAttrs (o: {
+    patches = (o.patches or [ ]) ++ [ ./open-webui-mcp2.patch ];
+  });
+
   # ponytail: nixpkgs marks posthog (pulled in by open-webui) broken since mcp 2;
   # only its MCP integration fails, which open-webui never imports. Drop once
-  # NixOS/nixpkgs#578265 lands.
+  # nixpkgs PR 578265 lands.
   pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
     (_: pyPrev: {
       posthog = pyPrev.posthog.overridePythonAttrs (o: {
