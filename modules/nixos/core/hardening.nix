@@ -165,12 +165,5 @@ in
       #     the intent holds. Do NOT flip binfmt-misc on to silence it — that
       #     weakens hardening.
     };
-
-    # ponytail: quiet-boot sets `boot.initrd.verbose`, which nixpkgs 26.11
-    # removed (an eval error). Turn it off and keep its log level here; boot.nix
-    # then adds `quiet` and `udev.log_level=3` itself. Drop once
-    # cynicsketch/nix-mineral#244 lands.
-    nix-mineral.settings.debug.quiet-boot = mkDefault false;
-    boot.consoleLogLevel = mkDefault 0;
   };
 }
