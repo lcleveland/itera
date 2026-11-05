@@ -148,6 +148,17 @@ iteraLib.programs.mkCuratedProgram {
       # desktop battery already enables.
       useFahrenheit = mkDefault true;
       useAutoLocation = mkDefault true;
+      # Fall back to MET Norway when Open-Meteo is down (DMS ships it disabled).
+      weatherProviders = mkDefault [
+        {
+          id = "openmeteo";
+          enabled = true;
+        }
+        {
+          id = "metno";
+          enabled = true;
+        }
+      ];
       # Idle: DMS handles idle itself, and its defaults never lock, blank or
       # suspend. Seconds, picked from the values DMS's Power settings offer. No
       # suspend on AC (a desktop may be serving something).
