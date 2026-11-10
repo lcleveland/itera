@@ -34,6 +34,16 @@ in
           broken = false;
         };
       });
+      # ponytail: primp 2.0.1 (ddgs -> open-webui) needs pkg-config, zstd and
+      # aws-lc to build. Backport of nixpkgs PR 584290; drop once it reaches
+      # nixos-unstable.
+      primp = pyPrev.primp.overridePythonAttrs (o: {
+        nativeBuildInputs = (o.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
+        buildInputs = (o.buildInputs or [ ]) ++ [
+          final.aws-lc
+          final.zstd
+        ];
+      });
     })
   ];
 }
