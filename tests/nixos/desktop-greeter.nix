@@ -48,16 +48,15 @@
     assert "dms-greeter" in greetd_config, greetd_config
 
     # …and that greeter renders DankMaterialShell under the mango compositor.
-    # greetd's command is the dank-greeter session wrapper, which puts quickshell
-    # and the compositor on PATH and invokes the dms-greeter binary with
-    # `--command mango` (the Quickshell UI is baked into the binary, so there's no
-    # /share/quickshell/dms store path to grep for anymore).
+    # greetd's command is the dank-greeter session wrapper, which puts the
+    # compositor on PATH and invokes the dms-greeter binary with `--command mango`
+    # (Quickshell and its UI are embedded in the binary as dux-qt-base, so there is
+    # no quickshell or /share/quickshell/dms store path to grep for anymore).
     script_match = re.search(r'command\s*=\s*"([^"]+/bin/dms-greeter-session)"', greetd_config)
     assert script_match is not None, greetd_config
 
     script = machine.succeed(f"cat {script_match.group(1)}")
     assert "mango" in script, script
-    assert "quickshell" in script, script
 
     # The video battery, on the booted system rather than only in the evaluated
     # config. The system mpv.conf is the interesting half: mpv REJECTS a config

@@ -68,9 +68,6 @@ let
   # The `dms` CLI, from whatever package the shell battery installed.
   dmsPackage = config.programs.dank-material-shell.package;
 
-  # Quickshell, which `dms ipc` execs as `qs`. Separate package from the CLI.
-  quickshellPackage = config.programs.dank-material-shell.quickshell.package;
-
   # The standalone slurp chooser, for hosts with no DMS to hand off to. Valid ONLY
   # under `chooser_type = simple`, where xdpw labels an output `Monitor: <name>`.
   # Under `dmenu` the label also carries the output description, so this format is
@@ -84,13 +81,9 @@ let
   chooser = pkgs.writeShellApplication {
     name = "itera-screencast-chooser";
     runtimeInputs = [
+      # Carries the Quickshell runtime embedded (dux-qt-base), so `dms ipc` needs no
+      # separate `qs` on PATH.
       dmsPackage
-      # `dms ipc` is a thin front-end that execs `qs` — Quickshell's binary, which
-      # lives in a DIFFERENT package (dms-shell ships only bin/dms). Without it here
-      # every call died with `exec: "qs": executable file not found in $PATH`, and
-      # since the IPC call is what selects the DMS path, the chooser silently fell
-      # through to slurp on every single screencast request.
-      quickshellPackage
       pkgs.coreutils
       pkgs.gawk
       pkgs.slurp
