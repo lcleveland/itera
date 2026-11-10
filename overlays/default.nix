@@ -44,6 +44,14 @@ in
           final.zstd
         ];
       });
+      # ponytail: same breakage for chromadb (open-webui). Backport of nixpkgs
+      # PR 584283; drop with the primp override above.
+      chromadb = pyPrev.chromadb.overridePythonAttrs (o: {
+        buildInputs = (o.buildInputs or [ ]) ++ [
+          final.sqlite
+          final.rust-jemalloc-sys
+        ];
+      });
     })
   ];
 }
