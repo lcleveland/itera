@@ -127,7 +127,8 @@
 
     with subtest("greeter seed comes from system tokens"):
         machine.wait_for_unit("greetd.service")
-        settings = json.loads(machine.succeed("cat /var/lib/dms-greeter/settings.json"))
+        # Retried: greetd's restarts briefly remove the file (see desktop-greeter.nix).
+        settings = json.loads(machine.wait_until_succeeds("cat /var/lib/dms-greeter/settings.json", timeout=60))
         greeter_theme = json.loads(machine.succeed(f"cat {settings['customThemeFile']}"))
         assert greeter_theme["dark"]["primary"] == DARK_ACCENT, greeter_theme
         assert greeter_theme["light"]["primary"] == LIGHT_ACCENT, greeter_theme

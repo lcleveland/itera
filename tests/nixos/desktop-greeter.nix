@@ -35,9 +35,9 @@
     machine.wait_for_unit("greetd.service")
     machine.succeed("systemctl is-active greetd.service")
     # preStart wrote the greeter's settings (itera's keys merged in), owned by
-    # the greeter so it can read them.
-    machine.succeed("grep -q '\"configVersion\":' /var/lib/dms-greeter/settings.json")
-    machine.succeed("test \"$(stat -c %U /var/lib/dms-greeter/settings.json)\" = greeter")
+    # the greeter so it can read them. Retried: with no GPU the greeter exits,
+    # greetd restarts, and each preStart briefly removes settings.json.
+    machine.wait_until_succeeds("grep -q '\"configVersion\":' /var/lib/dms-greeter/settings.json && test \"$(stat -c %U /var/lib/dms-greeter/settings.json)\" = greeter", timeout=60)
 
     # greetd is configured to launch the dms-greeter script.
     greetd_unit = machine.succeed("systemctl cat greetd.service")
