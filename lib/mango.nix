@@ -631,6 +631,7 @@ let
       dmsSources = lib.concatMapStringsSep "\n" (f: "source_optional=./dms/${f}.conf") [
         "colors"
         "layout"
+        "animations"
         "cursor"
         "input"
         "outputs"

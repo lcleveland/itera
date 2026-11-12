@@ -254,6 +254,7 @@ mkCheckDrv "itera-mango-eval" {
     map (l: l.value) (withKey "source_optional" full) == [
       "./dms/colors.conf"
       "./dms/layout.conf"
+      "./dms/animations.conf"
       "./dms/cursor.conf"
       "./dms/input.conf"
       "./dms/outputs.conf"
