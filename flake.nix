@@ -36,7 +36,7 @@
     # System hardening. itera bundles it (see modules/nixos) so a consumer
     # never has to add it as an input themselves. Powers `itera.hardening`.
     nix-mineral = {
-      url = "github:cynicsketch/nix-mineral";
+      url = "github:nix-community/nix-mineral";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-parts.follows = "flake-parts";

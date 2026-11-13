@@ -70,7 +70,7 @@ Importing `itera.nixosModules.default` is all you need: it imports hjem for you
 and registers itera's per-user home collection into `hjem.extraModules`. It also
 bundles [disko](https://github.com/nix-community/disko),
 [impermanence](https://github.com/nix-community/impermanence),
-[nix-mineral](https://github.com/cynicsketch/nix-mineral),
+[nix-mineral](https://github.com/nix-community/nix-mineral),
 [lanzaboote](https://github.com/nix-community/lanzaboote),
 [agenix](https://github.com/ryantm/agenix),
 [sops-nix](https://github.com/Mic92/sops-nix),
