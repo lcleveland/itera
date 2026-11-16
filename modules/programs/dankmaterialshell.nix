@@ -170,6 +170,14 @@ iteraLib.programs.mkCuratedProgram {
       lockBeforeSuspend = mkDefault true;
       # DMS already notifies at critical battery; also warn at low.
       batteryNotifyLow = mkDefault true;
+      # Dock off. DMS's default dock is enabled; its normalize fills in the rest.
+      dockConfigs = mkDefault [
+        {
+          id = "dock";
+          name = "Dock";
+          enabled = false;
+        }
+      ];
     };
   };
 }

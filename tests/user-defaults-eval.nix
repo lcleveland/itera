@@ -266,6 +266,7 @@ let
     "portal sync default present (bob)" = bobDms.syncModeWithPortal == true;
     "weather uses fahrenheit by default (bob)" = bobDms.useFahrenheit == true;
     "weather uses auto location by default (bob)" = bobDms.useAutoLocation == true;
+    "dock off by default (bob)" = map (d: d.enabled) bobDms.dockConfigs == [ false ];
 
     # ── Zed settings: system defaults reach an un-overridden user (bob) ──
     "zed telemetry-off default present (bob)" = bobZed.telemetry.diagnostics == false;
