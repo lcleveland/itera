@@ -322,6 +322,7 @@ let
     # run their plugin hooks as bare `node`, and nixpkgs' standalone claude-code
     # binary carries none in its closure. See modules/nixos/core/dev.nix.
     "nodejs is installed by default" = hasPkg cfg "nodejs";
+    "jq is installed by default" = hasPkg cfg "jq";
     "dev tooling is gated off when disabled" = !(hasPkg devOff "git");
     "nodejs is gated off when disabled" = !(hasPkg devOff "nodejs");
     # gh is wired up as git's HTTPS credential helper whenever it ships in the

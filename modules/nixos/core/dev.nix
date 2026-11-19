@@ -9,7 +9,8 @@
 #
 # Deliberately lean: the default is `git` (the one thing you cannot bootstrap a
 # config workflow without), the GitHub CLI `gh` (open/manage PRs against your
-# flake without leaving the shell), and `nodejs`. `packages` is the extension
+# flake without leaving the shell), `nodejs`, and `jq` (the JSON tool agent
+# hooks and one-off scripts assume is on PATH). `packages` is the extension
 # point — append your own editors/CLIs, or drop the battery entirely and install
 # per-user via `itera.users.<name>.packages`.
 #
@@ -67,14 +68,16 @@ in
         pkgs.git
         pkgs.gh
         pkgs.nodejs
+        pkgs.jq
       ];
-      defaultText = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs ]";
-      example = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs pkgs.gnumake pkgs.jq ]";
+      defaultText = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs pkgs.jq ]";
+      example = lib.literalExpression "[ pkgs.git pkgs.gh pkgs.nodejs pkgs.jq pkgs.gnumake ]";
       description = ''
         System-wide developer tooling installed when {option}`itera.dev.enable`
-        is set. Defaults to {command}`git`, the GitHub CLI {command}`gh`, and
+        is set. Defaults to {command}`git`, the GitHub CLI {command}`gh`,
         {command}`node` (the runtime the agentic CLIs itera ships need to run
-        their plugin hooks — see the note at the top of this module); append your
+        their plugin hooks — see the note at the top of this module) and
+        {command}`jq` (agent hooks and scripts reach for it constantly); append your
         own tools here, or install per-user via
         {option}`itera.users.<name>.packages` instead.
       '';
