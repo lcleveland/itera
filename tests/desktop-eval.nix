@@ -217,6 +217,7 @@ let
     # tuios battery: WezTerm opens into it; its config.d file is per user, and
     # the Claude integration service only exists with Claude Code on.
     "tuios package is installed" = hasPkgInfix "tuios" cfg.environment.systemPackages;
+    "socat is installed with tuios" = hasPkgInfix "socat" cfg.environment.systemPackages;
     "wezterm opens into tuios" = lib.hasInfix "/bin/tuios', 'attach' }" (weztermLua cfg);
     "wezterm kitty keyboard on for tuios" = lib.hasInfix "config.enable_kitty_keyboard = true" (
       weztermLua cfg
@@ -255,7 +256,7 @@ let
     "tuios inbox widget registered with DMS" =
       lib.hasSuffix "/bin/tuios" cfg.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.tuios;
     "default bar places tuiosInbox widget" = builtins.elem "tuiosInbox" (builtins.head barConfigs)
-    .rightWidgets;
+    .centerWidgets;
     "tuios inbox widget off without DMS" =
       !(cfgTuiosClaudeNoTerm.itera.programs.dankMaterialShell.plugins ? tuiosInbox);
     "tuios inbox widget off without tuios" =

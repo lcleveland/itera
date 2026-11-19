@@ -1,7 +1,7 @@
 {
   "id": "tuiosInbox",
-  "name": "tuios Inbox",
-  "description": "Show what tuios agents are waiting on you for, and jump to the pane",
+  "name": "TUIOS Inbox",
+  "description": "Show what TUIOS agents are waiting on you for, and jump to the pane",
   "version": "1.0.0",
   "author": "itera",
   "icon": "inbox",

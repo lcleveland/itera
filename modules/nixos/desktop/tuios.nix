@@ -67,7 +67,12 @@ in
 
   # Each integration below is gated on the battery it integrates with.
   config = mkIf (config.itera.enable && cfg.enable) {
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [
+      cfg.package
+      # Every tuios (daemon, client, hooks) must see socat: one without it calls
+      # the socat hooks out of date and offers to swap in per-event ones.
+      pkgs.socat
+    ];
 
     itera = {
       # Claude integration (agent teams), only when the Claude battery is on.

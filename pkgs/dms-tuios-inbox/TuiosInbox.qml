@@ -7,9 +7,11 @@
 // Inbox change, and each line re-reads `tuios list-attention --json`. If the
 // daemon is not running, subscribe exits and is retried.
 //
-// Read-only on purpose: tuios lets only the person at a client dismiss items, and
-// answering prompts stays in tuios. pluginData.tuios is the tuios binary, set by
-// modules/nixos/desktop/tuios.nix.
+// Each item has a close button. tuios lets only the person close an item, so the
+// widget holds the person's presence (`attach-presence`, made for programs
+// outside every pane) on its own socket connection and sends `dismiss-attention`
+// with that nonce, only on a click. Answering prompts stays in tuios.
+// pluginData.tuios is the tuios binary, set by modules/nixos/desktop/tuios.nix.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -17,6 +19,7 @@ import Quickshell.Wayland
 import qs.Common
 import qs.Modules.Plugins
 import qs.Widgets
+import qs.DCommon.Widgets
 
 PluginComponent {
     id: root
@@ -25,15 +28,16 @@ PluginComponent {
     property var items: []
 
     // The agent is blocked on these; errored is worse, the rest can wait.
+    // Colours are the look's roles: accent (Theme.primary) for "needs you".
     readonly property var blocking: ["approval", "plan", "question", "ask"]
     function kindColor(kind) {
         if (kind === "errored")
             return Theme.error;
         if (blocking.includes(kind))
-            return Theme.warning;
+            return Theme.primary;
         return Theme.surfaceVariantText;
     }
-    readonly property color statusColor: items.some(i => i.kind === "errored") ? Theme.error : items.some(i => blocking.includes(i.kind)) ? Theme.warning : Theme.surfaceVariantText
+    readonly property color statusColor: items.some(i => i.kind === "errored") ? Theme.error : items.some(i => blocking.includes(i.kind)) ? Theme.primary : Theme.surfaceVariantText
 
     onItemsChanged: setVisibilityOverride(items.length > 0)
     Component.onCompleted: setVisibilityOverride(false)
@@ -48,7 +52,11 @@ PluginComponent {
     }
 
     function jump(item) {
-        Quickshell.execDetached([tuios, "focus-window", item.window, "-s", item.session]);
+        // Focus the pane (switching workspace); if a pane is zoomed it would
+        // hide the target, so zoom the target instead. Unzoomed layouts stay.
+        // shortcut: matches a zoomed pane on any workspace; upgrade to a
+        // per-workspace check if that ever zooms a jump that didn't need it.
+        Quickshell.execDetached(["sh", "-c", 't="$3"; "$t" focus-window "$1" -s "$2" && if "$t" list-windows -s "$2" --json | grep -q \'"zoomed": true\'; then "$t" zoom-window -w "$1" -s "$2" --on; fi', "jump", item.window, item.session, tuios]);
         // shortcut: raises the first WezTerm window (the terminal battery's); a
         // tuios client in another terminal is focused inside tuios but not raised.
         const term = ToplevelManager.toplevels.values.find(t => t.appId === "org.wezfurlong.wezterm");
@@ -94,13 +102,68 @@ PluginComponent {
         onTriggered: subscribeProcess.running = true
     }
 
+    // The person's presence: connected on the first close, kept open (the nonce
+    // lives as long as the connection), and re-made after the daemon restarts.
+    property string nonce: ""
+    property var pendingDismiss: []
+    property int requestId: 1
+    function send(verb, params) {
+        presence.write(JSON.stringify({ id: ++requestId, verb: verb, params: params }) + "\n");
+        presence.flush();
+        return requestId;
+    }
+    function dismiss(item) {
+        if (nonce !== "") {
+            send("dismiss-attention", { id: item.id, human_nonce: nonce });
+            return;
+        }
+        pendingDismiss.push(item.id);
+        if (!presence.connected)
+            presence.connected = true;
+    }
+    property int presenceRequest: 0
+    Socket {
+        id: presence
+        path: Quickshell.env("XDG_RUNTIME_DIR") + "/tuios/tuios.sock"
+        onConnectedChanged: {
+            if (connected)
+                root.presenceRequest = root.send("attach-presence", {});
+            else
+                root.nonce = "";
+        }
+        parser: SplitParser {
+            onRead: line => {
+                let r = null;
+                try {
+                    r = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                if (r.id !== root.presenceRequest)
+                    return;
+                // Reply envelope not documented; take the nonce wherever it sits.
+                root.nonce = r.result?.human_nonce ?? r.data?.human_nonce ?? r.human_nonce ?? "";
+                if (root.nonce === "") {
+                    console.warn("tuiosInbox: attach-presence refused: " + line);
+                    root.pendingDismiss = [];
+                    return;
+                }
+                for (const id of root.pendingDismiss)
+                    root.send("dismiss-attention", { id: id, human_nonce: root.nonce });
+                root.pendingDismiss = [];
+            }
+        }
+    }
+
     popoutWidth: 440
-    popoutHeight: Math.min(560, 90 + items.length * 56)
+    // Header plus one fixed-height card per item (rowHeight), capped.
+    readonly property int rowHeight: 56
+    popoutHeight: Math.min(560, 110 + items.length * (rowHeight + Theme.spacingXS))
 
     horizontalBarPill: Component {
         Row {
             spacing: Theme.spacingXS
-            DankIcon {
+            DIcon {
                 name: "inbox"
                 size: root.iconSize
                 color: root.statusColor
@@ -118,7 +181,7 @@ PluginComponent {
     verticalBarPill: Component {
         Column {
             spacing: Theme.spacingXS
-            DankIcon {
+            DIcon {
                 name: "inbox"
                 size: root.iconSize
                 color: root.statusColor
@@ -136,7 +199,7 @@ PluginComponent {
     popoutContent: Component {
         PopoutComponent {
             width: parent ? parent.width : 0
-            headerText: "tuios Inbox"
+            headerText: "TUIOS Inbox"
             detailsText: root.items.length + " waiting"
             showCloseButton: false
 
@@ -147,28 +210,50 @@ PluginComponent {
                 Repeater {
                     model: root.items
 
+                    // The card style of the itera update widget.
                     StyledRect {
                         width: parent.width
-                        height: 50
+                        height: root.rowHeight
                         radius: Theme.cornerRadius
                         color: rowArea.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh
+                        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.1)
+                        border.width: 1
+
+                        // A bar in the item's colour marks its kind at a glance.
+                        Rectangle {
+                            width: 3
+                            radius: 1.5
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.margins: Theme.spacingS
+                            color: root.kindColor(modelData.kind)
+                        }
 
                         Column {
-                            anchors.fill: parent
-                            anchors.margins: Theme.spacingS
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: Theme.spacingM + 3
+                            anchors.rightMargin: Theme.spacingM + 28
+                            spacing: 2
 
+                            // One line each, elided: the card has a fixed height.
                             StyledText {
                                 width: parent.width
-                                text: modelData.kind + " · " + modelData.session + "/" + (modelData.name ?? "")
-                                color: root.kindColor(modelData.kind)
+                                text: (modelData.name || modelData.session) + "  ·  " + modelData.kind
+                                color: Theme.surfaceText
                                 font.pixelSize: Theme.fontSizeSmall
+                                font.weight: Font.Medium
+                                wrapMode: Text.NoWrap
                                 elide: Text.ElideRight
                             }
                             StyledText {
                                 width: parent.width
                                 text: modelData.summary ?? ""
-                                color: Theme.surfaceText
+                                color: Theme.surfaceVariantText
                                 font.pixelSize: Theme.fontSizeSmall
+                                wrapMode: Text.NoWrap
                                 elide: Text.ElideRight
                             }
                         }
@@ -179,6 +264,32 @@ PluginComponent {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.jump(modelData)
+                        }
+
+                        // After rowArea, so it takes its own clicks.
+                        Rectangle {
+                            width: 28
+                            height: 28
+                            radius: 14
+                            anchors.right: parent.right
+                            anchors.rightMargin: Theme.spacingS
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: closeArea.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+
+                            DIcon {
+                                anchors.centerIn: parent
+                                name: "close"
+                                size: Theme.iconSizeSmall
+                                color: closeArea.containsMouse ? Theme.surfaceText : Theme.surfaceVariantText
+                            }
+
+                            MouseArea {
+                                id: closeArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.dismiss(modelData)
+                            }
                         }
                     }
                 }
