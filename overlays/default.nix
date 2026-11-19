@@ -22,18 +22,4 @@ in
 
   buildFHSEnv = keepFHSAppsAlive prev.buildFHSEnv;
   buildFHSEnvBubblewrap = keepFHSAppsAlive prev.buildFHSEnvBubblewrap;
-
-  # ponytail: nixpkgs marks posthog (pulled in by open-webui) broken since mcp 2;
-  # only its MCP integration fails, which open-webui never imports. Drop once
-  # nixpkgs PR 578265 lands.
-  pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-    (_: pyPrev: {
-      posthog = pyPrev.posthog.overridePythonAttrs (o: {
-        disabledTestPaths = (o.disabledTestPaths or [ ]) ++ [ "posthog/test/mcp" ];
-        meta = o.meta // {
-          broken = false;
-        };
-      });
-    })
-  ];
 }
