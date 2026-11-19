@@ -18,8 +18,10 @@
 // Acting for the person: tuios takes answers, closes and snoozes only from the
 // person. The widget holds the person's presence (`attach-presence`, made for
 // programs outside every pane) on its own socket and acts only on a click.
-// Plans and on-screen prompts are not answered here: they need reading, so their
-// cards jump to the pane.
+// An on-screen prompt (an approval or question tuios does not hold, such as one
+// too long for a line) is read with `peek-prompt` and answered with `respond`,
+// with the actions its rule declares. Plans are not answered here: they need
+// reading, so their cards jump to the pane.
 //
 // pluginData (modules/nixos/desktop/tuios.nix): tuios, notifySend, agent (the
 // harness the new-agent field starts; empty hides the field).
@@ -67,8 +69,24 @@ PluginComponent {
 
     // What a card can answer in place: an ask's options, a held approval's
     // decisions. Everything else answers in the pane.
-    readonly property var decisionLabels: ({ once: "Allow", always: "Always", deny: "Deny", ask: "In pane" })
+    readonly property var decisionLabels: ({ once: "Allow", always: "Always", deny: "Deny", ask: "In pane", approve: "Allow", approve_always: "Always" })
+    // On-screen prompts need a peek first; see peek().
+    function onScreen(item) {
+        return (item.kind === "approval" || item.kind === "question") && !item.request_id;
+    }
+    property var peeks: ({})
     function answers(item) {
+        if (onScreen(item)) {
+            const p = peeks[item.id];
+            if (!p?.answerable)
+                return [];
+            // choose and text need the option list or typing: answered in the pane.
+            return p.actions.filter(a => ["approve", "approve_always", "deny"].includes(a)).map(a => ({
+                label: decisionLabels[a],
+                verb: "respond",
+                params: Object.assign({ session: item.session, window: item.window, action: a, prompt_id: p.prompt_id }, a === "deny" ? {} : { risk_ack: item.risk ?? [] })
+            }));
+        }
         if (item.kind === "ask")
             return (item.options ?? []).map(o => ({ label: o, verb: "answer-ask", params: { request_id: item.request_id, answer: o } }));
         if (item.kind === "approval" && item.request_id)
@@ -81,7 +99,37 @@ PluginComponent {
         return [];
     }
 
-    onItemsChanged: notifyNew()
+    onItemsChanged: {
+        for (const item of items)
+            if (onScreen(item) && !(item.id in peeks))
+                peek(item);
+        notifyNew();
+    }
+    // Read an on-screen prompt's answers; its notification waits for this.
+    function peek(item) {
+        peeks[item.id] = null;
+        peekProcess.createObject(root, { item: item, command: [tuios, "peek-prompt", "-s", item.session, "-w", item.window, "--json"], running: true });
+    }
+    Component {
+        id: peekProcess
+        Process {
+            property var item
+            stdout: StdioCollector {
+                id: peekOutput
+            }
+            onExited: {
+                let d = null;
+                try {
+                    d = JSON.parse(peekOutput.text);
+                } catch (e) {}
+                const next = Object.assign({}, root.peeks);
+                next[item.id] = d ?? { answerable: false };
+                root.peeks = next;
+                root.notifyNew();
+                destroy();
+            }
+        }
+    }
 
     // A change during a read re-reads once it ends, so none is missed.
     property bool stale: false
@@ -206,7 +254,8 @@ PluginComponent {
         if (first)
             notified = {};
         for (const item of items) {
-            if (notified[item.id])
+            // An on-screen prompt waits for its peek, so its notification has buttons.
+            if (notified[item.id] || (!first && onScreen(item) && !peeks[item.id]))
                 continue;
             notified[item.id] = true;
             const urgent = blocking.includes(item.kind) || item.kind === "errored";
