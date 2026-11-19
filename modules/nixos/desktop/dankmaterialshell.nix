@@ -197,8 +197,9 @@ in
           # DMS's own settings.json (a GUI edit to one lasts until DMS restarts),
           # so the bar layout must be declared here too. Ship
           # DMS's default bar (schema matches the pinned `configVersion`) with
-          # `ipIndicator` and `iteraUpdate` (the update-indicator battery,
-          # modules/nixos/desktop/update-indicator.nix) added to the right
+          # `ipIndicator`, `iteraUpdate` (the update-indicator battery,
+          # modules/nixos/desktop/update-indicator.nix) and `tuiosInbox` (the
+          # tuios battery, modules/nixos/desktop/tuios.nix) added to the right
           # widgets. mkDefault so a consumer replaces the whole bar via
           # `itera.programs.dankMaterialShell.settings.barConfigs`. (Disabling the
           # plugin leaves a harmless dangling id here — DMS finds no component and
@@ -232,6 +233,8 @@ in
                 "memUsage"
                 "ipIndicator"
                 "iteraUpdate"
+                # The tuios battery's Inbox; hidden while it is empty.
+                "tuiosInbox"
                 "notificationButton"
                 "battery"
                 "controlCenterButton"

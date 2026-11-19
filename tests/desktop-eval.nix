@@ -252,6 +252,14 @@ let
     "tuios claude parts still on without terminal/DMS" = lib.hasInfix "approvals" (
       tuiosToml cfgTuiosClaudeNoTerm
     );
+    "tuios inbox widget registered with DMS" =
+      lib.hasSuffix "/bin/tuios" cfg.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.tuios;
+    "default bar places tuiosInbox widget" = builtins.elem "tuiosInbox" (builtins.head barConfigs)
+    .rightWidgets;
+    "tuios inbox widget off without DMS" =
+      !(cfgTuiosClaudeNoTerm.itera.programs.dankMaterialShell.plugins ? tuiosInbox);
+    "tuios inbox widget off without tuios" =
+      !(cfgNoTuios.itera.programs.dankMaterialShell.plugins ? tuiosInbox);
     "tuios opt-out writes no config" =
       !(cfgNoTuios.hjem.users.alice.xdg.config.files ? "tuios/config.d/nixos.toml");
 

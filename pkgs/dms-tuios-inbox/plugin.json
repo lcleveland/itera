@@ -1,0 +1,12 @@
+{
+  "id": "tuiosInbox",
+  "name": "tuios Inbox",
+  "description": "Show what tuios agents are waiting on you for, and jump to the pane",
+  "version": "1.0.0",
+  "author": "itera",
+  "icon": "inbox",
+  "type": "widget",
+  "capabilities": ["dankbar-widget", "monitoring"],
+  "component": "./TuiosInbox.qml",
+  "permissions": ["settings_read", "process"]
+}
