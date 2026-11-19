@@ -28,7 +28,7 @@
   ...
 }:
 let
-  inherit (lib.options) mkOption mkEnableOption;
+  inherit (lib.options) mkOption mkEnableOption mkPackageOption;
   inherit (lib.modules) mkIf mkMerge mkDefault;
   inherit (lib.types) bool enum;
 
@@ -80,6 +80,9 @@ in
     claude = {
       enable = mkEnableOption "the Claude Code CLI (`claude`), installed system-wide";
 
+      # The tuios battery swaps in a wrapper (agent teams in tuios panes).
+      package = mkPackageOption pkgs "claude-code" { };
+
       acp.enable = mkOption {
         type = bool;
         default = cfg.claude.enable;
@@ -116,7 +119,7 @@ in
     })
 
     (mkIf cfg.claude.enable {
-      environment.systemPackages = [ pkgs.claude-code ];
+      environment.systemPackages = [ cfg.claude.package ];
     })
 
     (mkIf cfg.claude.acp.enable {

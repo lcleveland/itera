@@ -100,6 +100,53 @@ let
       lib.head (builtins.match ".*- (/nix/store/[^\n]*udiskie-tray-icon\\.svg).*" udiskieConfig)
     );
 
+  # tuios with Claude Code on, and tuios opted out, for the integration checks.
+  cfgTuiosClaude = mkConfig [
+    {
+      users.users.alice = {
+        isNormalUser = true;
+        home = "/home/alice";
+      };
+      hjem.users.alice.enable = true;
+      itera.ai.claude.enable = true;
+    }
+  ];
+  cfgNoTuios = mkConfig [
+    {
+      users.users.alice = {
+        isNormalUser = true;
+        home = "/home/alice";
+      };
+      hjem.users.alice.enable = true;
+      itera.desktop.tuios.enable = false;
+    }
+  ];
+  cfgTuiosClaudeNoTerm = mkConfig [
+    {
+      users.users.alice = {
+        isNormalUser = true;
+        home = "/home/alice";
+      };
+      hjem.users.alice.enable = true;
+      itera = {
+        ai.claude.enable = true;
+        desktop.terminal.enable = false;
+        desktop.dankMaterialShell.enable = false;
+      };
+    }
+  ];
+  cfgNoTuiosClaude = mkConfig [
+    {
+      itera = {
+        ai.claude.enable = true;
+        desktop.tuios.enable = false;
+      };
+    }
+  ];
+  weztermLua = c: userFile c "alice" "wezterm/wezterm.lua";
+  tuiosToml = c: userFile c "alice" "tuios/config.d/nixos.toml";
+  claudeSvc = c: c.hjem.users.alice.systemd.services.tuios-claude-integration;
+
   cfgTrayColor = mkConfig [
     {
       users.users.alice = {
@@ -166,6 +213,44 @@ let
     "SUPER+t spawns wezterm" = cfg.itera.desktop.mango.commands.terminal == "wezterm start";
     "wezterm package is installed" = hasPkgInfix "wezterm" cfg.environment.systemPackages;
     "terminal battery installs no font of its own" = !(hasPkgInfix "jetbrains-mono" cfg.fonts.packages);
+
+    # tuios battery: WezTerm opens into it; its config.d file is per user, and
+    # the Claude integration service only exists with Claude Code on.
+    "tuios package is installed" = hasPkgInfix "tuios" cfg.environment.systemPackages;
+    "wezterm opens into tuios" = lib.hasInfix "/bin/tuios', 'attach' }" (weztermLua cfg);
+    "wezterm kitty keyboard on for tuios" = lib.hasInfix "config.enable_kitty_keyboard = true" (
+      weztermLua cfg
+    );
+    "tuios config.d is written" = lib.hasInfix "resume_agents = \"auto\"" (
+      userFile cfg "alice" "tuios/config.d/nixos.toml"
+    );
+    "tuios approvals off without claude" =
+      !(lib.hasInfix "approvals" (userFile cfg "alice" "tuios/config.d/nixos.toml"));
+    "tuios claude service off without claude" =
+      !(cfg.hjem.users.alice.systemd.services ? tuios-claude-integration);
+    "tuios claude service with claude" =
+      lib.hasInfix "integration install claude-code" cfgTuiosClaude.hjem.users.alice.systemd.services.tuios-claude-integration.serviceConfig.ExecStart;
+    "tuios approvals with claude" = lib.hasInfix "approvals" (
+      userFile cfgTuiosClaude "alice" "tuios/config.d/nixos.toml"
+    );
+    "tuios opt-out drops the package" = !(hasPkgInfix "tuios" cfgNoTuios.environment.systemPackages);
+    "tuios opt-out leaves wezterm plain" = !(lib.hasInfix "tuios" (weztermLua cfgNoTuios));
+    "tuios claude service has socat on PATH" = lib.any (
+      p: lib.getName p == "socat"
+    ) (claudeSvc cfgTuiosClaude).path;
+    "tuios wraps claude for agent teams" = cfgTuiosClaude.itera.ai.claude.package ? paths;
+    # The wrapper is a symlinkJoin, the only claude package carrying `paths`.
+    "claude unwrapped without tuios" = !(cfgNoTuiosClaude.itera.ai.claude.package ? paths);
+    "tuios desktop popups only with DMS" =
+      lib.hasInfix "notify-send" (tuiosToml cfg)
+      && !(lib.hasInfix "notify-send" (tuiosToml cfgTuiosClaudeNoTerm));
+    "tuios leaves wezterm alone without the terminal battery" =
+      !(cfgTuiosClaudeNoTerm.itera.programs.wezterm.settings ? default_prog);
+    "tuios claude parts still on without terminal/DMS" = lib.hasInfix "approvals" (
+      tuiosToml cfgTuiosClaudeNoTerm
+    );
+    "tuios opt-out writes no config" =
+      !(cfgNoTuios.hjem.users.alice.xdg.config.files ? "tuios/config.d/nixos.toml");
 
     # File-manager battery ships Nemo (default ON) and wires SUPER+f to it.
     "file-manager battery is enabled" = cfg.itera.desktop.fileManager.enable;
