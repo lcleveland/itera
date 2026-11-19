@@ -126,9 +126,13 @@ in
       systemd.services.tuios-claude-integration = {
         description = "Install tuios hooks, status line and skill into Claude Code";
         wantedBy = [ "default.target" ];
-        # With socat on PATH tuios writes hooks that hand each event to the daemon
-        # through it; without, hooks that start a tuios process per event.
-        path = [ pkgs.socat ];
+        # With socat and sh on PATH tuios writes hooks that hand each event to the
+        # daemon through socat; without either, hooks that start a tuios process
+        # per event. A user unit's PATH has no sh, so both are listed.
+        path = [
+          pkgs.socat
+          pkgs.bash
+        ];
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${tuios} integration install claude-code --statusline --then ${contextLevel}";

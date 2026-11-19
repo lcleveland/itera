@@ -235,9 +235,12 @@ let
     );
     "tuios opt-out drops the package" = !(hasPkgInfix "tuios" cfgNoTuios.environment.systemPackages);
     "tuios opt-out leaves wezterm plain" = !(lib.hasInfix "tuios" (weztermLua cfgNoTuios));
-    "tuios claude service has socat on PATH" = lib.any (
-      p: lib.getName p == "socat"
-    ) (claudeSvc cfgTuiosClaude).path;
+    "tuios claude service has socat and sh on PATH" =
+      lib.all (n: lib.any (p: lib.getName p == n) (claudeSvc cfgTuiosClaude).path)
+        [
+          "socat"
+          "bash-interactive" # pkgs.bash
+        ];
     "tuios wraps claude for agent teams" = cfgTuiosClaude.itera.ai.claude.package ? paths;
     # The wrapper is a symlinkJoin, the only claude package carrying `paths`.
     "claude unwrapped without tuios" = !(cfgNoTuiosClaude.itera.ai.claude.package ? paths);
