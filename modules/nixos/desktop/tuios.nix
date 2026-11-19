@@ -82,7 +82,12 @@ in
       # The attribute name must match plugin.json's `id`.
       programs.dankMaterialShell.plugins.tuiosInbox = mkIf config.itera.desktop.dankMaterialShell.enable {
         src = mkDefault ../../../pkgs/dms-tuios-inbox;
-        settings = mkDefault { tuios = lib.getExe cfg.package; };
+        settings = mkDefault {
+          tuios = lib.getExe cfg.package;
+          notifySend = lib.getExe' pkgs.libnotify "notify-send";
+          # The new-agent field starts Claude Code; hidden without it.
+          agent = lib.optionalString claude.enable "claude";
+        };
       };
 
       # WezTerm integration, only when the terminal battery ships WezTerm.

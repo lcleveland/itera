@@ -245,9 +245,14 @@ let
     "tuios wraps claude for agent teams" = cfgTuiosClaude.itera.ai.claude.package ? paths;
     # The wrapper is a symlinkJoin, the only claude package carrying `paths`.
     "claude unwrapped without tuios" = !(cfgNoTuiosClaude.itera.ai.claude.package ? paths);
-    "tuios desktop popups only with DMS" =
-      lib.hasInfix "notify-send" (tuiosToml cfg)
-      && !(lib.hasInfix "notify-send" (tuiosToml cfgTuiosClaudeNoTerm));
+    "tuios own popups off with DMS (the widget alerts)" =
+      lib.hasInfix "notify = false" (tuiosToml cfg)
+      && !(lib.hasInfix "notify = false" (tuiosToml cfgTuiosClaudeNoTerm));
+    "tuios widget gets notify-send" =
+      lib.hasSuffix "/bin/notify-send" cfg.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.notifySend;
+    "tuios widget new-agent field follows claude" =
+      cfgTuiosClaude.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.agent == "claude"
+      && cfg.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.agent == "";
     "tuios leaves wezterm alone without the terminal battery" =
       !(cfgTuiosClaudeNoTerm.itera.programs.wezterm.settings ? default_prog);
     "tuios claude parts still on without terminal/DMS" = lib.hasInfix "approvals" (

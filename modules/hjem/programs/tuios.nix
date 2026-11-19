@@ -68,13 +68,10 @@ let
     daemon.resume_agents = "auto";
   }
   // lib.optionalAttrs dms {
-    # Agent alerts as desktop popups that time out. tuios's own popup goes via
-    # WezTerm, which sends it critical with timeout 0, so DMS keeps it up forever.
-    # The daemon runs `command` with sh and TUIOS_* in the env; it reads it at start.
-    notifications.agent = {
-      notify = false;
-      command = ''${lib.getExe pkgs.libnotify} -a tuios -u normal -t 8000 "$TUIOS_WINDOW_NAME: $TUIOS_AGENT_STATE" "$TUIOS_AGENT_MESSAGE"'';
-    };
+    # The TUIOS bar widget (pkgs/dms-tuios-inbox) posts agent alerts, with
+    # answer buttons. tuios's own popup goes via WezTerm, which sends it critical
+    # with timeout 0, so DMS would keep it up forever: off.
+    notifications.agent.notify = false;
   }
   // lib.optionalAttrs claude {
     # Answer short Claude permission prompts from the Inbox (prefix+i): 1 once, 2 always, 3 deny.
