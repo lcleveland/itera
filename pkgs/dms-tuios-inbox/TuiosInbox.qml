@@ -45,28 +45,36 @@ PluginComponent {
     property var items: []
     property var agents: []
     property string keepAwake: "off"
-    readonly property int working: agents.filter(a => a.state === "working").length
+    // A pane reports done while its subagents still run (tuios --skill), so
+    // running subagents count as work.
+    function busy(a) {
+        return a.state === "working" || (a.subagents ?? 0) > 0;
+    }
+    readonly property int working: agents.filter(a => busy(a)).length
 
     // The agent is blocked on these; errored is worse, the rest can wait.
-    // Colours are the look's roles: accent (Theme.primary) for "needs you".
+    // Colours are the look's roles: teal accent (Theme.primary) for running,
+    // coral tertiary (Theme.tertiary) for "needs you", error red for errored.
     readonly property var blocking: ["approval", "plan", "question", "ask"]
     function kindColor(kind) {
         if (kind === "errored")
             return Theme.error;
         if (blocking.includes(kind))
-            return Theme.primary;
+            return Theme.tertiary;
         return Theme.surfaceVariantText;
     }
-    function stateColor(state) {
-        if (state === "errored")
+    // Running is the look's teal accent; an agent waiting on you takes its coral
+    // tertiary, so the two read apart.
+    function agentColor(a) {
+        if (a.state === "errored")
             return Theme.error;
-        if (state === "needs_input")
+        if (a.state === "needs_input")
+            return Theme.tertiary;
+        if (busy(a))
             return Theme.primary;
-        if (state === "working")
-            return Theme.secondary;
         return Theme.surfaceVariantText;
     }
-    readonly property color statusColor: items.some(i => i.kind === "errored") ? Theme.error : items.some(i => blocking.includes(i.kind)) ? Theme.primary : Theme.surfaceVariantText
+    readonly property color statusColor: items.some(i => i.kind === "errored") ? Theme.error : items.some(i => blocking.includes(i.kind)) ? Theme.tertiary : Theme.surfaceVariantText
 
     // What a card can answer in place: an ask's options, a held approval's
     // decisions. Everything else answers in the pane.
@@ -180,10 +188,16 @@ PluginComponent {
 
     Process {
         id: subscribeProcess
-        command: [root.tuios, "subscribe", "--types", "attention,agent-state"]
+        // agent-activity fires on every tool call; only subagent starts and stops
+        // change what the widget shows.
+        command: [root.tuios, "subscribe", "--types", "attention,agent-state,agent-activity"]
         running: true
         stdout: SplitParser {
-            onRead: root.refresh()
+            onRead: line => {
+                if (line.includes('"type":"agent-activity"') && !line.includes('"kind":"subagent_'))
+                    return;
+                root.refresh();
+            }
         }
         onExited: retry.start()
     }
@@ -311,7 +325,17 @@ PluginComponent {
         stdout: StdioCollector {
             id: recapOutput
         }
-        onExited: root.recapText = recapOutput.text.trim()
+        // A recap that lands after the hover ended or moved on is dropped; a moved
+        // hover reads the new row's.
+        onExited: {
+            const asked = command[command.indexOf("-w") + 1];
+            if (root.recapFor && root.recapFor.window_id !== asked) {
+                root.recapText = "";
+                recapDelay.restart();
+                return;
+            }
+            root.recapText = root.recapFor ? recapOutput.text.trim() : "";
+        }
     }
 
     Process {
@@ -328,8 +352,12 @@ PluginComponent {
     readonly property int cardHeight: 56
     readonly property int buttonsHeight: 34
     readonly property int agentHeight: 44
+    readonly property int subagentHeight: 17
+    function agentRowHeight(a) {
+        return agentHeight + (a.subagent_list?.length ?? 0) * subagentHeight;
+    }
     popoutWidth: 460
-    popoutHeight: Math.min(820, 230 + items.reduce((h, i) => h + cardHeight + (answers(i).length ? buttonsHeight : 0) + Theme.spacingXS, 0) + agents.length * (agentHeight + Theme.spacingXS) + (recapText !== "" ? 110 : 0) + (agentCommand !== "" ? 56 : 0))
+    popoutHeight: Math.min(820, 230 + items.reduce((h, i) => h + cardHeight + (answers(i).length ? buttonsHeight : 0) + Theme.spacingXS, 0) + agents.reduce((h, a) => h + agentRowHeight(a) + Theme.spacingXS, 0) + (recapText !== "" ? 110 : 0) + (agentCommand !== "" ? 56 : 0))
 
     horizontalBarPill: Component {
         Row {
@@ -359,13 +387,13 @@ PluginComponent {
                 DIcon {
                     name: "smart_toy"
                     size: root.iconSize
-                    color: root.working > 0 ? Theme.secondary : Theme.surfaceVariantText
+                    color: root.working > 0 ? Theme.primary : Theme.surfaceVariantText
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 StyledText {
                     visible: root.working > 0
                     text: root.working
-                    color: Theme.secondary
+                    color: Theme.primary
                     font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale, root.barConfig?.maximizeWidgetText)
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -379,13 +407,13 @@ PluginComponent {
             DIcon {
                 name: root.items.length > 0 ? "inbox" : "smart_toy"
                 size: root.iconSize
-                color: root.items.length > 0 ? root.statusColor : Theme.secondary
+                color: root.items.length > 0 ? root.statusColor : Theme.primary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             StyledText {
                 text: root.items.length > 0 ? root.items.length : root.working
                 visible: root.items.length > 0 || root.working > 0
-                color: root.items.length > 0 ? root.statusColor : Theme.secondary
+                color: root.items.length > 0 ? root.statusColor : Theme.primary
                 font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale, root.barConfig?.maximizeWidgetText)
                 anchors.horizontalCenter: parent.horizontalCenter
             }
@@ -577,7 +605,7 @@ PluginComponent {
 
                         StyledRect {
                             width: content.width
-                            height: root.agentHeight
+                            height: root.agentRowHeight(modelData)
                             radius: Theme.cornerRadius
                             color: agentArea.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh
 
@@ -587,9 +615,15 @@ PluginComponent {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: root.jump({ window: modelData.window_id, session: modelData.session })
-                                onContainsMouseChanged: if (containsMouse) {
-                                    root.recapFor = modelData;
-                                    recapDelay.restart();
+                                // The recap shows only while a row is hovered.
+                                onContainsMouseChanged: {
+                                    if (containsMouse) {
+                                        root.recapFor = modelData;
+                                        recapDelay.restart();
+                                    } else if (root.recapFor?.window_id === modelData.window_id) {
+                                        root.recapFor = null;
+                                        root.recapText = "";
+                                    }
                                 }
                             }
 
@@ -598,19 +632,20 @@ PluginComponent {
                                 height: 8
                                 radius: 4
                                 x: Theme.spacingM
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: root.stateColor(modelData.state)
+                                y: (root.agentHeight - height) / 2
+                                color: root.agentColor(modelData)
                             }
 
                             Column {
                                 x: Theme.spacingM + 16
-                                anchors.verticalCenter: parent.verticalCenter
+                                y: (root.agentHeight - 32) / 2
                                 width: parent.width - x - Theme.spacingM
                                 spacing: 1
 
                                 StyledText {
                                     width: parent.width
-                                    text: modelData.name + "  ·  " + modelData.state + (modelData.meta?.cost ? "  ·  " + modelData.meta.cost : "") + (modelData.meta?.context ? "  ·  ctx " + modelData.meta.context : "")
+                                    // done with subagents at work reads as their work, as tuios's rail does.
+                                    text: modelData.name + "  ·  " + (modelData.state === "done" && modelData.subagents > 0 ? "subagents running" : modelData.state) + (modelData.meta?.cost ? "  ·  " + modelData.meta.cost : "") + (modelData.meta?.context ? "  ·  ctx " + modelData.meta.context : "")
                                     color: Theme.surfaceText
                                     font.pixelSize: Theme.fontSizeSmall
                                     wrapMode: Text.NoWrap
@@ -624,6 +659,22 @@ PluginComponent {
                                     wrapMode: Text.NoWrap
                                     elide: Text.ElideRight
                                     visible: text !== ""
+                                }
+
+                                // One line per subagent, as tuios's rail draws them; an
+                                // ended one stays listed for a minute.
+                                Repeater {
+                                    model: modelData.subagent_list ?? []
+
+                                    StyledText {
+                                        width: parent.width
+                                        height: root.subagentHeight
+                                        text: "↳ " + (modelData.description || modelData.type) + "  ·  " + (modelData.state === "running" ? (modelData.now || modelData.last || "running") : modelData.state) + "  ·  " + modelData.tools + " tools"
+                                        color: modelData.state === "running" ? Theme.primary : modelData.state === "failed" ? Theme.error : Theme.surfaceVariantText
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        wrapMode: Text.NoWrap
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
                         }
