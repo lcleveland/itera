@@ -262,6 +262,8 @@ let
       lib.hasSuffix "/bin/tuios" cfg.itera.programs.dankMaterialShell.plugins.tuiosInbox.settings.tuios;
     "default bar places tuiosInbox widget" = builtins.elem "tuiosInbox" (builtins.head barConfigs)
     .centerWidgets;
+    "DMS popup body click runs the default action" =
+      cfg.itera.programs.dankMaterialShell.settings.notificationPopupBodyInvokesAction;
     "tuios inbox widget off without DMS" =
       !(cfgTuiosClaudeNoTerm.itera.programs.dankMaterialShell.plugins ? tuiosInbox);
     "tuios inbox widget off without tuios" =

@@ -78,43 +78,50 @@ in
       # Claude integration (agent teams), only when the Claude battery is on.
       ai.claude.package = mkIf claude.enable (lib.mkOverride 900 claudeTeams);
 
-      # DMS integration: the Inbox as a dank-bar widget (pkgs/dms-tuios-inbox).
-      # The attribute name must match plugin.json's `id`.
-      programs.dankMaterialShell.plugins.tuiosInbox = mkIf config.itera.desktop.dankMaterialShell.enable {
-        src = mkDefault ../../../pkgs/dms-tuios-inbox;
-        settings = mkDefault {
-          tuios = lib.getExe cfg.package;
-          notifySend = lib.getExe' pkgs.libnotify "notify-send";
-          # The new-agent field starts Claude Code; hidden without it.
-          agent = lib.optionalString claude.enable "claude";
+      programs = {
+        # DMS integration: the Inbox as a dank-bar widget (pkgs/dms-tuios-inbox).
+        # The attribute name must match plugin.json's `id`.
+        dankMaterialShell = mkIf config.itera.desktop.dankMaterialShell.enable {
+          plugins.tuiosInbox = {
+            src = mkDefault ../../../pkgs/dms-tuios-inbox;
+            settings = mkDefault {
+              tuios = lib.getExe cfg.package;
+              notifySend = lib.getExe' pkgs.libnotify "notify-send";
+              # The new-agent field starts Claude Code; hidden without it.
+              agent = lib.optionalString claude.enable "claude";
+            };
+          };
+          # A click on a popup's body runs its default action, which the widget's
+          # notifications use to focus the pane; off, DMS expands a long body instead.
+          settings.notificationPopupBodyInvokesAction = mkDefault true;
         };
-      };
 
-      # WezTerm integration, only when the terminal battery ships WezTerm.
-      programs.wezterm = mkIf config.itera.desktop.terminal.enable {
-        settings = {
-          default_prog = mkDefault [
-            (lib.getExe cfg.package)
-            "attach"
-          ];
-          # tuios reads key releases and unambiguous modifiers through the kitty
-          # keyboard protocol (hold_window_mode needs it); WezTerm ships it off.
-          enable_kitty_keyboard = mkDefault true;
-          # tuios draws its own tabs/workspaces; WezTerm's bar only shows with 2+ tabs.
-          hide_tab_bar_if_only_one_tab = mkDefault true;
+        # WezTerm integration, only when the terminal battery ships WezTerm.
+        wezterm = mkIf config.itera.desktop.terminal.enable {
+          settings = {
+            default_prog = mkDefault [
+              (lib.getExe cfg.package)
+              "attach"
+            ];
+            # tuios reads key releases and unambiguous modifiers through the kitty
+            # keyboard protocol (hold_window_mode needs it); WezTerm ships it off.
+            enable_kitty_keyboard = mkDefault true;
+            # tuios draws its own tabs/workspaces; WezTerm's bar only shows with 2+ tabs.
+            hide_tab_bar_if_only_one_tab = mkDefault true;
+          };
+          # shortcut: while an overlay is open tuios asks for kitty "associated text",
+          # and WezTerm then sends Escape, Enter and Backspace as ESC[27;1;27u, ESC[13;1;13u, ESC[127;1;127u.
+          # tuios 0.12.1 named the key by that text (a raw control char), so `esc`
+          # never matched (overlays wouldn't close) and Enter added a new line instead of
+          # sending. Plain bytes parse fine. Drop this once tuios ignores control-char text.
+          # A user who sets their own `extraLua` replaces this, so they must carry it.
+          extraLua = ''
+            config.keys = config.keys or {}
+            table.insert(config.keys, { key = 'Escape', mods = 'NONE', action = wezterm.action.SendString '\x1b' })
+            table.insert(config.keys, { key = 'Enter', mods = 'NONE', action = wezterm.action.SendString '\r' })
+            table.insert(config.keys, { key = 'Backspace', mods = 'NONE', action = wezterm.action.SendString '\x7f' })
+          '';
         };
-        # shortcut: while an overlay is open tuios asks for kitty "associated text",
-        # and WezTerm then sends Escape, Enter and Backspace as ESC[27;1;27u, ESC[13;1;13u, ESC[127;1;127u.
-        # tuios 0.12.1 named the key by that text (a raw control char), so `esc`
-        # never matched (overlays wouldn't close) and Enter added a new line instead of
-        # sending. Plain bytes parse fine. Drop this once tuios ignores control-char text.
-        # A user who sets their own `extraLua` replaces this, so they must carry it.
-        extraLua = ''
-          config.keys = config.keys or {}
-          table.insert(config.keys, { key = 'Escape', mods = 'NONE', action = wezterm.action.SendString '\x1b' })
-          table.insert(config.keys, { key = 'Enter', mods = 'NONE', action = wezterm.action.SendString '\r' })
-          table.insert(config.keys, { key = 'Backspace', mods = 'NONE', action = wezterm.action.SendString '\x7f' })
-        '';
       };
     };
   };
