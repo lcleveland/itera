@@ -264,6 +264,13 @@ PluginComponent {
     // widget), only for items that appeared since the widget started.
     readonly property bool notifier: parentScreen?.name === Quickshell.screens[0]?.name
     property var notified: null
+    // The person is already looking at the item's pane: the terminal is the
+    // active window and tuios has that pane focused. Claude's own menus (/mcp)
+    // read as needs_input for a moment, so this also keeps them quiet.
+    // shortcut: the terminal is WezTerm (the terminal battery's), as in jump().
+    function watching(item) {
+        return ToplevelManager.activeToplevel?.appId === "org.wezfurlong.wezterm" && agents.some(a => a.window_id === item.window && a.focused);
+    }
     function notifyNew() {
         const first = notified === null;
         if (first)
@@ -274,7 +281,7 @@ PluginComponent {
                 continue;
             notified[item.id] = true;
             const urgent = blocking.includes(item.kind) || item.kind === "errored";
-            if (first || !notifier || !(urgent || item.kind === "finished"))
+            if (first || !notifier || !(urgent || item.kind === "finished") || watching(item))
                 continue;
             const acts = answers(item);
             // No -t: notify-send stops listening when its own timeout ends, while DMS
