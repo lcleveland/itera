@@ -8,8 +8,9 @@
 //   shows on hover; a keep-awake toggle; a field that starts a new agent.
 //   Clicking a card or row focuses its pane and raises the terminal.
 // - Notifications: a new item that blocks an agent, or an errored agent, posts a
-//   desktop notification with the same answers; a finished turn posts a 5-second
-//   one. Clicking a notification focuses the pane. tuios's own agent popups are off
+//   desktop notification with the same answers; a finished turn posts one too.
+//   DMS times the popups; clicking one, or its entry in the notification centre,
+//   focuses the pane. tuios's own agent popups are off
 //   when this widget is on (modules/hjem/programs/tuios.nix).
 //
 // Live without polling: `tuios subscribe` prints a line per Inbox or agent-state
@@ -262,9 +263,13 @@ PluginComponent {
             if (first || !notifier || !(urgent || item.kind === "finished"))
                 continue;
             const acts = answers(item);
-            // A finished turn is a brief heads-up; what blocks an agent stays longer.
-            // The "default" action is a click on the notification itself.
-            let cmd = [notifySend, "-a", "TUIOS", "-t", urgent ? "30000" : "5000", "-A", "default=Open"];
+            // No -t: notify-send stops listening when its own timeout ends, while DMS
+            // keeps the notification, so a later click went nowhere. DMS times the
+            // popup (5 s by default) and keeps it in the centre; a click on either,
+            // the "default" action, still reaches us.
+            // shortcut: each notify-send waits until its notification is clicked or
+            // cleared; fine for a handful, revisit if the centre is never cleared.
+            let cmd = [notifySend, "-a", "TUIOS", "-A", "default=Open"];
             acts.forEach((a, n) => cmd.push("-A", n + "=" + a.label));
             cmd.push((item.name || item.session) + " · " + item.kind, item.summary ?? "");
             notification.createObject(root, { item: item, acts: acts, command: cmd, running: true });
